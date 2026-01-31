@@ -1,0 +1,267 @@
+Grocery-Only Super App (PWA) – Based on Provided Screenshots
+
+Use this as-is in Cursor, Replit, Lovable, Bolt, or for your dev team.
+
+🔹 Project Overview
+
+Develop a Grocery Delivery Progressive Web App (PWA) using the exact UI/UX flow shown in the attached screenshots (City Bell–style Super App), but ONLY Grocery must be active.
+
+All other services (E-commerce, Food, Taxi, Hotel, City Move, etc.) must be blocked, disabled, or marked as “Coming Soon” with no backend access.
+
+🔹 Platform & Architecture
+
+Progressive Web App (PWA)
+
+Mobile-first design
+
+Fully responsive for:
+
+Android
+
+iOS Safari
+
+Desktop
+
+Installable to home screen
+
+Service Worker enabled
+
+Lazy loading for images
+
+🔹 Home Screen Rules (CRITICAL)
+
+Show GROCERY card as the only active module
+
+Other cards:
+
+Blurred
+
+Locked
+
+“Coming Soon”
+
+No navigation or API calls allowed
+
+Grocery card opens directly into grocery listing
+
+🔹 Grocery Module (Core Features)
+🔸 Header
+
+App logo (City Bell style)
+
+Location selector
+
+If location permission denied → show fallback message
+
+Cart icon (live cart count)
+
+🔸 Banner Section
+
+Promotional slider (as shown)
+
+Swipe enabled
+
+Auto-scroll optional
+
+🔸 Category Section
+
+Fruits & Vegetables
+
+Bakery, Cakes & Dairy
+
+Breakfast & More
+
+(Admin can add/remove categories)
+
+🔸 Search & Filter
+
+Search bar (products)
+
+Sort dropdown:
+
+Price: Low to High
+
+Price: High to Low
+
+Popularity
+
+Category filter pills (All Items default)
+
+🔸 Product Cards (EXACT BEHAVIOR)
+
+Each product card must include:
+
+Product image
+
+Product name
+
+Rating
+
+Original price (strikethrough)
+
+Discount %
+
+Final price
+
+Add to Cart button
+
+Wishlist icon
+
+View icon
+
+Layout must remain 2-column grid on mobile as shown in screenshots.
+
+🔸 Cart & Checkout
+
+Add / remove quantity
+
+Persistent cart
+
+Checkout flow:
+
+Address
+
+Delivery slot
+
+Payment (COD / Online placeholder)
+
+Order confirmation screen
+
+Order history
+
+🔹 Bottom Navigation (Fixed)
+
+Home
+
+Categories
+
+Cart
+
+Wishlist
+
+Profile
+
+No navigation to blocked services.
+
+🔹 Authentication Rules (IMPORTANT – Fix JWT Issue)
+
+Guest browsing allowed
+
+JWT required only for:
+
+Add to cart
+
+Wishlist
+
+Checkout
+
+If JWT is missing or invalid:
+
+Redirect to login
+
+❌ DO NOT throw raw error toast like
+“Not authorized to access this route (jwt malformed)”
+
+🔹 Error Handling (MANDATORY)
+
+Replace all raw backend errors with user-friendly messages:
+
+❌ “jwt malformed”
+
+✅ “Session expired. Please login again.”
+
+Centralized auth middleware required.
+
+🔹 Admin Panel (Basic)
+
+Product CRUD
+
+Category management
+
+Stock & price updates
+
+Order management
+
+Toggle future modules ON/OFF
+
+🔹 Security & Performance
+
+JWT validation with refresh token support
+
+Route guards
+
+API rate limiting
+
+SEO-friendly meta tags
+
+Fast load time (<2s on mobile)
+
+🔹 Deliverables
+
+Grocery-only PWA
+
+Clean, documented code
+
+Deployment-ready build
+
+Admin credentials
+
+Future-ready super app structure
+
+✅ PART 2: WHY YOU ARE SEEING
+“Not authorized to access this route (JWT malformed)”
+🔴 Root Cause
+
+One of these is happening:
+
+JWT token is:
+
+Empty
+
+Expired
+
+Corrupted
+
+Stored incorrectly (localStorage/sessionStorage)
+
+Token is being sent to public routes
+
+User is browsing as guest, but app expects auth
+
+✅ REQUIRED FIX (BEST PRACTICE)
+1️⃣ Separate Routes
+Public Routes:
+- Home
+- Grocery listing
+- Product view
+
+Protected Routes:
+- Add to cart
+- Wishlist
+- Checkout
+- Orders
+
+2️⃣ Frontend Guard (Pseudo Logic)
+if (!token) {
+  redirectToLogin();
+  return;
+}
+
+3️⃣ Backend Middleware Fix
+if (!token) {
+  return res.status(401).json({
+    message: "Please login to continue"
+  });
+}
+
+
+❌ Never expose “jwt malformed” to UI
+✅ Log it only in backend
+
+4️⃣ Token Refresh Handling
+
+Auto logout if token expired
+
+Clear storage
+
+Redirect to login
