@@ -25,7 +25,7 @@ import AdminBannersPage from "@/pages/admin/banners-page";
 import AdminServicesPage from "@/pages/admin/services-page";
 import ProductDetailPage from "@/pages/product-detail-page";
 
-function Router() {
+function AppRouter() {
   return (
     <Switch>
       <Route path="/" component={HomePage} />
@@ -60,7 +60,7 @@ function App() {
               <SplashScreen onComplete={() => setShowSplash(false)} duration={2500} />
             )}
             <Toaster />
-            <Router />
+            <AppRouter />
           </TooltipProvider>
         </LocationProvider>
       </AuthProvider>
