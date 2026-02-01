@@ -15,17 +15,17 @@ export function ServiceCard({ name, description, image, isActive, href, isLarge 
   if (isLarge && isActive) {
     const content = (
       <div 
-        className="relative rounded-3xl overflow-hidden aspect-[16/10] bg-gradient-to-br from-green-500 via-green-400 to-green-300"
+        className="relative rounded-3xl overflow-hidden aspect-[16/10] bg-gradient-to-br from-green-500 via-green-400 to-green-300 border-2 border-white shadow-lg"
         data-testid={`card-service-${name.toLowerCase().replace(/\s+/g, '-')}`}
       >
         <div className="absolute bottom-0 right-0 w-2/3 h-full">
           <img 
             src={image} 
             alt={name}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover blur-[1px]"
             loading="lazy"
           />
-          <div className="absolute inset-0 bg-gradient-to-l from-transparent via-green-500/20 to-green-500/40" />
+          <div className="absolute inset-0 bg-gradient-to-l from-blue-500/15 via-blue-500/20 to-green-500/30" />
         </div>
         
         <div className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm px-5 py-4 rounded-t-3xl">
@@ -50,17 +50,17 @@ export function ServiceCard({ name, description, image, isActive, href, isLarge 
   if (isLarge && !isActive) {
     return (
       <div 
-        className="relative rounded-3xl overflow-hidden aspect-[2/1]"
+        className="relative rounded-3xl overflow-hidden aspect-[2/1] border-2 border-white shadow-lg"
         data-testid={`card-service-${name.toLowerCase().replace(/\s+/g, '-')}`}
       >
         <img 
           src={image} 
           alt={name}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover blur-[1px]"
           loading="lazy"
         />
         
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-blue-900/40 via-blue-800/15 to-blue-600/10" />
         
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="flex items-center gap-2 bg-white/95 px-4 py-2 rounded-full shadow-lg">
@@ -84,17 +84,17 @@ export function ServiceCard({ name, description, image, isActive, href, isLarge 
   // Small inactive cards (E-Commerce, Food, Hotel, Taxi)
   return (
     <div 
-      className="relative rounded-2xl overflow-hidden aspect-[4/3] bg-gray-100"
+      className="relative rounded-2xl overflow-hidden aspect-[4/3] bg-gray-100 border-2 border-white shadow-lg"
       data-testid={`card-service-${name.toLowerCase().replace(/\s+/g, '-')}`}
     >
       <img 
         src={image} 
         alt={name}
-        className="w-full h-full object-cover"
+        className="w-full h-full object-cover blur-[1px]"
         loading="lazy"
       />
       
-      <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-t from-blue-900/40 via-blue-800/15 to-blue-600/10" />
       
       {!isActive && (
         <div className="absolute top-3 right-3">
