@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Package, Clock, CheckCircle, Truck, XCircle, User, MapPin } from "lucide-react";
+import { Package, Clock, CheckCircle, Truck, XCircle, User, MapPin, ChevronDown, ChevronUp } from "lucide-react";
 import { AdminLayout } from "./index";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -17,6 +19,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -44,6 +51,7 @@ const statusOptions = [
 
 export default function AdminOrdersPage() {
   const { toast } = useToast();
+  const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
 
   const { data: orders = [], isLoading } = useQuery<OrderWithCustomer[]>({
     queryKey: ["/api/admin/orders"],
@@ -125,25 +133,59 @@ export default function AdminOrdersPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className="flex -space-x-2">
-                          {items.slice(0, 3).map((item, i) => (
-                            <div 
-                              key={i}
-                              className="w-8 h-8 bg-gray-100 rounded-full border-2 border-white overflow-hidden"
-                            >
-                              {item.image ? (
-                                <img src={item.image} alt="" className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-full bg-gradient-to-br from-green-100 to-green-200" />
-                              )}
+                      <Collapsible 
+                        open={expandedOrder === order.id}
+                        onOpenChange={(open) => setExpandedOrder(open ? order.id : null)}
+                      >
+                        <CollapsibleTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-auto p-1 gap-2" data-testid={`button-expand-items-${order.id}`}>
+                            <div className="flex -space-x-2">
+                              {items.slice(0, 3).map((item, i) => (
+                                <div 
+                                  key={i}
+                                  className="w-8 h-8 bg-gray-100 rounded-full border-2 border-white overflow-hidden"
+                                >
+                                  {item.image ? (
+                                    <img src={item.image} alt="" className="w-full h-full object-cover" />
+                                  ) : (
+                                    <div className="w-full h-full bg-gradient-to-br from-green-100 to-green-200" />
+                                  )}
+                                </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
-                        <span className="text-sm text-gray-500">
-                          {items.length} item{items.length > 1 ? 's' : ''}
-                        </span>
-                      </div>
+                            <span className="text-sm text-gray-500">
+                              {items.length} item{items.length > 1 ? 's' : ''}
+                            </span>
+                            {expandedOrder === order.id ? (
+                              <ChevronUp className="h-4 w-4 text-gray-400" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-gray-400" />
+                            )}
+                          </Button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="mt-2">
+                          <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                            {items.map((item, i) => (
+                              <div key={i} className="flex items-center gap-3 text-sm">
+                                <div className="w-10 h-10 bg-white rounded-lg overflow-hidden flex-shrink-0">
+                                  {item.image ? (
+                                    <img src={item.image} alt="" className="w-full h-full object-cover" />
+                                  ) : (
+                                    <div className="w-full h-full bg-gradient-to-br from-green-100 to-green-200" />
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-gray-800 truncate">{item.name}</p>
+                                  <p className="text-gray-500">Qty: {item.quantity} × ₹{parseFloat(item.price).toFixed(2)}</p>
+                                </div>
+                                <p className="font-medium text-gray-700">
+                                  ₹{(item.quantity * parseFloat(item.price)).toFixed(2)}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
                     </TableCell>
                     <TableCell>
                       <p className="font-semibold text-primary">
