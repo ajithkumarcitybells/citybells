@@ -68,11 +68,12 @@ City Bell is a Progressive Web App (PWA) for a multi-service super app featuring
 - Address management (save/edit/delete multiple addresses with labels)
 
 ### Admin Features
-- Product management (CRUD)
+- Product management (CRUD) with image upload
 - Category management
 - Order management with status updates
 - Banner management for promotions
 - Service toggle (enable/disable services)
+- Product image upload via Object Storage (max 5MB)
 
 ## API Endpoints
 

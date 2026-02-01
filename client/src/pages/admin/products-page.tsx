@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, Image as ImageIcon, X as XIcon } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -61,6 +61,9 @@ export default function AdminProductsPage() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: products = [], isLoading } = useQuery<Product[]>({
     queryKey: ["/api/products"],
@@ -134,12 +137,14 @@ export default function AdminProductsPage() {
 
   const openCreateDialog = () => {
     setEditingProduct(null);
+    setImagePreview("");
     form.reset();
     setIsDialogOpen(true);
   };
 
   const openEditDialog = (product: Product) => {
     setEditingProduct(product);
+    setImagePreview(product.image || "");
     form.reset({
       name: product.name,
       description: product.description || "",
@@ -153,6 +158,68 @@ export default function AdminProductsPage() {
       unit: product.unit || "1 pc",
     });
     setIsDialogOpen(true);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Please select an image file", variant: "destructive" });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Image size must be less than 5MB", variant: "destructive" });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      // Step 1: Request presigned URL
+      const urlRes = await fetch("/api/uploads/request-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: file.name,
+          size: file.size,
+          contentType: file.type,
+        }),
+      });
+
+      if (!urlRes.ok) throw new Error("Failed to get upload URL");
+      const { uploadURL, objectPath } = await urlRes.json();
+
+      // Step 2: Upload file directly to presigned URL
+      const uploadRes = await fetch(uploadURL, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type },
+      });
+
+      if (!uploadRes.ok) throw new Error("Failed to upload image");
+
+      // Set the image URL in the form
+      const imageUrl = objectPath;
+      form.setValue("image", imageUrl);
+      setImagePreview(imageUrl);
+      toast({ title: "Image uploaded successfully" });
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast({ title: "Failed to upload image", variant: "destructive" });
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const clearImage = () => {
+    form.setValue("image", "");
+    setImagePreview("");
   };
 
   const onSubmit = (data: ProductFormData) => {
@@ -298,9 +365,75 @@ export default function AdminProductsPage() {
                 name="image"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Image URL</FormLabel>
+                    <FormLabel>Product Image</FormLabel>
                     <FormControl>
-                      <Input placeholder="https://..." {...field} />
+                      <div className="space-y-3">
+                        {imagePreview ? (
+                          <div className="relative w-full h-40 bg-gray-100 rounded-lg overflow-hidden border">
+                            <img 
+                              src={imagePreview} 
+                              alt="Product preview" 
+                              className="w-full h-full object-contain"
+                            />
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="icon"
+                              className="absolute top-2 right-2 h-7 w-7"
+                              onClick={clearImage}
+                              data-testid="button-clear-image"
+                            >
+                              <XIcon className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div 
+                            className="w-full h-40 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-100 transition-colors"
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            <ImageIcon className="h-10 w-10 text-gray-400 mb-2" />
+                            <p className="text-sm text-gray-500">Click to upload image</p>
+                            <p className="text-xs text-gray-400 mt-1">Max 5MB</p>
+                          </div>
+                        )}
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          className="hidden"
+                          data-testid="input-product-image"
+                        />
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isUploading}
+                            className="flex-1"
+                            data-testid="button-upload-image"
+                          >
+                            {isUploading ? (
+                              <>Uploading...</>
+                            ) : (
+                              <>
+                                <Upload className="h-4 w-4 mr-2" />
+                                {imagePreview ? "Change Image" : "Upload Image"}
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                        <Input 
+                          placeholder="Or enter image URL..." 
+                          {...field} 
+                          onChange={(e) => {
+                            field.onChange(e);
+                            setImagePreview(e.target.value);
+                          }}
+                          className="text-xs"
+                        />
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
