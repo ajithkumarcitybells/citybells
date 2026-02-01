@@ -55,17 +55,27 @@ export default function HomePage() {
       <Header />
       
       <main className="px-4 py-4 max-w-lg mx-auto">
-        <div className="space-y-4">
+        <div className="space-y-3">
+          {/* Grocery - Full width large card */}
           <ServiceCard {...services[0]} />
           
+          {/* E-Commerce + Food - Side by side */}
           <div className="grid grid-cols-2 gap-3">
-            {services.slice(1).map((service) => (
-              <ServiceCard 
-                key={service.name} 
-                {...service} 
-              />
-            ))}
+            <ServiceCard {...services[1]} />
+            <ServiceCard {...services[2]} />
           </div>
+          
+          {/* City Move - Full width */}
+          <ServiceCard {...services[3]} isLarge />
+          
+          {/* Hotel + Taxi - Side by side */}
+          <div className="grid grid-cols-2 gap-3">
+            <ServiceCard {...services[4]} />
+            <ServiceCard {...services[5]} />
+          </div>
+          
+          {/* City Serve - Full width */}
+          <ServiceCard {...services[6]} isLarge />
         </div>
       </main>
       
