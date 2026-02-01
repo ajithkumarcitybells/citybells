@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
+import cityBellLogo from "@assets/citybells-logo_1769903304782.png";
 import { ArrowLeft, User, Lock, Bell, Shield, Info, ChevronRight } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -298,7 +299,7 @@ export default function SettingsPage() {
             <div className="text-center py-4">
               <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-3">
                 <img 
-                  src="/attached_assets/citybells-logo_1769903304782.png" 
+                  src={cityBellLogo} 
                   alt="City Bell" 
                   className="w-14 h-14 object-contain"
                 />
