@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
+import { runSeed } from "./seed";
 
 const app = express();
 
@@ -58,6 +59,9 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Run database seed on startup (only inserts if data doesn't exist)
+  await runSeed();
+  
   const httpServer = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {

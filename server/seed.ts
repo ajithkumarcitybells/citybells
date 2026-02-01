@@ -259,10 +259,21 @@ async function seed() {
   }
 
   console.log("Database seeding complete!");
-  process.exit(0);
 }
 
-seed().catch((err) => {
-  console.error("Seed error:", err);
-  process.exit(1);
-});
+// Export for use in server startup
+export async function runSeed() {
+  try {
+    await seed();
+  } catch (err) {
+    console.error("Seed error:", err);
+  }
+}
+
+// Only run directly if this file is executed as a script
+if (process.argv[1]?.includes('seed')) {
+  seed().then(() => process.exit(0)).catch((err) => {
+    console.error("Seed error:", err);
+    process.exit(1);
+  });
+}
