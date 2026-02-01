@@ -88,17 +88,19 @@ export default function GroceryPage() {
           </button>
         </div>
         
-        <div className="grid grid-cols-3 gap-3">
+        <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
           {categoriesLoading ? (
-            Array(3).fill(0).map((_, i) => (
-              <div key={i} className="flex flex-col items-center gap-2">
+            Array(4).fill(0).map((_, i) => (
+              <div key={i} className="flex flex-col items-center gap-2 flex-shrink-0" style={{ width: 'calc(33.333% - 8px)' }}>
                 <Skeleton className="w-full aspect-square rounded-lg" />
                 <Skeleton className="w-16 h-3" />
               </div>
             ))
           ) : (
             displayCategories.map((category) => (
-              <CategoryCard key={category.id} category={category} />
+              <div key={category.id} className="flex-shrink-0" style={{ width: 'calc(33.333% - 8px)' }}>
+                <CategoryCard category={category} />
+              </div>
             ))
           )}
         </div>
