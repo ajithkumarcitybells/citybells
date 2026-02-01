@@ -1,7 +1,7 @@
 # City Bell - Super App
 
 ## Overview
-City Bell is a Progressive Web App (PWA) for a multi-service super app featuring Grocery (active), E-commerce, Food, Taxi, Hotel, and City Move services (coming soon). The app includes comprehensive user authentication with username/password, mobile-first responsive design with City Bell branding, and a full admin panel.
+City Bell is a Progressive Web App (PWA) for a multi-service super app featuring Grocery (active), E-commerce, Food, Taxi, Hotel, City Move, and City Serve services (coming soon). The app includes comprehensive user authentication with username/password, mobile-first responsive design with City Bell branding, a full admin panel, and Zepto/Blinkit-style location detection and address management.
 
 ## Current State
 - **Phase**: Production-ready MVP
@@ -52,6 +52,7 @@ City Bell is a Progressive Web App (PWA) for a multi-service super app featuring
 - **orders**: Order history with status tracking
 - **banners**: Promotional banners for homepage
 - **services**: Super app service toggles (Grocery, Food, etc.)
+- **addresses**: User delivery addresses with labels (Home/Work/Other)
 
 ## Key Features
 
@@ -63,7 +64,8 @@ City Bell is a Progressive Web App (PWA) for a multi-service super app featuring
 - Wishlist functionality
 - Order placement with delivery slots
 - Order history tracking
-- Location-based delivery
+- Auto-location detection using GPS + OpenStreetMap reverse geocoding
+- Address management (save/edit/delete multiple addresses with labels)
 
 ### Admin Features
 - Product management (CRUD)
@@ -93,6 +95,9 @@ City Bell is a Progressive Web App (PWA) for a multi-service super app featuring
 - `GET/POST /api/wishlist` - Wishlist management
 - `DELETE /api/wishlist/:productId` - Remove from wishlist
 - `GET/POST /api/orders` - Order management
+- `GET/POST /api/addresses` - Address management
+- `PATCH/DELETE /api/addresses/:id` - Update/remove addresses
+- `PATCH /api/addresses/:id/default` - Set default address
 
 ### Admin Routes (requires admin role)
 - `POST/PATCH/DELETE /api/admin/products/:id`
@@ -116,8 +121,15 @@ City Bell is a Progressive Web App (PWA) for a multi-service super app featuring
 3. Use "Start application" workflow to run the dev server
 
 ## Recent Changes
+- Added City Serve service (home services like Urban Company) as "coming soon"
+- Implemented Zepto/Blinkit-style address management:
+  - Auto-location detection with GPS + OpenStreetMap reverse geocoding
+  - Save multiple delivery addresses with labels (Home/Work/Other)
+  - Set default address for delivery
+  - LocationProvider context for app-wide location state
+  - AddressPicker component with modal UI
 - Complete MVP implementation (Feb 2026)
 - Added Zod validation for all API endpoints
-- Fixed IDOR vulnerabilities with user-scoped cart/wishlist operations
+- Fixed IDOR vulnerabilities with user-scoped cart/wishlist/address operations
 - Seeded 32 grocery products across 8 categories
 - PWA support with manifest.json
