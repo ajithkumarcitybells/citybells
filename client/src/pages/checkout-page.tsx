@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { MapPin, Clock, CreditCard, Banknote, Check, Shield } from "lucide-react";
+import { MapPin, Clock, CreditCard, Banknote, Check, Shield, Home, Briefcase, MapPinned, Plus } from "lucide-react";
 import { Header } from "@/components/Header";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { CartItemWithProduct } from "@shared/schema";
+import { CartItemWithProduct, Address } from "@shared/schema";
 
 declare global {
   interface Window {
@@ -31,12 +31,29 @@ export default function CheckoutPage() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   
-  const [address, setAddress] = useState(user?.address || "");
+  const [address, setAddress] = useState("");
   const [phone, setPhone] = useState(user?.phone || "");
   const [selectedSlot, setSelectedSlot] = useState("morning");
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [showNewAddress, setShowNewAddress] = useState(false);
+
+  const { data: savedAddresses = [] } = useQuery<Address[]>({
+    queryKey: ["/api/addresses"],
+    enabled: !!user,
+  });
+
+  useEffect(() => {
+    if (savedAddresses.length > 0 && !selectedAddressId && !showNewAddress) {
+      const defaultAddr = savedAddresses.find(a => a.isDefault) || savedAddresses[0];
+      if (defaultAddr) {
+        setSelectedAddressId(defaultAddr.id);
+        setAddress(defaultAddr.fullAddress);
+      }
+    }
+  }, [savedAddresses, selectedAddressId, showNewAddress]);
 
   useEffect(() => {
     const script = document.createElement("script");
@@ -52,6 +69,26 @@ export default function CheckoutPage() {
     queryKey: ["/api/cart"],
     enabled: !!user,
   });
+
+  const handleSelectAddress = (addr: Address) => {
+    setSelectedAddressId(addr.id);
+    setAddress(addr.fullAddress);
+    setShowNewAddress(false);
+  };
+
+  const handleNewAddress = () => {
+    setSelectedAddressId(null);
+    setAddress("");
+    setShowNewAddress(true);
+  };
+
+  const getLabelIcon = (label: string) => {
+    switch (label?.toLowerCase()) {
+      case 'home': return Home;
+      case 'work': return Briefcase;
+      default: return MapPinned;
+    }
+  };
 
   const subtotal = cartItems.reduce((sum, item) => {
     return sum + parseFloat(item.product.price) * (item.quantity || 1);
@@ -187,7 +224,7 @@ export default function CheckoutPage() {
     if (paymentMethod === "online") {
       handleRazorpayPayment();
     } else {
-      placeOrderMutation.mutate();
+      placeOrderMutation.mutate(undefined);
     }
   };
 
@@ -253,6 +290,64 @@ export default function CheckoutPage() {
             <h2 className="font-semibold text-gray-800">Delivery Address</h2>
           </div>
           
+          {savedAddresses.length > 0 && (
+            <div className="space-y-2 mb-4">
+              <Label className="text-gray-600">Saved Addresses</Label>
+              <div className="space-y-2">
+                {savedAddresses.map((addr) => {
+                  const LabelIcon = getLabelIcon(addr.label || 'other');
+                  return (
+                    <div
+                      key={addr.id}
+                      onClick={() => handleSelectAddress(addr)}
+                      className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${
+                        selectedAddressId === addr.id && !showNewAddress
+                          ? 'border-primary bg-primary/5'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                      data-testid={`address-${addr.id}`}
+                    >
+                      <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <LabelIcon className="h-4 w-4 text-gray-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm capitalize">{addr.label || 'Other'}</span>
+                          {addr.isDefault && (
+                            <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">Default</span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600 truncate">{addr.fullAddress}</p>
+                      </div>
+                      <div className="flex-shrink-0">
+                        <RadioGroupItem 
+                          value={addr.id} 
+                          checked={selectedAddressId === addr.id && !showNewAddress}
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+                
+                <div
+                  onClick={handleNewAddress}
+                  className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${
+                    showNewAddress
+                      ? 'border-primary bg-primary/5'
+                      : 'border-dashed border-gray-300 hover:border-gray-400'
+                  }`}
+                  data-testid="add-new-address"
+                >
+                  <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                    <Plus className="h-4 w-4 text-primary" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-700">Use a different address</span>
+                </div>
+              </div>
+            </div>
+          )}
+          
           <div className="space-y-4">
             <div>
               <Label htmlFor="phone">Phone Number</Label>
@@ -266,18 +361,20 @@ export default function CheckoutPage() {
                 data-testid="input-phone"
               />
             </div>
-            <div>
-              <Label htmlFor="address">Full Address</Label>
-              <Textarea
-                id="address"
-                placeholder="Enter your delivery address"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                className="mt-1 resize-none"
-                rows={3}
-                data-testid="input-address"
-              />
-            </div>
+            {(showNewAddress || savedAddresses.length === 0) && (
+              <div>
+                <Label htmlFor="address">Full Address</Label>
+                <Textarea
+                  id="address"
+                  placeholder="Enter your delivery address"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  className="mt-1 resize-none"
+                  rows={3}
+                  data-testid="input-address"
+                />
+              </div>
+            )}
           </div>
         </div>
 
