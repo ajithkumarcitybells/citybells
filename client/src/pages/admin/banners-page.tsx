@@ -121,12 +121,14 @@ export default function AdminBannersPage() {
     setIsUploading(true);
     try {
       const res = await apiRequest("POST", "/api/uploads/request-url", {
-        filename: file.name,
+        name: file.name,
+        size: file.size,
         contentType: file.type,
       });
-      const { uploadUrl, publicUrl } = await res.json();
+      const { uploadURL, objectPath } = await res.json();
+      const publicUrl = objectPath;
 
-      await fetch(uploadUrl, {
+      await fetch(uploadURL, {
         method: "PUT",
         body: file,
         headers: { "Content-Type": file.type },
