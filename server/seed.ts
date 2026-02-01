@@ -1,14 +1,16 @@
 import { db } from "./db";
 import { users, categories, products, banners, services } from "@shared/schema";
 import { hashPassword } from "./auth";
+import { eq } from "drizzle-orm";
 
 async function seed() {
   console.log("Starting database seed...");
 
-  // Create admin user
-  const existingAdmin = await db.select().from(users);
+  // Create or update admin user
+  const existingAdmin = await db.select().from(users).where(eq(users.username, "admin"));
+  const hashedPassword = await hashPassword("admin123");
+  
   if (existingAdmin.length === 0) {
-    const hashedPassword = await hashPassword("admin123");
     await db.insert(users).values({
       username: "admin",
       password: hashedPassword,
@@ -17,6 +19,12 @@ async function seed() {
       isAdmin: true,
     });
     console.log("Admin user created (username: admin, password: admin123)");
+  } else {
+    // Update existing admin password to ensure it's correct
+    await db.update(users)
+      .set({ password: hashedPassword, isAdmin: true })
+      .where(eq(users.username, "admin"));
+    console.log("Admin user password updated (username: admin, password: admin123)");
   }
 
   // Create categories
