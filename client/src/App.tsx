@@ -35,6 +35,9 @@ function AppRouter() {
       <Route path="/wishlist" component={WishlistPage} />
       <Route path="/profile" component={ProfilePage} />
       <Route path="/auth" component={AuthPage} />
+      <Route path="/login" component={AuthPage} />
+      <Route path="/register" component={AuthPage} />
+      <Route path="/signup" component={AuthPage} />
       <ProtectedRoute path="/checkout" component={CheckoutPage} />
       <ProtectedRoute path="/orders" component={OrdersPage} />
       <AdminRoute path="/admin" component={AdminDashboard} />
