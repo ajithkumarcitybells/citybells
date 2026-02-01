@@ -24,8 +24,8 @@ export function CategoryCard({ category }: CategoryCardProps) {
             <div className="w-full h-full bg-gradient-to-br from-green-100 to-green-200" />
           )}
         </div>
-        <div className="p-2">
-          <span className="text-xs font-medium text-center text-gray-700 leading-tight line-clamp-2 block">
+        <div className="p-2 h-10 flex items-center justify-center">
+          <span className="text-xs font-medium text-center text-gray-700 leading-tight line-clamp-2">
             {category.name}
           </span>
         </div>
