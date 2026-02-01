@@ -1,0 +1,303 @@
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Plus, Pencil, Trash2 } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { AdminLayout } from "./index";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { Banner } from "@shared/schema";
+
+const bannerSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  subtitle: z.string().optional(),
+  image: z.string().optional(),
+  isActive: z.boolean().default(true),
+  sortOrder: z.coerce.number().default(0),
+});
+
+type BannerFormData = z.infer<typeof bannerSchema>;
+
+export default function AdminBannersPage() {
+  const { toast } = useToast();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
+
+  const { data: banners = [], isLoading } = useQuery<Banner[]>({
+    queryKey: ["/api/banners"],
+  });
+
+  const form = useForm<BannerFormData>({
+    resolver: zodResolver(bannerSchema),
+    defaultValues: {
+      title: "",
+      subtitle: "",
+      image: "",
+      isActive: true,
+      sortOrder: 0,
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: BannerFormData) => {
+      const res = await apiRequest("POST", "/api/admin/banners", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/banners"] });
+      setIsDialogOpen(false);
+      form.reset();
+      toast({ title: "Banner created successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to create banner", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: BannerFormData }) => {
+      const res = await apiRequest("PATCH", `/api/admin/banners/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/banners"] });
+      setIsDialogOpen(false);
+      setEditingBanner(null);
+      form.reset();
+      toast({ title: "Banner updated successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to update banner", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/admin/banners/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/banners"] });
+      toast({ title: "Banner deleted successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to delete banner", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const openCreateDialog = () => {
+    setEditingBanner(null);
+    form.reset();
+    setIsDialogOpen(true);
+  };
+
+  const openEditDialog = (banner: Banner) => {
+    setEditingBanner(banner);
+    form.reset({
+      title: banner.title,
+      subtitle: banner.subtitle || "",
+      image: banner.image || "",
+      isActive: banner.isActive ?? true,
+      sortOrder: banner.sortOrder || 0,
+    });
+    setIsDialogOpen(true);
+  };
+
+  const onSubmit = (data: BannerFormData) => {
+    if (editingBanner) {
+      updateMutation.mutate({ id: editingBanner.id, data });
+    } else {
+      createMutation.mutate(data);
+    }
+  };
+
+  return (
+    <AdminLayout>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Banners</h1>
+          <p className="text-gray-500">Manage promotional banners</p>
+        </div>
+        <Button onClick={openCreateDialog} className="bg-primary" data-testid="button-add-banner">
+          <Plus className="h-4 w-4 mr-2" />
+          Add Banner
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {Array(4).fill(0).map((_, i) => (
+            <Skeleton key={i} className="h-40 rounded-xl" />
+          ))}
+        </div>
+      ) : banners.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
+          <p className="text-gray-500">No banners yet. Create your first banner!</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {banners.map((banner) => (
+            <div 
+              key={banner.id}
+              className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"
+              data-testid={`banner-card-${banner.id}`}
+            >
+              <div className="aspect-[2/1] bg-gradient-to-r from-yellow-300 via-yellow-200 to-green-300 relative">
+                {banner.image && (
+                  <img 
+                    src={banner.image} 
+                    alt={banner.title}
+                    className="absolute right-0 top-0 h-full w-1/2 object-contain"
+                  />
+                )}
+                <div className="absolute inset-0 flex flex-col justify-center px-6">
+                  <h3 className="text-xl font-bold text-green-800">{banner.title}</h3>
+                  {banner.subtitle && (
+                    <p className="text-sm text-gray-700">{banner.subtitle}</p>
+                  )}
+                </div>
+                {!banner.isActive && (
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                    <span className="bg-white px-3 py-1 rounded-full text-sm font-medium">
+                      Inactive
+                    </span>
+                  </div>
+                )}
+              </div>
+              <div className="p-3 flex items-center justify-between">
+                <span className="text-sm text-gray-500">Order: {banner.sortOrder}</span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => openEditDialog(banner)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => deleteMutation.mutate(banner.id)}
+                    className="text-red-500"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingBanner ? "Edit Banner" : "Add Banner"}</DialogTitle>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Title</FormLabel>
+                    <FormControl>
+                      <Input placeholder="CHOOSE FRESH" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="subtitle"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Subtitle</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Fresh fruits and vegetables..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="image"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Image URL</FormLabel>
+                    <FormControl>
+                      <Input placeholder="https://..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="sortOrder"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Sort Order</FormLabel>
+                    <FormControl>
+                      <Input type="number" placeholder="0" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="isActive"
+                render={({ field }) => (
+                  <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                    <div>
+                      <FormLabel className="text-base">Active</FormLabel>
+                      <p className="text-sm text-gray-500">Show this banner</p>
+                    </div>
+                    <FormControl>
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <div className="flex justify-end gap-3 pt-4">
+                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  className="bg-primary"
+                  disabled={createMutation.isPending || updateMutation.isPending}
+                >
+                  {createMutation.isPending || updateMutation.isPending ? "Saving..." : "Save"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+    </AdminLayout>
+  );
+}

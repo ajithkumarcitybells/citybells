@@ -1,18 +1,182 @@
-import { sql } from "drizzle-orm";
-import { pgTable, text, varchar } from "drizzle-orm/pg-core";
+import { sql, relations } from "drizzle-orm";
+import { pgTable, text, varchar, integer, boolean, decimal, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Users table
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  name: text("name"),
+  email: text("email"),
+  phone: text("phone"),
+  address: text("address"),
+  isAdmin: boolean("is_admin").default(false),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
+  name: true,
+  email: true,
+  phone: true,
+  address: true,
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+
+// Categories table
+export const categories = pgTable("categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  image: text("image"),
+  isActive: boolean("is_active").default(true),
+  sortOrder: integer("sort_order").default(0),
+});
+
+export const insertCategorySchema = createInsertSchema(categories).omit({ id: true });
+export type InsertCategory = z.infer<typeof insertCategorySchema>;
+export type Category = typeof categories.$inferSelect;
+
+// Products table
+export const products = pgTable("products", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  image: text("image"),
+  categoryId: varchar("category_id").references(() => categories.id),
+  originalPrice: decimal("original_price", { precision: 10, scale: 2 }).notNull(),
+  discountPercent: integer("discount_percent").default(0),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  rating: decimal("rating", { precision: 2, scale: 1 }).default("4.0"),
+  stock: integer("stock").default(100),
+  unit: text("unit").default("1 pc"),
+  isActive: boolean("is_active").default(true),
+});
+
+export const insertProductSchema = createInsertSchema(products).omit({ id: true });
+export type InsertProduct = z.infer<typeof insertProductSchema>;
+export type Product = typeof products.$inferSelect;
+
+// Product relations
+export const productRelations = relations(products, ({ one }) => ({
+  category: one(categories, {
+    fields: [products.categoryId],
+    references: [categories.id],
+  }),
+}));
+
+// Cart items table
+export const cartItems = pgTable("cart_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  productId: varchar("product_id").references(() => products.id).notNull(),
+  quantity: integer("quantity").default(1),
+});
+
+export const insertCartItemSchema = createInsertSchema(cartItems).omit({ id: true });
+export type InsertCartItem = z.infer<typeof insertCartItemSchema>;
+export type CartItem = typeof cartItems.$inferSelect;
+
+// Cart item relations
+export const cartItemRelations = relations(cartItems, ({ one }) => ({
+  product: one(products, {
+    fields: [cartItems.productId],
+    references: [products.id],
+  }),
+  user: one(users, {
+    fields: [cartItems.userId],
+    references: [users.id],
+  }),
+}));
+
+// Wishlist items table
+export const wishlistItems = pgTable("wishlist_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  productId: varchar("product_id").references(() => products.id).notNull(),
+});
+
+export const insertWishlistItemSchema = createInsertSchema(wishlistItems).omit({ id: true });
+export type InsertWishlistItem = z.infer<typeof insertWishlistItemSchema>;
+export type WishlistItem = typeof wishlistItems.$inferSelect;
+
+// Wishlist item relations
+export const wishlistItemRelations = relations(wishlistItems, ({ one }) => ({
+  product: one(products, {
+    fields: [wishlistItems.productId],
+    references: [products.id],
+  }),
+  user: one(users, {
+    fields: [wishlistItems.userId],
+    references: [users.id],
+  }),
+}));
+
+// Orders table
+export const orders = pgTable("orders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  items: jsonb("items").notNull(),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  status: text("status").default("pending"),
+  deliveryAddress: text("delivery_address").notNull(),
+  deliverySlot: text("delivery_slot"),
+  paymentMethod: text("payment_method").default("cod"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertOrderSchema = createInsertSchema(orders).omit({ id: true, createdAt: true });
+export type InsertOrder = z.infer<typeof insertOrderSchema>;
+export type Order = typeof orders.$inferSelect;
+
+// Order relations
+export const orderRelations = relations(orders, ({ one }) => ({
+  user: one(users, {
+    fields: [orders.userId],
+    references: [users.id],
+  }),
+}));
+
+// Banners table
+export const banners = pgTable("banners", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  subtitle: text("subtitle"),
+  image: text("image"),
+  isActive: boolean("is_active").default(true),
+  sortOrder: integer("sort_order").default(0),
+});
+
+export const insertBannerSchema = createInsertSchema(banners).omit({ id: true });
+export type InsertBanner = z.infer<typeof insertBannerSchema>;
+export type Banner = typeof banners.$inferSelect;
+
+// Services table (for super app services like Grocery, Food, Taxi, etc.)
+export const services = pgTable("services", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  image: text("image"),
+  isActive: boolean("is_active").default(false),
+  sortOrder: integer("sort_order").default(0),
+});
+
+export const insertServiceSchema = createInsertSchema(services).omit({ id: true });
+export type InsertService = z.infer<typeof insertServiceSchema>;
+export type Service = typeof services.$inferSelect;
+
+// Type for cart item with product details
+export type CartItemWithProduct = CartItem & { product: Product };
+export type WishlistItemWithProduct = WishlistItem & { product: Product };
+
+// Order item type for storing in orders.items jsonb
+export interface OrderItem {
+  productId: string;
+  name: string;
+  price: string;
+  quantity: number;
+  image?: string;
+}
