@@ -85,10 +85,13 @@ export function ProductCard({ product }: ProductCardProps) {
       className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm"
       data-testid={`card-product-${product.id}`}
     >
-      <div className="relative aspect-square bg-gray-50 p-2">
+      <div 
+        className="relative aspect-square bg-gray-50 p-2 cursor-pointer"
+        onClick={() => setLocation(`/product/${product.id}`)}
+      >
         <div className="absolute top-2 right-2 flex flex-col gap-1 z-10">
           <button 
-            onClick={() => toggleWishlistMutation.mutate()}
+            onClick={(e) => { e.stopPropagation(); toggleWishlistMutation.mutate(); }}
             className="p-1.5 bg-white rounded-full shadow-md hover-elevate active-elevate-2"
             disabled={toggleWishlistMutation.isPending}
             data-testid={`button-wishlist-${product.id}`}
@@ -98,6 +101,7 @@ export function ProductCard({ product }: ProductCardProps) {
             />
           </button>
           <button 
+            onClick={(e) => { e.stopPropagation(); setLocation(`/product/${product.id}`); }}
             className="p-1.5 bg-white rounded-full shadow-md hover-elevate active-elevate-2"
             data-testid={`button-view-${product.id}`}
           >
@@ -119,7 +123,10 @@ export function ProductCard({ product }: ProductCardProps) {
       
       <div className="p-3">
         <div className="flex items-center justify-between mb-1">
-          <h3 className="font-medium text-sm text-gray-800 line-clamp-1 flex-1">
+          <h3 
+            className="font-medium text-sm text-gray-800 line-clamp-1 flex-1 cursor-pointer hover:text-primary"
+            onClick={() => setLocation(`/product/${product.id}`)}
+          >
             {product.name}
           </h3>
           <div className="flex items-center gap-0.5 ml-2">

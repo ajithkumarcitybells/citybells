@@ -23,12 +23,14 @@ import AdminCategoriesPage from "@/pages/admin/categories-page";
 import AdminOrdersPage from "@/pages/admin/orders-page";
 import AdminBannersPage from "@/pages/admin/banners-page";
 import AdminServicesPage from "@/pages/admin/services-page";
+import ProductDetailPage from "@/pages/product-detail-page";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={HomePage} />
       <Route path="/grocery" component={GroceryPage} />
+      <Route path="/product/:id" component={ProductDetailPage} />
       <Route path="/cart" component={CartPage} />
       <Route path="/wishlist" component={WishlistPage} />
       <Route path="/profile" component={ProfilePage} />
