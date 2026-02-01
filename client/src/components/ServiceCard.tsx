@@ -49,7 +49,7 @@ export function ServiceCard({ name, description, image, isActive, href, isLarge 
   if (isLarge && !isActive) {
     return (
       <div 
-        className="relative rounded-3xl overflow-hidden aspect-[16/10]"
+        className="relative rounded-3xl overflow-hidden aspect-[2/1]"
         data-testid={`card-service-${name.toLowerCase().replace(/\s+/g, '-')}`}
       >
         <img 
