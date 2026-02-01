@@ -10,12 +10,11 @@ import { BannerSlider } from "@/components/BannerSlider";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Category, Product, Banner } from "@shared/schema";
 
@@ -119,23 +118,43 @@ export default function GroceryPage() {
               data-testid="input-search"
             />
           </div>
-          <Button variant="outline" size="icon" className="bg-primary text-white hover:bg-primary/90 border-0">
-            <ListFilter className="h-4 w-4" />
-          </Button>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-32 bg-white" data-testid="select-sort">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="default">Default</SelectItem>
-              <SelectItem value="price-low">Price: Low to High</SelectItem>
-              <SelectItem value="price-high">Price: High to Low</SelectItem>
-              <SelectItem value="rating">Popularity</SelectItem>
-            </SelectContent>
-          </Select>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" className="bg-primary text-white hover:bg-primary/90 border-0" data-testid="button-filter">
+                <ListFilter className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem 
+                onClick={() => setSortBy("default")}
+                className={sortBy === "default" ? "bg-primary/10" : ""}
+                data-testid="filter-default"
+              >
+                Default
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => setSortBy("price-low")}
+                className={sortBy === "price-low" ? "bg-primary/10" : ""}
+                data-testid="filter-price-low"
+              >
+                Price: Low to High
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => setSortBy("price-high")}
+                className={sortBy === "price-high" ? "bg-primary/10" : ""}
+                data-testid="filter-price-high"
+              >
+                Price: High to Low
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => setSortBy("rating")}
+                className={sortBy === "rating" ? "bg-primary/10" : ""}
+                data-testid="filter-popularity"
+              >
+                Popularity
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
