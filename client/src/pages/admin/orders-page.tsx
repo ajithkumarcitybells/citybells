@@ -1,7 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Package, Clock, CheckCircle, Truck, XCircle } from "lucide-react";
+import { Package, Clock, CheckCircle, Truck, XCircle, User, MapPin } from "lucide-react";
 import { AdminLayout } from "./index";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -22,6 +21,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Order, OrderItem } from "@shared/schema";
+
+type OrderWithCustomer = Order & { customerName?: string; customerEmail?: string };
 
 const statusConfig: Record<string, { icon: typeof Package; color: string; label: string }> = {
   pending: { icon: Clock, color: "bg-yellow-100 text-yellow-700", label: "Pending" },
@@ -44,7 +45,7 @@ const statusOptions = [
 export default function AdminOrdersPage() {
   const { toast } = useToast();
 
-  const { data: orders = [], isLoading } = useQuery<Order[]>({
+  const { data: orders = [], isLoading } = useQuery<OrderWithCustomer[]>({
     queryKey: ["/api/admin/orders"],
   });
 
@@ -92,8 +93,10 @@ export default function AdminOrdersPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Order ID</TableHead>
+                <TableHead>Customer</TableHead>
                 <TableHead>Items</TableHead>
                 <TableHead>Total</TableHead>
+                <TableHead>Delivery Address</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -109,6 +112,17 @@ export default function AdminOrdersPage() {
                   <TableRow key={order.id} data-testid={`order-row-${order.id}`}>
                     <TableCell>
                       <p className="font-mono text-sm">#{order.id.slice(0, 8).toUpperCase()}</p>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                          <User className="h-4 w-4 text-gray-500" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">{order.customerName || 'Unknown'}</p>
+                          <p className="text-xs text-gray-500">{order.customerEmail || '-'}</p>
+                        </div>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -135,6 +149,14 @@ export default function AdminOrdersPage() {
                       <p className="font-semibold text-primary">
                         ₹{parseFloat(order.totalAmount).toFixed(2)}
                       </p>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-start gap-2 max-w-xs">
+                        <MapPin className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                        <p className="text-sm text-gray-600 line-clamp-2">
+                          {order.deliveryAddress || '-'}
+                        </p>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <p className="text-sm text-gray-500">
