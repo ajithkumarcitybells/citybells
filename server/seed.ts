@@ -45,6 +45,7 @@ async function seed() {
   }
 
   // Get category IDs by name
+  const fruitsId = existingCategories.find(c => c.name === "Fruits")!.id;
   const vegetablesId = existingCategories.find(c => c.name === "Vegetables")!.id;
   const dairyId = existingCategories.find(c => c.name === "Dairy")!.id;
   const bakeryId = existingCategories.find(c => c.name === "Bakery")!.id;
@@ -60,9 +61,38 @@ async function seed() {
   await db.delete(products);
   console.log("Existing products cleared");
 
-    // Create vegetables from Excel file
-    const productData = [
-      // ============ VEGETABLES (35 products from Excel) ============
+  // Create products from Excel files
+  const productData = [
+    // ============ FRUITS (27 products from Excel) ============
+    { name: "Banana - Yelakki", description: "Fresh sweet Yelakki bananas", image: "/products/banana-yelakki.jpg", categoryId: fruitsId, originalPrice: "78.00", discountPercent: 18, price: "64.00", rating: "4.6", unit: "500g" },
+    { name: "Banana - Red", description: "Fresh red bananas", image: "/products/banana-red.jpg", categoryId: fruitsId, originalPrice: "75.00", discountPercent: 16, price: "63.00", rating: "4.5", unit: "500g" },
+    { name: "Banana - Yellow", description: "Fresh yellow bananas", image: "/products/banana-yellow.jpg", categoryId: fruitsId, originalPrice: "53.00", discountPercent: 15, price: "45.00", rating: "4.4", unit: "500g" },
+    { name: "Banana - Poovan", description: "Fresh Poovan bananas", image: "/products/banana-yellow.jpg", categoryId: fruitsId, originalPrice: "58.00", discountPercent: 22, price: "45.00", rating: "4.5", unit: "500g" },
+    { name: "Banana - Karpooravalli", description: "Fresh Karpooravalli bananas", image: "/products/banana-yellow.jpg", categoryId: fruitsId, originalPrice: "60.00", discountPercent: 20, price: "48.00", rating: "4.4", unit: "500g" },
+    { name: "Banana - Nanderam", description: "Fresh Nanderam bananas", image: "/products/banana-yellow.jpg", categoryId: fruitsId, originalPrice: "84.00", discountPercent: 25, price: "63.00", rating: "4.5", unit: "3pc" },
+    { name: "Apple - Shimla", description: "Fresh Shimla apples", image: "/products/apple-shimla.jpg", categoryId: fruitsId, originalPrice: "113.00", discountPercent: 15, price: "96.00", rating: "4.6", unit: "2pc" },
+    { name: "Apple - Washington", description: "Premium Washington apples", image: "/products/apple-washington.jpg", categoryId: fruitsId, originalPrice: "138.00", discountPercent: 13, price: "120.00", rating: "4.7", unit: "2pc" },
+    { name: "Apple - Royal Gala Imported", description: "Imported Royal Gala apples", image: "/products/apple-gala.jpg", categoryId: fruitsId, originalPrice: "172.00", discountPercent: 12, price: "151.00", rating: "4.8", unit: "2pc" },
+    { name: "Grapes - Green Seedless", description: "Fresh green seedless grapes", image: "/products/grapes-green.jpg", categoryId: fruitsId, originalPrice: "69.00", discountPercent: 13, price: "60.00", rating: "4.5", unit: "250g" },
+    { name: "Grapes - Bangalore Blue", description: "Fresh Bangalore blue grapes", image: "/products/grapes-black.jpg", categoryId: fruitsId, originalPrice: "73.00", discountPercent: 14, price: "63.00", rating: "4.4", unit: "500g" },
+    { name: "Grapes - Black Seedless", description: "Fresh black seedless grapes", image: "/products/grapes-black.jpg", categoryId: fruitsId, originalPrice: "102.00", discountPercent: 15, price: "87.00", rating: "4.6", unit: "250g" },
+    { name: "Grapes - Panner", description: "Fresh Panner grapes", image: "/products/grapes-green.jpg", categoryId: fruitsId, originalPrice: "96.00", discountPercent: 20, price: "77.00", rating: "4.5", unit: "500g" },
+    { name: "Pomegranate - Maadhulampazham", description: "Fresh juicy pomegranates", image: "/products/pomegranate.jpg", categoryId: fruitsId, originalPrice: "309.00", discountPercent: 13, price: "268.00", rating: "4.7", unit: "4pc" },
+    { name: "Guava - Koyyapazham", description: "Fresh green guavas", image: "/products/guava.jpg", categoryId: fruitsId, originalPrice: "88.00", discountPercent: 13, price: "77.00", rating: "4.4", unit: "500g" },
+    { name: "Papaya - Pappali", description: "Fresh ripe papaya", image: "/products/papaya.jpg", categoryId: fruitsId, originalPrice: "88.00", discountPercent: 14, price: "76.00", rating: "4.3", unit: "1pc" },
+    { name: "Watermelon - Tharpoosani", description: "Fresh sweet watermelon", image: "/products/watermelon.jpg", categoryId: fruitsId, originalPrice: "125.00", discountPercent: 18, price: "103.00", rating: "4.5", unit: "1pc" },
+    { name: "Muskmelon - Kirani Pazham", description: "Fresh muskmelon", image: "/products/muskmelon.jpg", categoryId: fruitsId, originalPrice: "63.00", discountPercent: 13, price: "55.00", rating: "4.3", unit: "1pc" },
+    { name: "Pineapple - Annasi", description: "Fresh sweet pineapple", image: "/products/pineapple.jpg", categoryId: fruitsId, originalPrice: "120.00", discountPercent: 18, price: "98.00", rating: "4.6", unit: "1pc" },
+    { name: "Sapota/Chikoo - Sapota", description: "Fresh sweet sapota", image: "/products/sapota.jpg", categoryId: fruitsId, originalPrice: "72.00", discountPercent: 15, price: "61.00", rating: "4.4", unit: "500g" },
+    { name: "Custard Apple - Seethapazham", description: "Fresh custard apple", image: "/products/custardapple.jpg", categoryId: fruitsId, originalPrice: "141.00", discountPercent: 23, price: "108.00", rating: "4.5", unit: "300g" },
+    { name: "Lemon - Elumichai", description: "Fresh tangy lemons", image: "/products/lemon.jpg", categoryId: fruitsId, originalPrice: "28.00", discountPercent: 14, price: "24.00", rating: "4.6", unit: "200g" },
+    { name: "Orange - Nagpur", description: "Fresh Nagpur oranges", image: "/products/orange.jpg", categoryId: fruitsId, originalPrice: "92.00", discountPercent: 14, price: "79.00", rating: "4.5", unit: "500g" },
+    { name: "Orange - Imported", description: "Premium imported oranges", image: "/products/orange.jpg", categoryId: fruitsId, originalPrice: "82.00", discountPercent: 11, price: "73.00", rating: "4.6", unit: "2pc" },
+    { name: "Gooseberry (Amla) - Nellikai", description: "Fresh Indian gooseberry", image: "/products/gooseberry.jpg", categoryId: fruitsId, originalPrice: "52.00", discountPercent: 17, price: "43.00", rating: "4.4", unit: "250g" },
+    { name: "Fig - Athipazham", description: "Fresh figs", image: "/products/fig.jpg", categoryId: fruitsId, originalPrice: "76.00", discountPercent: 14, price: "65.00", rating: "4.5", unit: "250g" },
+    { name: "Wood Apple - Vilampazham", description: "Fresh wood apple", image: "/products/woodapple.jpg", categoryId: fruitsId, originalPrice: "36.00", discountPercent: 11, price: "32.00", rating: "4.2", unit: "2pc" },
+
+    // ============ VEGETABLES (35 products from Excel) ============
       { name: "Tomato - Thakkali", description: "Fresh red tomatoes", image: "/products/tomato.jpg", categoryId: vegetablesId, originalPrice: "28.00", discountPercent: 29, price: "20.00", rating: "4.5", unit: "500g" },
       { name: "Potato - Urulai Kilangu", description: "Fresh potatoes", image: "/products/potato.jpg", categoryId: vegetablesId, originalPrice: "25.00", discountPercent: 20, price: "20.00", rating: "4.3", unit: "500g" },
       { name: "Potato - Ooty", description: "Premium Ooty potatoes", image: "/products/potato.jpg", categoryId: vegetablesId, originalPrice: "33.00", discountPercent: 24, price: "25.00", rating: "4.6", unit: "500g" },
