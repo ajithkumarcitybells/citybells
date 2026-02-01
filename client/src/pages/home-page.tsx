@@ -41,6 +41,12 @@ const services = [
     image: "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&q=80",
     isActive: false,
   },
+  {
+    name: "City Serve",
+    description: "HOME SERVICES AT YOUR DOORSTEP",
+    image: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800&q=80",
+    isActive: false,
+  },
 ];
 
 export default function HomePage() {
