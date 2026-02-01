@@ -98,6 +98,8 @@ City Bell is a Progressive Web App (PWA) for a multi-service super app featuring
 - `GET/POST /api/addresses` - Address management
 - `PATCH/DELETE /api/addresses/:id` - Update/remove addresses
 - `PATCH /api/addresses/:id/default` - Set default address
+- `POST /api/payment/create-order` - Create Razorpay order for payment
+- `POST /api/payment/verify` - Verify Razorpay payment signature
 
 ### Admin Routes (requires admin role)
 - `POST/PATCH/DELETE /api/admin/products/:id`
@@ -121,6 +123,12 @@ City Bell is a Progressive Web App (PWA) for a multi-service super app featuring
 3. Use "Start application" workflow to run the dev server
 
 ## Recent Changes
+- Integrated Razorpay payment gateway (Feb 2026):
+  - Online payments via UPI, Cards, Net Banking, Wallets
+  - Backend routes for order creation and signature verification
+  - Secure HMAC-SHA256 signature verification
+  - Orders with successful payments auto-confirm (status: "confirmed")
+  - paymentId stored in orders table for reconciliation
 - Added City Serve service (home services like Urban Company) as "coming soon"
 - Implemented Zepto/Blinkit-style address management:
   - Auto-location detection with GPS + OpenStreetMap reverse geocoding
