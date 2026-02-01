@@ -286,6 +286,86 @@ export async function registerRoutes(
     }
   });
 
+  // Addresses
+  const addressFormSchema = z.object({
+    label: z.string().min(1, "Label is required"),
+    fullAddress: z.string().min(1, "Address is required"),
+    flatHouseNo: z.string().optional(),
+    landmark: z.string().optional(),
+    latitude: z.string().optional(),
+    longitude: z.string().optional(),
+    isDefault: z.boolean().optional(),
+  });
+
+  app.get("/api/addresses", requireAuth, async (req, res) => {
+    try {
+      const addressList = await storage.getAddresses(req.user!.id);
+      res.json(addressList);
+    } catch (err) {
+      console.error("Error fetching addresses:", err);
+      res.status(500).json({ message: "Failed to fetch addresses" });
+    }
+  });
+
+  app.post("/api/addresses", requireAuth, async (req, res) => {
+    try {
+      const parsed = addressFormSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid address data" });
+      }
+
+      const address = await storage.createAddress({
+        userId: req.user!.id,
+        ...parsed.data,
+      });
+      res.status(201).json(address);
+    } catch (err) {
+      console.error("Error creating address:", err);
+      res.status(500).json({ message: "Failed to create address" });
+    }
+  });
+
+  app.patch("/api/addresses/:id", requireAuth, async (req, res) => {
+    try {
+      const parsed = addressFormSchema.partial().safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid address data" });
+      }
+
+      const address = await storage.updateAddress(req.params.id, req.user!.id, parsed.data);
+      if (!address) {
+        return res.status(404).json({ message: "Address not found" });
+      }
+      res.json(address);
+    } catch (err) {
+      console.error("Error updating address:", err);
+      res.status(500).json({ message: "Failed to update address" });
+    }
+  });
+
+  app.delete("/api/addresses/:id", requireAuth, async (req, res) => {
+    try {
+      await storage.deleteAddress(req.params.id, req.user!.id);
+      res.sendStatus(204);
+    } catch (err) {
+      console.error("Error deleting address:", err);
+      res.status(500).json({ message: "Failed to delete address" });
+    }
+  });
+
+  app.patch("/api/addresses/:id/default", requireAuth, async (req, res) => {
+    try {
+      const address = await storage.setDefaultAddress(req.params.id, req.user!.id);
+      if (!address) {
+        return res.status(404).json({ message: "Address not found" });
+      }
+      res.json(address);
+    } catch (err) {
+      console.error("Error setting default address:", err);
+      res.status(500).json({ message: "Failed to set default address" });
+    }
+  });
+
   // ==================== ADMIN ROUTES ====================
 
   // Admin Products
