@@ -52,23 +52,20 @@ export function BannerSlider({ banners }: BannerSliderProps) {
         {banners.map((banner, index) => (
           <div 
             key={banner.id} 
-            className="min-w-full aspect-[2/1] relative bg-gradient-to-r from-yellow-300 via-yellow-200 to-green-300"
+            className="min-w-full aspect-[2/1] relative bg-gray-100"
           >
-            {banner.image && (
+            {banner.image ? (
               <img 
                 src={banner.image} 
                 alt={banner.title}
-                className="absolute right-0 top-0 h-full w-1/2 object-contain"
+                className="w-full h-full object-cover"
                 loading="lazy"
               />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-r from-yellow-300 via-yellow-200 to-green-300 flex items-center justify-center">
+                <span className="text-xl font-bold text-green-800">{banner.title}</span>
+              </div>
             )}
-            <div className="absolute inset-0 flex flex-col justify-center px-6">
-              <span className="text-sm font-semibold text-green-600 mb-1">SuperApp Grocery</span>
-              <h2 className="text-2xl font-bold text-green-800 mb-1">{banner.title}</h2>
-              {banner.subtitle && (
-                <p className="text-sm text-gray-700">{banner.subtitle}</p>
-              )}
-            </div>
           </div>
         ))}
       </div>
