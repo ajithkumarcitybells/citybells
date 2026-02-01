@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, X, ImageIcon } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -42,6 +42,9 @@ export default function AdminBannersPage() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: banners = [], isLoading } = useQuery<Banner[]>({
     queryKey: ["/api/banners"],
@@ -104,9 +107,53 @@ export default function AdminBannersPage() {
     },
   });
 
+  const handleImageUpload = async (file: File) => {
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Maximum file size is 5MB", variant: "destructive" });
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Invalid file type", description: "Please upload an image file", variant: "destructive" });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const res = await apiRequest("POST", "/api/uploads/request-url", {
+        filename: file.name,
+        contentType: file.type,
+      });
+      const { uploadUrl, publicUrl } = await res.json();
+
+      await fetch(uploadUrl, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type },
+      });
+
+      form.setValue("image", publicUrl);
+      setImagePreview(publicUrl);
+      toast({ title: "Image uploaded successfully" });
+    } catch (error) {
+      toast({ title: "Upload failed", description: "Please try again", variant: "destructive" });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const clearImage = () => {
+    form.setValue("image", "");
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   const openCreateDialog = () => {
     setEditingBanner(null);
     form.reset();
+    setImagePreview(null);
     setIsDialogOpen(true);
   };
 
@@ -119,6 +166,7 @@ export default function AdminBannersPage() {
       isActive: banner.isActive ?? true,
       sortOrder: banner.sortOrder || 0,
     });
+    setImagePreview(banner.image || null);
     setIsDialogOpen(true);
   };
 
@@ -246,9 +294,81 @@ export default function AdminBannersPage() {
                 name="image"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Image URL</FormLabel>
+                    <FormLabel>Banner Image</FormLabel>
                     <FormControl>
-                      <Input placeholder="https://..." {...field} />
+                      <div className="space-y-3">
+                        {imagePreview ? (
+                          <div className="relative">
+                            <img
+                              src={imagePreview}
+                              alt="Banner preview"
+                              className="w-full h-32 object-cover rounded-lg border"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="absolute top-2 right-2 bg-white/80 hover:bg-white"
+                              onClick={clearImage}
+                              data-testid="button-clear-banner-image"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div
+                            className="w-full h-32 border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors"
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            {isUploading ? (
+                              <div className="text-center">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2" />
+                                <p className="text-sm text-gray-500">Uploading...</p>
+                              </div>
+                            ) : (
+                              <>
+                                <ImageIcon className="h-8 w-8 text-gray-400 mb-2" />
+                                <p className="text-sm text-gray-500">Click to upload image</p>
+                                <p className="text-xs text-gray-400">Max 5MB</p>
+                              </>
+                            )}
+                          </div>
+                        )}
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleImageUpload(file);
+                          }}
+                          data-testid="input-banner-image-upload"
+                        />
+                        <div className="flex items-center gap-2">
+                          <Input
+                            placeholder="Or paste image URL..."
+                            value={field.value}
+                            onChange={(e) => {
+                              field.onChange(e);
+                              setImagePreview(e.target.value || null);
+                            }}
+                            data-testid="input-banner-image-url"
+                          />
+                          {!imagePreview && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => fileInputRef.current?.click()}
+                              disabled={isUploading}
+                              data-testid="button-upload-banner-image"
+                            >
+                              <Upload className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
