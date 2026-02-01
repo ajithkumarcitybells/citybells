@@ -24,6 +24,8 @@ export default function OrdersPage() {
   const { data: orders = [], isLoading } = useQuery<Order[]>({
     queryKey: ["/api/orders"],
     enabled: !!user,
+    refetchInterval: 30000, // Refresh every 30 seconds
+    staleTime: 10000, // Data is fresh for 10 seconds
   });
 
   if (!user) {
