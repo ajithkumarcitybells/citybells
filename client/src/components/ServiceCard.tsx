@@ -25,6 +25,7 @@ export function ServiceCard({ name, description, image, isActive, href, isLarge 
             className="w-full h-full object-cover"
             loading="lazy"
           />
+          <div className="absolute inset-0 bg-gradient-to-l from-transparent via-green-500/20 to-green-500/40" />
         </div>
         
         <div className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm px-5 py-4 rounded-t-3xl">
@@ -59,7 +60,7 @@ export function ServiceCard({ name, description, image, isActive, href, isLarge 
           loading="lazy"
         />
         
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent" />
         
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="flex items-center gap-2 bg-white/95 px-4 py-2 rounded-full shadow-lg">
@@ -93,7 +94,7 @@ export function ServiceCard({ name, description, image, isActive, href, isLarge 
         loading="lazy"
       />
       
-      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent" />
       
       {!isActive && (
         <div className="absolute top-3 right-3">
