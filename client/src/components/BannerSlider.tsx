@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { ChevronLeft } from "lucide-react";
 import { Banner } from "@shared/schema";
 
 interface BannerSliderProps {
@@ -18,10 +17,6 @@ export function BannerSlider({ banners }: BannerSliderProps) {
 
     return () => clearInterval(timer);
   }, [banners.length]);
-
-  const goToPrevious = () => {
-    setCurrentIndex((prev) => (prev - 1 + banners.length) % banners.length);
-  };
 
   if (banners.length === 0) {
     return (
@@ -68,13 +63,6 @@ export function BannerSlider({ banners }: BannerSliderProps) {
 
       {banners.length > 1 && (
         <>
-          <button
-            onClick={goToPrevious}
-            className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 rounded-full p-1.5 shadow-lg hover-elevate"
-            data-testid="button-banner-prev"
-          >
-            <ChevronLeft className="h-5 w-5 text-gray-700" />
-          </button>
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2">
             {banners.map((_, index) => (
               <button
