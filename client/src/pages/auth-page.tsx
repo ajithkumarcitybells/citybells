@@ -52,6 +52,7 @@ export default function AuthPage() {
   const registerForm = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
     defaultValues: { name: "", email: "", phone: "", password: "", confirmPassword: "" },
+    mode: "onBlur",
   });
 
   if (user) {
@@ -168,156 +169,125 @@ export default function AuthPage() {
               </form>
             </Form>
           ) : (
-            <Form {...registerForm}>
-              <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-3">
-                <FormField
-                  control={registerForm.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm font-medium">
-                        Full Name <span className="text-red-500">*</span>
-                      </FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                          <Input 
-                            placeholder="Enter your full name" 
-                            className="pl-10 h-12"
-                            {...field}
-                            data-testid="input-name"
-                          />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={registerForm.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm font-medium">
-                        Email <span className="text-red-500">*</span>
-                      </FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                          <Input 
-                            type="email"
-                            placeholder="Enter your email address" 
-                            className="pl-10 h-12"
-                            {...field}
-                            data-testid="input-email"
-                          />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={registerForm.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm font-medium">
-                        Phone Number <span className="text-red-500">*</span>
-                      </FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                          <Input 
-                            type="tel"
-                            placeholder="Enter 10-digit phone number"
-                            className="pl-10 h-12"
-                            maxLength={10}
-                            {...field}
-                            onChange={(e) => {
-                              const value = e.target.value.replace(/\D/g, '');
-                              field.onChange(value);
-                            }}
-                            data-testid="input-phone"
-                          />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={registerForm.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm font-medium">
-                        Password <span className="text-red-500">*</span>
-                      </FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                          <Input 
-                            type={showPassword ? "text" : "password"}
-                            placeholder="Create a password (min 6 characters)"
-                            className="pl-10 pr-10 h-12"
-                            {...field}
-                            data-testid="input-password"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
-                          >
-                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                          </button>
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={registerForm.control}
-                  name="confirmPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm font-medium">
-                        Confirm Password <span className="text-red-500">*</span>
-                      </FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                          <Input 
-                            type={showConfirmPassword ? "text" : "password"}
-                            placeholder="Confirm your password"
-                            className="pl-10 pr-10 h-12"
-                            {...field}
-                            data-testid="input-confirm-password"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
-                          >
-                            {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                          </button>
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button 
-                  type="submit" 
-                  className="w-full bg-primary text-white py-6 mt-4"
-                  disabled={registerMutation.isPending}
-                  data-testid="button-register"
-                >
-                  {registerMutation.isPending ? "Creating account..." : "Create Account"}
-                </Button>
-              </form>
-            </Form>
+            <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-3">
+              <div>
+                <label className="text-sm font-medium">
+                  Full Name <span className="text-red-500">*</span>
+                </label>
+                <div className="relative mt-1">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none z-10" />
+                  <input 
+                    placeholder="Enter your full name" 
+                    className="flex h-12 w-full rounded-md border border-input bg-background pl-10 pr-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    {...registerForm.register("name")}
+                    data-testid="input-name"
+                  />
+                </div>
+                {registerForm.formState.errors.name && (
+                  <p className="text-sm text-red-500 mt-1">{registerForm.formState.errors.name.message}</p>
+                )}
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium">
+                  Email <span className="text-red-500">*</span>
+                </label>
+                <div className="relative mt-1">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none z-10" />
+                  <input 
+                    type="email"
+                    placeholder="Enter your email address" 
+                    className="flex h-12 w-full rounded-md border border-input bg-background pl-10 pr-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    {...registerForm.register("email")}
+                    data-testid="input-email"
+                  />
+                </div>
+                {registerForm.formState.errors.email && (
+                  <p className="text-sm text-red-500 mt-1">{registerForm.formState.errors.email.message}</p>
+                )}
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium">
+                  Phone Number <span className="text-red-500">*</span>
+                </label>
+                <div className="relative mt-1">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none z-10" />
+                  <input 
+                    type="tel"
+                    placeholder="Enter 10-digit phone number"
+                    className="flex h-12 w-full rounded-md border border-input bg-background pl-10 pr-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    maxLength={10}
+                    {...registerForm.register("phone")}
+                    data-testid="input-phone"
+                  />
+                </div>
+                {registerForm.formState.errors.phone && (
+                  <p className="text-sm text-red-500 mt-1">{registerForm.formState.errors.phone.message}</p>
+                )}
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium">
+                  Password <span className="text-red-500">*</span>
+                </label>
+                <div className="relative mt-1">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none z-10" />
+                  <input 
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Create a password (min 6 characters)"
+                    className="flex h-12 w-full rounded-md border border-input bg-background pl-10 pr-10 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    {...registerForm.register("password")}
+                    data-testid="input-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {registerForm.formState.errors.password && (
+                  <p className="text-sm text-red-500 mt-1">{registerForm.formState.errors.password.message}</p>
+                )}
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium">
+                  Confirm Password <span className="text-red-500">*</span>
+                </label>
+                <div className="relative mt-1">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none z-10" />
+                  <input 
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="Confirm your password"
+                    className="flex h-12 w-full rounded-md border border-input bg-background pl-10 pr-10 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    {...registerForm.register("confirmPassword")}
+                    data-testid="input-confirm-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {registerForm.formState.errors.confirmPassword && (
+                  <p className="text-sm text-red-500 mt-1">{registerForm.formState.errors.confirmPassword.message}</p>
+                )}
+              </div>
+              
+              <Button 
+                type="submit" 
+                className="w-full bg-primary text-white py-6 mt-4"
+                disabled={registerMutation.isPending}
+                data-testid="button-register"
+              >
+                {registerMutation.isPending ? "Creating account..." : "Create Account"}
+              </Button>
+            </form>
           )}
 
           <div className="mt-6 text-center">
