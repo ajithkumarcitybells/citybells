@@ -2,6 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Hide scrollbar but keep scroll functionality */
+html {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+html::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+body {
+  -webkit-overflow-scrolling: touch;
+}
+
 /* LIGHT MODE */
 :root {
   --button-outline: rgba(0,0,0, .10);
