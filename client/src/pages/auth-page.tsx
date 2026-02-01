@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useLocation, Redirect } from "wouter";
-import { Eye, EyeOff, ShoppingBag, Truck, Heart, Shield } from "lucide-react";
+import { Eye, EyeOff, User, Mail, Phone, Lock, ShoppingBag, Truck, Heart, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -22,10 +22,15 @@ const loginSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
-const registerSchema = loginSchema.extend({
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Please enter a valid email").optional().or(z.literal("")),
-  phone: z.string().optional(),
+const registerSchema = z.object({
+  name: z.string().min(2, "Name is required"),
+  email: z.string().email("Please enter a valid email"),
+  phone: z.string().min(10, "Please enter a valid 10-digit phone number").max(10, "Phone number must be 10 digits"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  confirmPassword: z.string().min(6, "Please confirm your password"),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
@@ -42,9 +47,11 @@ export default function AuthPage() {
     defaultValues: { username: "", password: "" },
   });
 
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const registerForm = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { username: "", password: "", name: "", email: "", phone: "" },
+    defaultValues: { name: "", email: "", phone: "", password: "", confirmPassword: "" },
   });
 
   if (user) {
@@ -58,7 +65,15 @@ export default function AuthPage() {
   };
 
   const onRegisterSubmit = (data: RegisterFormData) => {
-    registerMutation.mutate(data, {
+    // Use email as username for login
+    const { confirmPassword, ...registerData } = data;
+    registerMutation.mutate({
+      username: data.email,
+      password: data.password,
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+    }, {
       onSuccess: () => setLocation("/"),
     });
   };
@@ -97,13 +112,17 @@ export default function AuthPage() {
                   name="username"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Username</FormLabel>
+                      <FormLabel>Email / Username</FormLabel>
                       <FormControl>
-                        <Input 
-                          placeholder="Enter your username" 
-                          {...field} 
-                          data-testid="input-username"
-                        />
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                          <Input 
+                            placeholder="Enter your email or username" 
+                            className="pl-10"
+                            {...field} 
+                            data-testid="input-username"
+                          />
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -117,9 +136,11 @@ export default function AuthPage() {
                       <FormLabel>Password</FormLabel>
                       <FormControl>
                         <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                           <Input 
                             type={showPassword ? "text" : "password"}
-                            placeholder="Enter your password" 
+                            placeholder="Enter your password"
+                            className="pl-10 pr-10"
                             {...field}
                             data-testid="input-password"
                           />
@@ -148,36 +169,25 @@ export default function AuthPage() {
             </Form>
           ) : (
             <Form {...registerForm}>
-              <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-4">
+              <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-3">
                 <FormField
                   control={registerForm.control}
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Full Name</FormLabel>
+                      <FormLabel className="text-sm font-medium">
+                        Full Name <span className="text-red-500">*</span>
+                      </FormLabel>
                       <FormControl>
-                        <Input 
-                          placeholder="Enter your full name" 
-                          {...field}
-                          data-testid="input-name"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={registerForm.control}
-                  name="username"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Username</FormLabel>
-                      <FormControl>
-                        <Input 
-                          placeholder="Choose a username" 
-                          {...field}
-                          data-testid="input-username"
-                        />
+                        <div className="relative">
+                          <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                          <Input 
+                            placeholder="Enter your full name" 
+                            className="pl-10 h-12"
+                            {...field}
+                            data-testid="input-name"
+                          />
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -188,14 +198,20 @@ export default function AuthPage() {
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email (Optional)</FormLabel>
+                      <FormLabel className="text-sm font-medium">
+                        Email <span className="text-red-500">*</span>
+                      </FormLabel>
                       <FormControl>
-                        <Input 
-                          type="email"
-                          placeholder="Enter your email" 
-                          {...field}
-                          data-testid="input-email"
-                        />
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                          <Input 
+                            type="email"
+                            placeholder="Enter your email address" 
+                            className="pl-10 h-12"
+                            {...field}
+                            data-testid="input-email"
+                          />
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -206,14 +222,25 @@ export default function AuthPage() {
                   name="phone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Phone (Optional)</FormLabel>
+                      <FormLabel className="text-sm font-medium">
+                        Phone Number <span className="text-red-500">*</span>
+                      </FormLabel>
                       <FormControl>
-                        <Input 
-                          type="tel"
-                          placeholder="Enter your phone number" 
-                          {...field}
-                          data-testid="input-phone"
-                        />
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                          <Input 
+                            type="tel"
+                            placeholder="Enter 10-digit phone number"
+                            className="pl-10 h-12"
+                            maxLength={10}
+                            {...field}
+                            onChange={(e) => {
+                              const value = e.target.value.replace(/\D/g, '');
+                              field.onChange(value);
+                            }}
+                            data-testid="input-phone"
+                          />
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -224,12 +251,16 @@ export default function AuthPage() {
                   name="password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Password</FormLabel>
+                      <FormLabel className="text-sm font-medium">
+                        Password <span className="text-red-500">*</span>
+                      </FormLabel>
                       <FormControl>
                         <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                           <Input 
                             type={showPassword ? "text" : "password"}
-                            placeholder="Create a password" 
+                            placeholder="Create a password (min 6 characters)"
+                            className="pl-10 pr-10 h-12"
                             {...field}
                             data-testid="input-password"
                           />
@@ -246,9 +277,40 @@ export default function AuthPage() {
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={registerForm.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium">
+                        Confirm Password <span className="text-red-500">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                          <Input 
+                            type={showConfirmPassword ? "text" : "password"}
+                            placeholder="Confirm your password"
+                            className="pl-10 pr-10 h-12"
+                            {...field}
+                            data-testid="input-confirm-password"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                          >
+                            {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <Button 
                   type="submit" 
-                  className="w-full bg-primary text-white py-6"
+                  className="w-full bg-primary text-white py-6 mt-4"
                   disabled={registerMutation.isPending}
                   data-testid="button-register"
                 >
