@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { MapPin, Clock, CreditCard, Banknote, Check } from "lucide-react";
+import { MapPin, Clock, CreditCard, Banknote, Check, Shield } from "lucide-react";
 import { Header } from "@/components/Header";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,12 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { CartItemWithProduct } from "@shared/schema";
+
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
 
 const deliverySlots = [
   { id: "morning", label: "Morning", time: "9:00 AM - 12:00 PM" },
@@ -30,6 +36,17 @@ export default function CheckoutPage() {
   const [selectedSlot, setSelectedSlot] = useState("morning");
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [orderPlaced, setOrderPlaced] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+
+  useEffect(() => {
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    document.body.appendChild(script);
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
 
   const { data: cartItems = [] } = useQuery<CartItemWithProduct[]>({
     queryKey: ["/api/cart"],
@@ -43,8 +60,28 @@ export default function CheckoutPage() {
   const deliveryFee = subtotal > 500 ? 0 : 40;
   const total = subtotal + deliveryFee;
 
-  const placeOrderMutation = useMutation({
+  const createRazorpayOrderMutation = useMutation({
     mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/payment/create-order", {
+        amount: total,
+      });
+      return res.json();
+    },
+  });
+
+  const verifyPaymentMutation = useMutation({
+    mutationFn: async (paymentData: {
+      razorpay_order_id: string;
+      razorpay_payment_id: string;
+      razorpay_signature: string;
+    }) => {
+      const res = await apiRequest("POST", "/api/payment/verify", paymentData);
+      return res.json();
+    },
+  });
+
+  const placeOrderMutation = useMutation({
+    mutationFn: async (paymentId?: string) => {
       const orderItems = cartItems.map(item => ({
         productId: item.product.id,
         name: item.product.name,
@@ -58,7 +95,8 @@ export default function CheckoutPage() {
         totalAmount: total.toString(),
         deliveryAddress: address,
         deliverySlot: deliverySlots.find(s => s.id === selectedSlot)?.time,
-        paymentMethod,
+        paymentMethod: paymentId ? "razorpay" : "cod",
+        paymentId,
       });
       return res.json();
     },
@@ -66,8 +104,10 @@ export default function CheckoutPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       setOrderPlaced(true);
+      setIsProcessingPayment(false);
     },
     onError: (error: Error) => {
+      setIsProcessingPayment(false);
       toast({
         title: "Order failed",
         description: error.message || "Could not place order. Please try again.",
@@ -75,6 +115,81 @@ export default function CheckoutPage() {
       });
     },
   });
+
+  const handleRazorpayPayment = async () => {
+    if (!window.Razorpay) {
+      toast({
+        title: "Payment Error",
+        description: "Payment gateway not loaded. Please refresh and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsProcessingPayment(true);
+
+    try {
+      const orderData = await createRazorpayOrderMutation.mutateAsync();
+
+      const options = {
+        key: orderData.keyId,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: "City Bell",
+        description: "Order Payment",
+        order_id: orderData.orderId,
+        handler: async (response: any) => {
+          try {
+            await verifyPaymentMutation.mutateAsync({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+
+            await placeOrderMutation.mutateAsync(response.razorpay_payment_id);
+          } catch (err) {
+            setIsProcessingPayment(false);
+            toast({
+              title: "Payment Failed",
+              description: "Payment verification failed. Please try again.",
+              variant: "destructive",
+            });
+          }
+        },
+        prefill: {
+          name: user?.name || user?.username || "",
+          email: user?.email || "",
+          contact: phone,
+        },
+        theme: {
+          color: "#22C543",
+        },
+        modal: {
+          ondismiss: () => {
+            setIsProcessingPayment(false);
+          },
+        },
+      };
+
+      const razorpay = new window.Razorpay(options);
+      razorpay.open();
+    } catch (err) {
+      setIsProcessingPayment(false);
+      toast({
+        title: "Payment Error",
+        description: "Could not initiate payment. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handlePlaceOrder = () => {
+    if (paymentMethod === "online") {
+      handleRazorpayPayment();
+    } else {
+      placeOrderMutation.mutate();
+    }
+  };
 
   if (!user) {
     setLocation("/auth");
@@ -229,8 +344,11 @@ export default function CheckoutPage() {
                 <RadioGroupItem value="online" id="online" />
                 <CreditCard className="h-5 w-5 text-gray-600" />
                 <Label htmlFor="online" className="flex-1 cursor-pointer">
-                  <span className="font-medium">Online Payment</span>
-                  <span className="text-xs text-gray-500 ml-2">(Coming Soon)</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">Pay Online</span>
+                    <Shield className="h-4 w-4 text-green-600" />
+                  </div>
+                  <span className="text-xs text-gray-500 block">UPI, Cards, Net Banking, Wallets</span>
                 </Label>
               </div>
             </div>
@@ -261,12 +379,19 @@ export default function CheckoutPage() {
       <div className="fixed bottom-16 left-0 right-0 bg-white border-t border-gray-200 p-4 safe-area-pb">
         <div className="max-w-lg mx-auto">
           <Button 
-            onClick={() => placeOrderMutation.mutate()}
-            disabled={!address || !phone || placeOrderMutation.isPending}
+            onClick={handlePlaceOrder}
+            disabled={!address || !phone || placeOrderMutation.isPending || isProcessingPayment}
             className="w-full bg-primary text-white font-semibold py-6"
             data-testid="button-place-order"
           >
-            {placeOrderMutation.isPending ? "Placing Order..." : `Place Order • ₹${total.toFixed(2)}`}
+            {isProcessingPayment 
+              ? "Processing Payment..." 
+              : placeOrderMutation.isPending 
+                ? "Placing Order..." 
+                : paymentMethod === 'online'
+                  ? `Pay ₹${total.toFixed(2)}`
+                  : `Place Order • ₹${total.toFixed(2)}`
+            }
           </Button>
         </div>
       </div>

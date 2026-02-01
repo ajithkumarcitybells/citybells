@@ -1,9 +1,17 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
+import crypto from "crypto";
+import Razorpay from "razorpay";
 import { storage } from "./storage";
 import { setupAuth, requireAuth, requireAdmin } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
+
+// Initialize Razorpay
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID!,
+  key_secret: process.env.RAZORPAY_KEY_SECRET!,
+});
 import { 
   insertProductSchema, 
   insertCategorySchema, 
@@ -37,7 +45,8 @@ const createOrderSchema = z.object({
   totalAmount: z.string(),
   deliveryAddress: z.string().min(1, "Delivery address is required"),
   deliverySlot: z.string().optional(),
-  paymentMethod: z.enum(["cod", "online"]).default("cod"),
+  paymentMethod: z.enum(["cod", "online", "razorpay"]).default("cod"),
+  paymentId: z.string().optional(),
 });
 
 const updateOrderStatusSchema = z.object({
@@ -258,6 +267,77 @@ export async function registerRoutes(
     }
   });
 
+  // Razorpay Payment Routes
+  const createRazorpayOrderSchema = z.object({
+    amount: z.number().positive("Amount must be positive"),
+  });
+
+  app.post("/api/payment/create-order", requireAuth, async (req, res) => {
+    try {
+      const parsed = createRazorpayOrderSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid request" });
+      }
+
+      const { amount } = parsed.data;
+      const currency = process.env.RAZORPAY_CURRENCY || "INR";
+
+      const options = {
+        amount: Math.round(amount * 100), // Razorpay expects amount in paise
+        currency,
+        receipt: `order_${Date.now()}`,
+      };
+
+      const order = await razorpay.orders.create(options);
+      res.json({
+        orderId: order.id,
+        amount: order.amount,
+        currency: order.currency,
+        keyId: process.env.RAZORPAY_KEY_ID,
+      });
+    } catch (err) {
+      console.error("Error creating Razorpay order:", err);
+      res.status(500).json({ message: "Failed to create payment order" });
+    }
+  });
+
+  const verifyPaymentSchema = z.object({
+    razorpay_order_id: z.string(),
+    razorpay_payment_id: z.string(),
+    razorpay_signature: z.string(),
+  });
+
+  app.post("/api/payment/verify", requireAuth, async (req, res) => {
+    try {
+      const parsed = verifyPaymentSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid request" });
+      }
+
+      const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = parsed.data;
+
+      // Verify signature
+      const body = razorpay_order_id + "|" + razorpay_payment_id;
+      const expectedSignature = crypto
+        .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!)
+        .update(body)
+        .digest("hex");
+
+      if (expectedSignature !== razorpay_signature) {
+        return res.status(400).json({ message: "Payment verification failed" });
+      }
+
+      res.json({ 
+        success: true, 
+        paymentId: razorpay_payment_id,
+        message: "Payment verified successfully" 
+      });
+    } catch (err) {
+      console.error("Error verifying payment:", err);
+      res.status(500).json({ message: "Payment verification failed" });
+    }
+  });
+
   app.post("/api/orders", requireAuth, async (req, res) => {
     try {
       const parsed = createOrderSchema.safeParse(req.body);
@@ -265,7 +345,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid request" });
       }
 
-      const { items, totalAmount, deliveryAddress, deliverySlot, paymentMethod } = parsed.data;
+      const { items, totalAmount, deliveryAddress, deliverySlot, paymentMethod, paymentId } = parsed.data;
 
       const order = await storage.createOrder({
         userId: req.user!.id,
@@ -274,7 +354,8 @@ export async function registerRoutes(
         deliveryAddress,
         deliverySlot,
         paymentMethod,
-        status: "pending",
+        paymentId,
+        status: paymentId ? "confirmed" : "pending", // Auto-confirm paid orders
       });
 
       // Clear cart after order

@@ -151,6 +151,7 @@ export const orders = pgTable("orders", {
   deliveryAddress: text("delivery_address").notNull(),
   deliverySlot: text("delivery_slot"),
   paymentMethod: text("payment_method").default("cod"),
+  paymentId: text("payment_id"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
