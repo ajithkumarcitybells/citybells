@@ -63,9 +63,9 @@ export function ServiceCard({ name, description, image, isActive, href, isLarge 
         <div className="absolute inset-0 bg-gradient-to-t from-blue-900/40 via-blue-800/15 to-blue-600/10" />
         
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="flex items-center gap-2 bg-white/95 px-4 py-2 rounded-full shadow-lg">
-            <Lock className="h-4 w-4 text-gray-600" />
-            <span className="text-sm font-medium text-gray-700">COMING SOON</span>
+          <div className="flex items-center gap-2 bg-black/60 px-4 py-2 rounded-full shadow-lg">
+            <Lock className="h-4 w-4 text-white" />
+            <span className="text-sm font-medium text-white">COMING SOON</span>
           </div>
         </div>
         
@@ -98,9 +98,9 @@ export function ServiceCard({ name, description, image, isActive, href, isLarge 
       
       {!isActive && (
         <div className="absolute top-3 right-3">
-          <div className="flex items-center gap-1.5 bg-white/95 px-3 py-1.5 rounded-full shadow-md">
-            <Lock className="h-3 w-3 text-gray-600" />
-            <span className="text-xs font-medium text-gray-700">COMING SOON</span>
+          <div className="flex items-center gap-1.5 bg-black/60 px-3 py-1.5 rounded-full shadow-md">
+            <Lock className="h-3 w-3 text-white" />
+            <span className="text-xs font-medium text-white">COMING SOON</span>
           </div>
         </div>
       )}
