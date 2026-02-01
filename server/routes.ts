@@ -8,7 +8,8 @@ import {
   insertProductSchema, 
   insertCategorySchema, 
   insertBannerSchema,
-  insertOrderSchema 
+  insertOrderSchema,
+  insertAddressSchema
 } from "@shared/schema";
 
 // Validation schemas for API endpoints
@@ -286,16 +287,21 @@ export async function registerRoutes(
     }
   });
 
-  // Addresses
-  const addressFormSchema = z.object({
-    label: z.string().min(1, "Label is required"),
-    fullAddress: z.string().min(1, "Address is required"),
-    flatHouseNo: z.string().optional(),
-    landmark: z.string().optional(),
-    latitude: z.string().optional(),
-    longitude: z.string().optional(),
-    isDefault: z.boolean().optional(),
-  });
+  // Addresses - using shared schema with required fields extended
+  const addressFormSchema = insertAddressSchema
+    .pick({
+      label: true,
+      fullAddress: true,
+      flatHouseNo: true,
+      landmark: true,
+      latitude: true,
+      longitude: true,
+      isDefault: true,
+    })
+    .extend({
+      label: z.string().min(1, "Label is required"),
+      fullAddress: z.string().min(1, "Address is required"),
+    });
 
   app.get("/api/addresses", requireAuth, async (req, res) => {
     try {

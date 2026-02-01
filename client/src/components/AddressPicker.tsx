@@ -215,15 +215,13 @@ export function AddressPicker() {
                     Complete Address *
                   </Label>
                   {address && address !== "Tap to set location" && (
-                    <Button
+                    <button
                       type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-auto p-0 text-xs text-primary hover:bg-transparent hover:underline"
+                      className="text-xs text-primary underline"
                       onClick={handleUseDetectedLocation}
                     >
                       Use detected location
-                    </Button>
+                    </button>
                   )}
                 </div>
                 <Input
