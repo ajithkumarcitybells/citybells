@@ -29,7 +29,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Order, OrderItem } from "@shared/schema";
 
-type OrderWithCustomer = Order & { customerName?: string; customerEmail?: string };
+type OrderWithCustomer = Order & { customerName?: string; customerEmail?: string; customerPhone?: string };
 
 const statusConfig: Record<string, { icon: typeof Package; color: string; label: string }> = {
   pending: { icon: Clock, color: "bg-yellow-100 text-yellow-700", label: "Pending" },
@@ -129,6 +129,9 @@ export default function AdminOrdersPage() {
                         <div>
                           <p className="font-medium text-sm">{order.customerName || 'Unknown'}</p>
                           <p className="text-xs text-gray-500">{order.customerEmail || '-'}</p>
+                          {order.customerPhone && (
+                            <p className="text-xs text-gray-500">{order.customerPhone}</p>
+                          )}
                         </div>
                       </div>
                     </TableCell>

@@ -289,12 +289,13 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(orders).where(eq(orders.userId, userId)).orderBy(desc(orders.createdAt));
   }
 
-  async getAllOrders(): Promise<(Order & { customerName?: string; customerEmail?: string })[]> {
+  async getAllOrders(): Promise<(Order & { customerName?: string; customerEmail?: string; customerPhone?: string })[]> {
     const result = await db
       .select({
         order: orders,
         customerName: users.name,
         customerEmail: users.email,
+        customerPhone: users.phone,
       })
       .from(orders)
       .leftJoin(users, eq(orders.userId, users.id))
@@ -304,6 +305,7 @@ export class DatabaseStorage implements IStorage {
       ...r.order,
       customerName: r.customerName || undefined,
       customerEmail: r.customerEmail || undefined,
+      customerPhone: r.customerPhone || undefined,
     }));
   }
 
