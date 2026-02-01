@@ -296,11 +296,11 @@ export default function SettingsPage() {
         ) : activeSection === "about" ? (
           <div className="bg-white rounded-xl p-4 shadow-sm">
             <div className="text-center py-4">
-              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-3">
+              <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-3">
                 <img 
                   src="/attached_assets/photo_2025-01-17_20-04-39-removebg-preview.png" 
                   alt="City Bell" 
-                  className="w-12 h-12 object-contain"
+                  className="w-14 h-14 object-contain"
                 />
               </div>
               <h3 className="font-bold text-xl text-gray-800">City Bell</h3>
