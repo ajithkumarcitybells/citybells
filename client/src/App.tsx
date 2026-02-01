@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -6,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/use-auth";
 import { LocationProvider } from "@/hooks/use-location";
 import { ProtectedRoute, AdminRoute } from "@/lib/protected-route";
+import SplashScreen from "@/components/SplashScreen";
 import NotFound from "@/pages/not-found";
 import HomePage from "@/pages/home-page";
 import GroceryPage from "@/pages/grocery-page";
@@ -45,11 +47,16 @@ function Router() {
 }
 
 function App() {
+  const [showSplash, setShowSplash] = useState(true);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <LocationProvider>
           <TooltipProvider>
+            {showSplash && (
+              <SplashScreen onComplete={() => setShowSplash(false)} duration={2500} />
+            )}
             <Toaster />
             <Router />
           </TooltipProvider>
