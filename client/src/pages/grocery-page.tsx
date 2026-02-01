@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Search, SlidersHorizontal, ChevronRight } from "lucide-react";
+import { Search, ListFilter, ChevronRight } from "lucide-react";
 import { Header } from "@/components/Header";
 import { BottomNav } from "@/components/BottomNav";
 import { CategoryCard } from "@/components/CategoryCard";
@@ -120,7 +120,7 @@ export default function GroceryPage() {
             />
           </div>
           <Button variant="outline" size="icon" className="bg-primary text-white hover:bg-primary/90 border-0">
-            <SlidersHorizontal className="h-4 w-4" />
+            <ListFilter className="h-4 w-4" />
           </Button>
         </div>
 
