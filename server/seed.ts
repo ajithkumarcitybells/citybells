@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { users, categories, products, banners, services } from "@shared/schema";
+import { users, categories, products, banners, services, cartItems, wishlistItems } from "@shared/schema";
 import { hashPassword } from "./auth";
 import { eq } from "drizzle-orm";
 
@@ -27,8 +27,8 @@ async function seed() {
     console.log("Admin user password updated (username: admin, password: admin123)");
   }
 
-  // Create categories
-  const existingCategories = await db.select().from(categories);
+  // Create categories if they don't exist
+  let existingCategories = await db.select().from(categories);
   if (existingCategories.length === 0) {
     const categoryData = [
       { name: "Fruits", image: "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=200", sortOrder: 0 },
@@ -40,18 +40,25 @@ async function seed() {
       { name: "Grocery", image: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=200", sortOrder: 6 },
       { name: "Meat & Fish", image: "https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=200", sortOrder: 7 },
     ];
-    const insertedCategories = await db.insert(categories).values(categoryData).returning();
-    console.log(`${insertedCategories.length} categories created`);
+    existingCategories = await db.insert(categories).values(categoryData).returning();
+    console.log(`${existingCategories.length} categories created`);
+  }
 
-    // Get category IDs by name
-    const fruitsId = insertedCategories.find(c => c.name === "Fruits")!.id;
-    const vegetablesId = insertedCategories.find(c => c.name === "Vegetables")!.id;
-    const dairyId = insertedCategories.find(c => c.name === "Dairy")!.id;
-    const bakeryId = insertedCategories.find(c => c.name === "Bakery")!.id;
-    const beveragesId = insertedCategories.find(c => c.name === "Beverages")!.id;
-    const snacksId = insertedCategories.find(c => c.name === "Snacks")!.id;
-    const groceryId = insertedCategories.find(c => c.name === "Grocery")!.id;
-    const meatFishId = insertedCategories.find(c => c.name === "Meat & Fish")!.id;
+  // Get category IDs by name
+  const vegetablesId = existingCategories.find(c => c.name === "Vegetables")!.id;
+  const dairyId = existingCategories.find(c => c.name === "Dairy")!.id;
+  const bakeryId = existingCategories.find(c => c.name === "Bakery")!.id;
+  const beveragesId = existingCategories.find(c => c.name === "Beverages")!.id;
+  const snacksId = existingCategories.find(c => c.name === "Snacks")!.id;
+  const groceryId = existingCategories.find(c => c.name === "Grocery")!.id;
+  const meatFishId = existingCategories.find(c => c.name === "Meat & Fish")!.id;
+
+  // Always reseed products - first clear existing data
+  console.log("Clearing existing products for reseed...");
+  await db.delete(cartItems);
+  await db.delete(wishlistItems);
+  await db.delete(products);
+  console.log("Existing products cleared");
 
     // Create vegetables from Excel file
     const productData = [
@@ -126,9 +133,8 @@ async function seed() {
       { name: "Prawns", description: "Fresh tiger prawns", image: "https://images.unsplash.com/photo-1565680018093-ebb6e41fd8c5?w=400", categoryId: meatFishId, originalPrice: "450.00", discountPercent: 15, price: "382.50", rating: "4.5", unit: "500g" },
     ];
     
-    const insertedProducts = await db.insert(products).values(productData).returning();
-    console.log(`${insertedProducts.length} products created`);
-  }
+  const insertedProducts = await db.insert(products).values(productData).returning();
+  console.log(`${insertedProducts.length} products created`);
 
   // Create banners
   const existingBanners = await db.select().from(banners);
