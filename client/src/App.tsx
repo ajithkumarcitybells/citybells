@@ -24,6 +24,8 @@ import AdminOrdersPage from "@/pages/admin/orders-page";
 import AdminBannersPage from "@/pages/admin/banners-page";
 import AdminServicesPage from "@/pages/admin/services-page";
 import ProductDetailPage from "@/pages/product-detail-page";
+import AddressesPage from "@/pages/addresses-page";
+import SettingsPage from "@/pages/settings-page";
 
 function AppRouter() {
   return (
@@ -40,6 +42,8 @@ function AppRouter() {
       <Route path="/signup" component={AuthPage} />
       <ProtectedRoute path="/checkout" component={CheckoutPage} />
       <ProtectedRoute path="/orders" component={OrdersPage} />
+      <ProtectedRoute path="/addresses" component={AddressesPage} />
+      <ProtectedRoute path="/settings" component={SettingsPage} />
       <AdminRoute path="/admin" component={AdminDashboard} />
       <AdminRoute path="/admin/products" component={AdminProductsPage} />
       <AdminRoute path="/admin/categories" component={AdminCategoriesPage} />

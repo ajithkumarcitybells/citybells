@@ -45,8 +45,8 @@ export default function ProfilePage() {
   const menuItems = [
     { icon: Package, label: "My Orders", href: "/orders" },
     { icon: Heart, label: "Wishlist", href: "/wishlist" },
-    { icon: MapPin, label: "Saved Addresses", href: "#" },
-    { icon: Settings, label: "Settings", href: "#" },
+    { icon: MapPin, label: "Saved Addresses", href: "/addresses" },
+    { icon: Settings, label: "Settings", href: "/settings" },
   ];
 
   return (

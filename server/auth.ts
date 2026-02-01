@@ -143,6 +143,45 @@ export function setupAuth(app: Express) {
     const { password: _, ...userWithoutPassword } = req.user!;
     res.json(userWithoutPassword);
   });
+
+  app.patch("/api/user/profile", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Please login to continue" });
+    }
+    try {
+      const { name, email, phone } = req.body;
+      const updatedUser = await storage.updateUserProfile(req.user!.id, { name, email, phone });
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
+  app.patch("/api/user/password", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Please login to continue" });
+    }
+    try {
+      const { currentPassword, newPassword } = req.body;
+      const user = await storage.getUser(req.user!.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      const isValid = await comparePasswords(currentPassword, user.password);
+      if (!isValid) {
+        return res.status(400).json({ message: "Current password is incorrect" });
+      }
+      const hashedPassword = await hashPassword(newPassword);
+      await storage.updateUserPassword(req.user!.id, hashedPassword);
+      res.json({ message: "Password changed successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to change password" });
+    }
+  });
 }
 
 export function requireAuth(req: Express.Request, res: Express.Response, next: Express.NextFunction) {
