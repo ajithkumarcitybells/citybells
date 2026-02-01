@@ -320,11 +320,15 @@ export default function CheckoutPage() {
                         <p className="text-sm text-gray-600 truncate">{addr.fullAddress}</p>
                       </div>
                       <div className="flex-shrink-0">
-                        <RadioGroupItem 
-                          value={addr.id} 
-                          checked={selectedAddressId === addr.id && !showNewAddress}
-                          className="mt-1"
-                        />
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                          selectedAddressId === addr.id && !showNewAddress
+                            ? 'border-primary bg-primary'
+                            : 'border-gray-300'
+                        }`}>
+                          {selectedAddressId === addr.id && !showNewAddress && (
+                            <div className="w-2 h-2 bg-white rounded-full" />
+                          )}
+                        </div>
                       </div>
                     </div>
                   );

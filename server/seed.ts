@@ -27,13 +27,15 @@ async function seed() {
     console.log("Admin user password updated (username: admin, password: admin123)");
   }
 
-  // Always reseed categories and products
-  console.log("Clearing existing data for reseed...");
-  await db.delete(cartItems);
-  await db.delete(wishlistItems);
-  await db.delete(products);
-  await db.delete(categories);
-  console.log("Existing data cleared");
+  // Only seed categories and products if none exist (don't clear existing data)
+  const existingCategories = await db.select().from(categories);
+  
+  if (existingCategories.length > 0) {
+    console.log(`Found ${existingCategories.length} existing categories, skipping seed to preserve data`);
+    return;
+  }
+  
+  console.log("No categories found, seeding initial data...");
 
   // Create categories matching the design
   const categoryData = [
