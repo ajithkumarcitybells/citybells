@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Search, ListFilter, ChevronRight } from "lucide-react";
+import { Search, ListFilter } from "lucide-react";
 import { Header } from "@/components/Header";
 import { BottomNav } from "@/components/BottomNav";
 import { CategoryCard } from "@/components/CategoryCard";
@@ -81,19 +81,18 @@ export default function GroceryPage() {
           <h2 className="text-lg font-semibold text-gray-800">Shop by category</h2>
           <button 
             onClick={() => setShowAllCategories(!showAllCategories)}
-            className="text-sm font-medium text-primary flex items-center gap-1"
+            className="text-sm font-medium text-primary"
             data-testid="button-show-more-categories"
           >
             {showAllCategories ? "Show less" : "Show more"}
-            <ChevronRight className="h-4 w-4" />
           </button>
         </div>
         
-        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+        <div className="grid grid-cols-3 gap-3">
           {categoriesLoading ? (
-            Array(4).fill(0).map((_, i) => (
-              <div key={i} className="flex flex-col items-center gap-2 min-w-[100px]">
-                <Skeleton className="w-20 h-20 rounded-xl" />
+            Array(3).fill(0).map((_, i) => (
+              <div key={i} className="flex flex-col items-center gap-2">
+                <Skeleton className="w-full aspect-square rounded-lg" />
                 <Skeleton className="w-16 h-3" />
               </div>
             ))
