@@ -15,14 +15,14 @@ export function ServiceCard({ name, description, image, isActive, href, isLarge 
   if (isLarge && isActive) {
     const content = (
       <div 
-        className="relative rounded-3xl overflow-hidden aspect-[16/10] bg-gradient-to-br from-green-500 via-green-400 to-green-300 border-2 border-white shadow-lg"
+        className="relative rounded-3xl overflow-hidden aspect-[16/10] bg-gradient-to-br from-green-500 via-green-400 to-green-300 border-[3px] border-white shadow-lg"
         data-testid={`card-service-${name.toLowerCase().replace(/\s+/g, '-')}`}
       >
         <div className="absolute bottom-0 right-0 w-2/3 h-full">
           <img 
             src={image} 
             alt={name}
-            className="w-full h-full object-cover blur-[1px]"
+            className="w-full h-full object-cover blur-[2px]"
             loading="lazy"
           />
           <div className="absolute inset-0 bg-gradient-to-l from-blue-500/15 via-blue-500/20 to-green-500/30" />
@@ -50,13 +50,13 @@ export function ServiceCard({ name, description, image, isActive, href, isLarge 
   if (isLarge && !isActive) {
     return (
       <div 
-        className="relative rounded-3xl overflow-hidden aspect-[2/1] border-2 border-white shadow-lg"
+        className="relative rounded-3xl overflow-hidden aspect-[2/1] border-[3px] border-white shadow-lg"
         data-testid={`card-service-${name.toLowerCase().replace(/\s+/g, '-')}`}
       >
         <img 
           src={image} 
           alt={name}
-          className="w-full h-full object-cover blur-[1px]"
+          className="w-full h-full object-cover blur-[2px]"
           loading="lazy"
         />
         
@@ -84,13 +84,13 @@ export function ServiceCard({ name, description, image, isActive, href, isLarge 
   // Small inactive cards (E-Commerce, Food, Hotel, Taxi)
   return (
     <div 
-      className="relative rounded-2xl overflow-hidden aspect-[4/3] bg-gray-100 border-2 border-white shadow-lg"
+      className="relative rounded-2xl overflow-hidden aspect-[4/3] bg-gray-100 border-[3px] border-white shadow-lg"
       data-testid={`card-service-${name.toLowerCase().replace(/\s+/g, '-')}`}
     >
       <img 
         src={image} 
         alt={name}
-        className="w-full h-full object-cover blur-[1px]"
+        className="w-full h-full object-cover blur-[2px]"
         loading="lazy"
       />
       
