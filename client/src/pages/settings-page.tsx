@@ -298,7 +298,7 @@ export default function SettingsPage() {
             <div className="text-center py-4">
               <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-3">
                 <img 
-                  src="/attached_assets/photo_2025-01-17_20-04-39-removebg-preview.png" 
+                  src="/attached_assets/citybells-logo_1769903304782.png" 
                   alt="City Bell" 
                   className="w-14 h-14 object-contain"
                 />
