@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { Banner } from "@shared/schema";
 
 interface BannerSliderProps {
@@ -21,10 +21,6 @@ export function BannerSlider({ banners }: BannerSliderProps) {
 
   const goToPrevious = () => {
     setCurrentIndex((prev) => (prev - 1 + banners.length) % banners.length);
-  };
-
-  const goToNext = () => {
-    setCurrentIndex((prev) => (prev + 1) % banners.length);
   };
 
   if (banners.length === 0) {
@@ -79,14 +75,6 @@ export function BannerSlider({ banners }: BannerSliderProps) {
           >
             <ChevronLeft className="h-5 w-5 text-gray-700" />
           </button>
-          <button
-            onClick={goToNext}
-            className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 rounded-full p-1.5 shadow-lg hover-elevate"
-            data-testid="button-banner-next"
-          >
-            <ChevronRight className="h-5 w-5 text-gray-700" />
-          </button>
-
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2">
             {banners.map((_, index) => (
               <button
