@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Upload, Image as ImageIcon, X as XIcon } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, Image as ImageIcon, X as XIcon, ToggleLeft, ToggleRight } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -135,6 +135,20 @@ export default function AdminProductsPage() {
     },
   });
 
+  const toggleStatusMutation = useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      const res = await apiRequest("PATCH", `/api/admin/products/${id}`, { isActive });
+      return res.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({ title: variables.isActive ? "Product activated" : "Product deactivated" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to update status", description: error.message, variant: "destructive" });
+    },
+  });
+
   const openCreateDialog = () => {
     setEditingProduct(null);
     setImagePreview("");
@@ -264,6 +278,7 @@ export default function AdminProductsPage() {
                 <TableHead>Category</TableHead>
                 <TableHead>Price</TableHead>
                 <TableHead>Stock</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -299,6 +314,26 @@ export default function AdminProductsPage() {
                     </div>
                   </TableCell>
                   <TableCell>{product.stock}</TableCell>
+                  <TableCell>
+                    <button
+                      onClick={() => toggleStatusMutation.mutate({ id: product.id, isActive: !product.isActive })}
+                      disabled={toggleStatusMutation.isPending}
+                      className="flex items-center gap-1"
+                      data-testid={`button-toggle-status-${product.id}`}
+                    >
+                      {product.isActive ? (
+                        <>
+                          <ToggleRight className="h-6 w-6 text-green-500" />
+                          <span className="text-xs text-green-600 font-medium">Active</span>
+                        </>
+                      ) : (
+                        <>
+                          <ToggleLeft className="h-6 w-6 text-gray-400" />
+                          <span className="text-xs text-gray-500 font-medium">Inactive</span>
+                        </>
+                      )}
+                    </button>
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button
