@@ -200,7 +200,15 @@ export default function AddressesPage() {
                               </span>
                             )}
                           </div>
-                          <p className="text-sm text-gray-600 mt-1">{addr.fullAddress}</p>
+                          <a 
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr.fullAddress)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-blue-600 hover:text-blue-800 hover:underline mt-1 block"
+                          data-testid={`link-map-${addr.id}`}
+                        >
+                          {addr.fullAddress}
+                        </a>
                           {addr.flatHouseNo && (
                             <p className="text-xs text-gray-500">{addr.flatHouseNo}</p>
                           )}
