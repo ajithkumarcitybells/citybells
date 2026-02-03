@@ -31,7 +31,7 @@ export default function ProductDetailPage() {
     enabled: !!user,
   });
 
-  const { data: cartItems = [] } = useQuery<{ productId: string; quantity: number }[]>({
+  const { data: cartItems = [] } = useQuery<{ id: string; productId: string; quantity: number }[]>({
     queryKey: ["/api/cart"],
     enabled: !!user,
   });
@@ -49,6 +49,21 @@ export default function ProductDetailPage() {
     },
     onError: () => {
       toast({ title: "Please login", description: "You need to login to add items to cart", variant: "destructive" });
+    },
+  });
+
+  const updateCartMutation = useMutation({
+    mutationFn: async ({ cartItemId, newQuantity }: { cartItemId: string; newQuantity: number }) => {
+      if (newQuantity <= 0) {
+        return apiRequest("DELETE", `/api/cart/${cartItemId}`);
+      }
+      return apiRequest("PATCH", `/api/cart/${cartItemId}`, { quantity: newQuantity });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update cart", variant: "destructive" });
     },
   });
 
@@ -216,15 +231,19 @@ export default function ProductDetailPage() {
         {cartItem ? (
           <div className="flex-1 flex items-center justify-center gap-4 bg-pink-500 rounded-xl py-3">
             <button 
-              onClick={() => setQuantity(Math.max(1, quantity - 1))}
+              onClick={() => updateCartMutation.mutate({ cartItemId: cartItem.id, newQuantity: cartItem.quantity - 1 })}
+              disabled={updateCartMutation.isPending}
               className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center"
+              data-testid="button-decrease-quantity"
             >
               <Minus className="h-4 w-4 text-white" />
             </button>
-            <span className="text-white font-semibold text-lg">{cartItem.quantity}</span>
+            <span className="text-white font-semibold text-lg" data-testid="text-cart-quantity">{cartItem.quantity}</span>
             <button 
-              onClick={() => setQuantity(quantity + 1)}
+              onClick={() => updateCartMutation.mutate({ cartItemId: cartItem.id, newQuantity: cartItem.quantity + 1 })}
+              disabled={updateCartMutation.isPending}
               className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center"
+              data-testid="button-increase-quantity"
             >
               <Plus className="h-4 w-4 text-white" />
             </button>
