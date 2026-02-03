@@ -22,7 +22,7 @@ export function ServiceCard({ name, description, image, isActive, href, isLarge 
           <img 
             src={image} 
             alt={name}
-            className="w-full h-full object-cover blur-[2px]"
+            className="w-full h-full object-cover"
             loading="lazy"
           />
           <div className="absolute inset-0 bg-gradient-to-l from-blue-500/15 via-blue-500/20 to-green-500/30" />
