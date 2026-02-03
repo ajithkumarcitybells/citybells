@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Package, Clock, CheckCircle, Truck, XCircle, User, MapPin, ChevronDown, ChevronUp } from "lucide-react";
 import { AdminLayout } from "./index";
@@ -52,10 +52,29 @@ const statusOptions = [
 export default function AdminOrdersPage() {
   const { toast } = useToast();
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+  const previousOrderCount = useRef<number | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const { data: orders = [], isLoading } = useQuery<OrderWithCustomer[]>({
     queryKey: ["/api/admin/orders"],
+    refetchInterval: 30000,
   });
+
+  useEffect(() => {
+    if (orders.length > 0 && previousOrderCount.current !== null) {
+      const newOrdersCount = orders.length - previousOrderCount.current;
+      if (newOrdersCount > 0) {
+        toast({
+          title: `${newOrdersCount} New Order${newOrdersCount > 1 ? 's' : ''}!`,
+          description: "You have new orders to process",
+        });
+        if (audioRef.current) {
+          audioRef.current.play().catch(() => {});
+        }
+      }
+    }
+    previousOrderCount.current = orders.length;
+  }, [orders.length, toast]);
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ orderId, status }: { orderId: string; status: string }) => {
@@ -73,9 +92,20 @@ export default function AdminOrdersPage() {
 
   return (
     <AdminLayout>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Orders</h1>
-        <p className="text-gray-500">Manage customer orders</p>
+      <audio 
+        ref={audioRef} 
+        src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" 
+        preload="auto"
+      />
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Orders</h1>
+          <p className="text-gray-500">Manage customer orders</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500">Auto-refresh every 30s</span>
+          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
