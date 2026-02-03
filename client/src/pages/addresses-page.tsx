@@ -201,7 +201,7 @@ export default function AddressesPage() {
                             )}
                           </div>
                           <a 
-                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr.fullAddress)}`}
+                          href={`https://maps.google.com/?q=${encodeURIComponent(addr.fullAddress)}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-sm text-blue-600 hover:text-blue-800 hover:underline mt-1 block"

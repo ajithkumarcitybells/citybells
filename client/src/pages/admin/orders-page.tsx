@@ -230,7 +230,7 @@ export default function AdminOrdersPage() {
                         <MapPin className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
                         {order.deliveryAddress ? (
                           <a 
-                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.deliveryAddress)}`}
+                            href={`https://maps.google.com/?q=${encodeURIComponent(order.deliveryAddress)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-sm text-blue-600 hover:text-blue-800 hover:underline line-clamp-2"
