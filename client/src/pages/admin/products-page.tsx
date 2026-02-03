@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Upload, Image as ImageIcon, X as XIcon, ToggleLeft, ToggleRight } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, Image as ImageIcon, X as XIcon, ToggleLeft, ToggleRight, Download, FileSpreadsheet } from "lucide-react";
+import * as XLSX from "xlsx";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -63,7 +64,9 @@ export default function AdminProductsPage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const excelInputRef = useRef<HTMLInputElement>(null);
 
   const { data: products = [], isLoading } = useQuery<Product[]>({
     queryKey: ["/api/admin/products"],
@@ -251,6 +254,81 @@ export default function AdminProductsPage() {
     setImagePreview("");
   };
 
+  const handleExportExcel = () => {
+    const exportData = products.map((product) => ({
+      Name: product.name,
+      Description: product.description || "",
+      Category: categories.find(c => c.id === product.categoryId)?.name || "",
+      "Original Price": product.originalPrice,
+      "Selling Price": product.price,
+      "Discount %": product.discountPercent || 0,
+      Stock: product.stock,
+      Unit: product.unit,
+      Image: product.image || "",
+      Active: product.isActive ? "Yes" : "No",
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Products");
+    XLSX.writeFile(wb, `products_${new Date().toISOString().split('T')[0]}.xlsx`);
+    toast({ title: "Products exported successfully" });
+  };
+
+  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet) as Record<string, unknown>[];
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const row of jsonData) {
+        const categoryName = String(row["Category"] || "");
+        const category = categories.find(c => c.name.toLowerCase() === categoryName.toLowerCase());
+        
+        const productData = {
+          name: String(row["Name"] || ""),
+          description: String(row["Description"] || ""),
+          categoryId: category?.id || "",
+          originalPrice: String(row["Original Price"] || "0"),
+          price: String(row["Selling Price"] || "0"),
+          discountPercent: Number(row["Discount %"]) || 0,
+          stock: Number(row["Stock"]) || 100,
+          unit: String(row["Unit"] || "1 pc"),
+          image: String(row["Image"] || ""),
+          isActive: String(row["Active"]).toLowerCase() === "yes",
+        };
+
+        if (!productData.name) continue;
+
+        try {
+          await apiRequest("POST", "/api/admin/products", productData);
+          successCount++;
+        } catch {
+          errorCount++;
+        }
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/products"] });
+      toast({ 
+        title: "Import completed", 
+        description: `${successCount} products added, ${errorCount} failed` 
+      });
+    } catch (error) {
+      toast({ title: "Import failed", description: "Invalid Excel file", variant: "destructive" });
+    } finally {
+      setIsImporting(false);
+      if (excelInputRef.current) excelInputRef.current.value = "";
+    }
+  };
+
   const onSubmit = (data: ProductFormData) => {
     if (editingProduct) {
       updateMutation.mutate({ id: editingProduct.id, data });
@@ -261,15 +339,42 @@ export default function AdminProductsPage() {
 
   return (
     <AdminLayout>
+      <input
+        type="file"
+        ref={excelInputRef}
+        accept=".xlsx,.xls"
+        onChange={handleImportExcel}
+        className="hidden"
+      />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Products</h1>
           <p className="text-gray-500">Manage your product catalog</p>
         </div>
-        <Button onClick={openCreateDialog} className="bg-primary" data-testid="button-add-product">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Product
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handleExportExcel}
+            disabled={products.length === 0}
+            data-testid="button-export-excel"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => excelInputRef.current?.click()}
+            disabled={isImporting}
+            data-testid="button-import-excel"
+          >
+            <FileSpreadsheet className="h-4 w-4 mr-2" />
+            {isImporting ? "Importing..." : "Import"}
+          </Button>
+          <Button onClick={openCreateDialog} className="bg-primary" data-testid="button-add-product">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Product
+          </Button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
