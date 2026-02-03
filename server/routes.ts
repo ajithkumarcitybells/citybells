@@ -456,6 +456,16 @@ export async function registerRoutes(
   // ==================== ADMIN ROUTES ====================
 
   // Admin Products
+  app.get("/api/admin/products", requireAdmin, async (req, res) => {
+    try {
+      const products = await storage.getAllProducts();
+      res.json(products);
+    } catch (err) {
+      console.error("Error fetching all products:", err);
+      res.status(500).json({ message: "Failed to fetch products" });
+    }
+  });
+
   app.post("/api/admin/products", requireAdmin, async (req, res) => {
     try {
       const parsed = productFormSchema.safeParse(req.body);

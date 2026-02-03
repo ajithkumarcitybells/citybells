@@ -66,7 +66,7 @@ export default function AdminProductsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: products = [], isLoading } = useQuery<Product[]>({
-    queryKey: ["/api/products"],
+    queryKey: ["/api/admin/products"],
   });
 
   const { data: categories = [] } = useQuery<Category[]>({
@@ -95,7 +95,7 @@ export default function AdminProductsPage() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/products"] });
       setIsDialogOpen(false);
       form.reset();
       toast({ title: "Product created successfully" });
@@ -111,7 +111,7 @@ export default function AdminProductsPage() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/products"] });
       setIsDialogOpen(false);
       setEditingProduct(null);
       form.reset();
@@ -127,7 +127,7 @@ export default function AdminProductsPage() {
       await apiRequest("DELETE", `/api/admin/products/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/products"] });
       toast({ title: "Product deleted successfully" });
     },
     onError: (error: Error) => {
@@ -141,7 +141,7 @@ export default function AdminProductsPage() {
       return res.json();
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/products"] });
       toast({ title: variables.isActive ? "Product activated" : "Product deactivated" });
     },
     onError: (error: Error) => {

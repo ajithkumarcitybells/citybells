@@ -56,6 +56,7 @@ export interface IStorage {
   
   // Products
   getProducts(): Promise<Product[]>;
+  getAllProducts(): Promise<Product[]>;
   getProduct(id: string): Promise<Product | undefined>;
   getProductsByCategory(categoryId: string): Promise<Product[]>;
   createProduct(product: InsertProduct): Promise<Product>;
@@ -170,6 +171,10 @@ export class DatabaseStorage implements IStorage {
   // Products
   async getProducts(): Promise<Product[]> {
     return db.select().from(products).where(eq(products.isActive, true));
+  }
+
+  async getAllProducts(): Promise<Product[]> {
+    return db.select().from(products);
   }
 
   async getProduct(id: string): Promise<Product | undefined> {
