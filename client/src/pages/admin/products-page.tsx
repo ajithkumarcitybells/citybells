@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, Upload, Image as ImageIcon, X as XIcon, ToggleLeft, ToggleRight } from "lucide-react";
 import { useForm } from "react-hook-form";
@@ -88,6 +88,21 @@ export default function AdminProductsPage() {
       unit: "1 pc",
     },
   });
+
+  const watchOriginalPrice = form.watch("originalPrice");
+  const watchPrice = form.watch("price");
+
+  useEffect(() => {
+    const original = parseFloat(watchOriginalPrice);
+    const selling = parseFloat(watchPrice);
+    
+    if (original > 0 && selling > 0 && selling < original) {
+      const discount = Math.round(((original - selling) / original) * 100);
+      form.setValue("discountPercent", discount);
+    } else if (original > 0 && selling >= original) {
+      form.setValue("discountPercent", 0);
+    }
+  }, [watchOriginalPrice, watchPrice, form]);
 
   const createMutation = useMutation({
     mutationFn: async (data: ProductFormData) => {
@@ -517,9 +532,17 @@ export default function AdminProductsPage() {
                   name="discountPercent"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Discount (%)</FormLabel>
+                      <FormLabel>Discount (%) <span className="text-xs text-gray-400">Auto</span></FormLabel>
                       <FormControl>
-                        <Input type="number" min="0" max="100" placeholder="0" {...field} />
+                        <Input 
+                          type="number" 
+                          min="0" 
+                          max="100" 
+                          placeholder="0" 
+                          {...field} 
+                          readOnly
+                          className="bg-gray-50"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
