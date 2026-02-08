@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Upload, Image as ImageIcon, X as XIcon, ToggleLeft, ToggleRight, Download, FileSpreadsheet, ArrowLeft, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, Image as ImageIcon, X as XIcon, ToggleLeft, ToggleRight, Download, FileSpreadsheet, ArrowLeft, Search, CheckSquare, Square } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -59,6 +59,8 @@ export default function AdminProductsPage() {
   const [isImporting, setIsImporting] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
+  const [isDeletingBulk, setIsDeletingBulk] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const excelInputRef = useRef<HTMLInputElement>(null);
 
@@ -160,6 +162,52 @@ export default function AdminProductsPage() {
       toast({ title: "Failed to update status", description: error.message, variant: "destructive" });
     },
   });
+
+  const filteredProductsList = products
+    .filter(p => p.categoryId === selectedCategoryId)
+    .filter(p => !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase()));
+
+  const toggleProductSelection = (productId: string) => {
+    setSelectedProductIds(prev => {
+      const next = new Set(prev);
+      if (next.has(productId)) {
+        next.delete(productId);
+      } else {
+        next.add(productId);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedProductIds.size === filteredProductsList.length && filteredProductsList.length > 0) {
+      setSelectedProductIds(new Set());
+    } else {
+      setSelectedProductIds(new Set(filteredProductsList.map(p => p.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedProductIds.size === 0) return;
+    setIsDeletingBulk(true);
+    let successCount = 0;
+    let errorCount = 0;
+    for (const id of selectedProductIds) {
+      try {
+        await apiRequest("DELETE", `/api/admin/products/${id}`);
+        successCount++;
+      } catch {
+        errorCount++;
+      }
+    }
+    queryClient.invalidateQueries({ queryKey: ["/api/admin/products"] });
+    setSelectedProductIds(new Set());
+    setIsDeletingBulk(false);
+    toast({
+      title: `${successCount} product${successCount !== 1 ? 's' : ''} deleted`,
+      description: errorCount > 0 ? `${errorCount} failed to delete` : undefined,
+    });
+  };
 
   const openCreateDialog = () => {
     setEditingProduct(null);
@@ -404,7 +452,7 @@ export default function AdminProductsPage() {
       ) : (
         <div>
           <button
-            onClick={() => { setSelectedCategoryId(null); setSearchQuery(""); }}
+            onClick={() => { setSelectedCategoryId(null); setSearchQuery(""); setSelectedProductIds(new Set()); }}
             className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
             data-testid="button-back-categories"
           >
@@ -422,27 +470,69 @@ export default function AdminProductsPage() {
               ({products.filter(p => p.categoryId === selectedCategoryId).length})
             </span>
           </div>
-          <div className="relative mb-4">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Search products..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-              data-testid="input-search-products"
-            />
+          <div className="flex items-center gap-2 mb-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search products..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+                data-testid="input-search-products"
+              />
+            </div>
           </div>
+          {filteredProductsList.length > 0 && (
+            <div className="flex items-center justify-between mb-3 px-1">
+              <button
+                onClick={toggleSelectAll}
+                className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+                data-testid="button-select-all"
+              >
+                {selectedProductIds.size === filteredProductsList.length && filteredProductsList.length > 0 ? (
+                  <CheckSquare className="h-4 w-4 text-primary" />
+                ) : (
+                  <Square className="h-4 w-4" />
+                )}
+                <span>
+                  {selectedProductIds.size > 0
+                    ? `${selectedProductIds.size} selected`
+                    : "Select All"}
+                </span>
+              </button>
+              {selectedProductIds.size > 0 && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleBulkDelete}
+                  disabled={isDeletingBulk}
+                  data-testid="button-bulk-delete"
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                  {isDeletingBulk ? "Deleting..." : `Delete ${selectedProductIds.size}`}
+                </Button>
+              )}
+            </div>
+          )}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 p-4">
-              {products
-                .filter(p => p.categoryId === selectedCategoryId)
-                .filter(p => !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase()))
-                .map((product) => (
+              {filteredProductsList.map((product) => (
                   <div
                     key={product.id}
-                    className={`relative border rounded-lg p-3 ${product.isActive ? 'border-gray-200' : 'border-gray-200 opacity-60'}`}
+                    className={`relative border rounded-lg p-3 ${selectedProductIds.has(product.id) ? 'border-primary bg-primary/5' : product.isActive ? 'border-gray-200' : 'border-gray-200 opacity-60'}`}
                     data-testid={`product-card-${product.id}`}
                   >
+                    <button
+                      onClick={() => toggleProductSelection(product.id)}
+                      className="absolute top-2 left-2 z-10"
+                      data-testid={`checkbox-product-${product.id}`}
+                    >
+                      {selectedProductIds.has(product.id) ? (
+                        <CheckSquare className="h-5 w-5 text-primary" />
+                      ) : (
+                        <Square className="h-5 w-5 text-gray-300 hover:text-gray-500" />
+                      )}
+                    </button>
                     <div className="w-full h-24 bg-gray-100 rounded-md overflow-hidden mb-2">
                       {product.image ? (
                         <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
