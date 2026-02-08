@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Upload, Image as ImageIcon, X as XIcon, ToggleLeft, ToggleRight, Download, FileSpreadsheet } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, Image as ImageIcon, X as XIcon, ToggleLeft, ToggleRight, Download, FileSpreadsheet, ArrowLeft } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -57,6 +57,7 @@ export default function AdminProductsPage() {
   const [imagePreview, setImagePreview] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const excelInputRef = useRef<HTMLInputElement>(null);
 
@@ -370,96 +371,119 @@ export default function AdminProductsPage() {
       </div>
 
       {isLoading ? (
-        <div className="space-y-4">
-          {Array(3).fill(0).map((_, i) => (
-            <div key={i} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-3">
-              <Skeleton className="h-5 w-1/4" />
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {Array(4).fill(0).map((_, j) => (
-                  <Skeleton key={j} className="h-40 rounded-lg" />
-                ))}
-              </div>
-            </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {Array(8).fill(0).map((_, i) => (
+            <Skeleton key={i} className="h-32 rounded-xl" />
           ))}
         </div>
-      ) : (
-        <div className="space-y-6">
-          {categories
-            .filter(cat => products.some(p => p.categoryId === cat.id))
-            .map((category) => (
-              <div key={category.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                <div className="flex items-center gap-2 mb-4">
-                  {category.image && (
-                    <img src={category.image} alt={category.name} className="w-6 h-6 rounded object-cover" />
+      ) : selectedCategoryId === null ? (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {categories.map((category) => {
+            const count = products.filter(p => p.categoryId === category.id).length;
+            return (
+              <div
+                key={category.id}
+                onClick={() => setSelectedCategoryId(category.id)}
+                className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 cursor-pointer hover:shadow-md transition-shadow"
+                data-testid={`category-card-${category.id}`}
+              >
+                <div className="w-full h-20 bg-gray-100 rounded-lg overflow-hidden mb-3">
+                  {category.image ? (
+                    <img src={category.image} alt={category.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-green-100 to-green-200" />
                   )}
-                  <h2 className="text-lg font-semibold text-gray-800">{category.name}</h2>
-                  <span className="text-sm text-gray-400">
-                    ({products.filter(p => p.categoryId === category.id).length})
-                  </span>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                  {products
-                    .filter(p => p.categoryId === category.id)
-                    .map((product) => (
-                      <div
-                        key={product.id}
-                        className={`relative border rounded-lg p-3 ${product.isActive ? 'border-gray-200' : 'border-gray-200 opacity-60'}`}
-                        data-testid={`product-card-${product.id}`}
-                      >
-                        <div className="w-full h-24 bg-gray-100 rounded-md overflow-hidden mb-2">
-                          {product.image ? (
-                            <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-green-100 to-green-200" />
-                          )}
-                        </div>
-                        <p className="font-medium text-sm truncate">{product.name}</p>
-                        <p className="text-xs text-gray-500">{product.unit}</p>
-                        <div className="flex items-center gap-1 mt-1">
-                          <p className="font-semibold text-sm text-primary">₹{parseFloat(product.price).toFixed(0)}</p>
-                          {product.discountPercent && product.discountPercent > 0 && (
-                            <p className="text-xs text-gray-400 line-through">₹{parseFloat(product.originalPrice).toFixed(0)}</p>
-                          )}
-                        </div>
-                        <div className="flex items-center justify-between mt-2">
-                          <button
-                            onClick={() => toggleStatusMutation.mutate({ id: product.id, isActive: !product.isActive })}
-                            disabled={toggleStatusMutation.isPending}
-                            className="flex items-center gap-0.5"
-                            data-testid={`button-toggle-status-${product.id}`}
-                          >
-                            {product.isActive ? (
-                              <ToggleRight className="h-5 w-5 text-green-500" />
-                            ) : (
-                              <ToggleLeft className="h-5 w-5 text-gray-400" />
-                            )}
-                          </button>
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => openEditDialog(product)}
-                              data-testid={`button-edit-${product.id}`}
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-red-500"
-                              onClick={() => deleteMutation.mutate(product.id)}
-                              data-testid={`button-delete-${product.id}`}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                </div>
+                <p className="font-semibold text-gray-800">{category.name}</p>
+                <p className="text-sm text-gray-500">{count} product{count !== 1 ? 's' : ''}</p>
               </div>
-            ))}
+            );
+          })}
+        </div>
+      ) : (
+        <div>
+          <button
+            onClick={() => setSelectedCategoryId(null)}
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
+            data-testid="button-back-categories"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span className="font-medium">Back to Categories</span>
+          </button>
+          <div className="flex items-center gap-2 mb-4">
+            {categories.find(c => c.id === selectedCategoryId)?.image && (
+              <img src={categories.find(c => c.id === selectedCategoryId)!.image!} alt="" className="w-6 h-6 rounded object-cover" />
+            )}
+            <h2 className="text-lg font-semibold text-gray-800">
+              {categories.find(c => c.id === selectedCategoryId)?.name}
+            </h2>
+            <span className="text-sm text-gray-400">
+              ({products.filter(p => p.categoryId === selectedCategoryId).length})
+            </span>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 p-4">
+              {products
+                .filter(p => p.categoryId === selectedCategoryId)
+                .map((product) => (
+                  <div
+                    key={product.id}
+                    className={`relative border rounded-lg p-3 ${product.isActive ? 'border-gray-200' : 'border-gray-200 opacity-60'}`}
+                    data-testid={`product-card-${product.id}`}
+                  >
+                    <div className="w-full h-24 bg-gray-100 rounded-md overflow-hidden mb-2">
+                      {product.image ? (
+                        <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-green-100 to-green-200" />
+                      )}
+                    </div>
+                    <p className="font-medium text-sm truncate">{product.name}</p>
+                    <p className="text-xs text-gray-500">{product.unit}</p>
+                    <div className="flex items-center gap-1 mt-1">
+                      <p className="font-semibold text-sm text-primary">₹{parseFloat(product.price).toFixed(0)}</p>
+                      {product.discountPercent && product.discountPercent > 0 && (
+                        <p className="text-xs text-gray-400 line-through">₹{parseFloat(product.originalPrice).toFixed(0)}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between mt-2">
+                      <button
+                        onClick={() => toggleStatusMutation.mutate({ id: product.id, isActive: !product.isActive })}
+                        disabled={toggleStatusMutation.isPending}
+                        className="flex items-center gap-0.5"
+                        data-testid={`button-toggle-status-${product.id}`}
+                      >
+                        {product.isActive ? (
+                          <ToggleRight className="h-5 w-5 text-green-500" />
+                        ) : (
+                          <ToggleLeft className="h-5 w-5 text-gray-400" />
+                        )}
+                      </button>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => openEditDialog(product)}
+                          data-testid={`button-edit-${product.id}`}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-red-500"
+                          onClick={() => deleteMutation.mutate(product.id)}
+                          data-testid={`button-delete-${product.id}`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
         </div>
       )}
 
