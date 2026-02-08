@@ -595,6 +595,16 @@ export async function registerRoutes(
   });
 
   // Admin Categories
+  app.get("/api/admin/categories", requireAdmin, async (req, res) => {
+    try {
+      const categories = await storage.getAllCategories();
+      res.json(categories);
+    } catch (err) {
+      console.error("Error fetching all categories:", err);
+      res.status(500).json({ message: "Failed to fetch categories" });
+    }
+  });
+
   app.post("/api/admin/categories", requireAdmin, async (req, res) => {
     try {
       const parsed = categoryFormSchema.safeParse(req.body);
@@ -745,7 +755,7 @@ export async function registerRoutes(
       if (!parsed.success) {
         return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid ad data" });
       }
-      const categories = await storage.getCategories();
+      const categories = await storage.getAllCategories();
       if (!categories.find(c => c.id === parsed.data.categoryId)) {
         return res.status(400).json({ message: "Invalid category" });
       }

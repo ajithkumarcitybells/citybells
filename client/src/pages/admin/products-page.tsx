@@ -69,7 +69,7 @@ export default function AdminProductsPage() {
   });
 
   const { data: categories = [] } = useQuery<Category[]>({
-    queryKey: ["/api/categories"],
+    queryKey: ["/api/admin/categories"],
   });
 
   const form = useForm<ProductFormData>({

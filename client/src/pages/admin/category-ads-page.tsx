@@ -54,7 +54,7 @@ export default function AdminCategoryAdsPage() {
   });
 
   const { data: categories = [] } = useQuery<Category[]>({
-    queryKey: ["/api/categories"],
+    queryKey: ["/api/admin/categories"],
   });
 
   const form = useForm<CategoryAdFormData>({

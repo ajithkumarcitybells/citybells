@@ -53,7 +53,7 @@ export default function AdminCategoriesPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: categories = [], isLoading } = useQuery<Category[]>({
-    queryKey: ["/api/categories"],
+    queryKey: ["/api/admin/categories"],
   });
 
   const form = useForm<CategoryFormData>({
@@ -72,6 +72,7 @@ export default function AdminCategoriesPage() {
       return res.json();
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/categories"] });
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
       setIsDialogOpen(false);
       form.reset();
@@ -89,6 +90,7 @@ export default function AdminCategoriesPage() {
       return res.json();
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/categories"] });
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
       setIsDialogOpen(false);
       setEditingCategory(null);
@@ -106,6 +108,7 @@ export default function AdminCategoriesPage() {
       await apiRequest("DELETE", `/api/admin/categories/${id}`);
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/categories"] });
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
       toast({ title: "Category deleted successfully" });
     },
