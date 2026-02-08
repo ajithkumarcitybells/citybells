@@ -187,7 +187,7 @@ export function ProductCard({ product }: ProductCardProps) {
             size="sm"
             data-testid={`button-add-cart-${product.id}`}
           >
-            {addToCartMutation.isPending && !showWeightPicker ? "Adding..." : "Select Weight"}
+            {addToCartMutation.isPending && !showWeightPicker ? "Adding..." : "Add to Cart"}
           </Button>
         </div>
       </div>
