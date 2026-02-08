@@ -59,19 +59,20 @@ export function WeightPickerModal({ product, open, onClose, onAddToCart, isPendi
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div
-        className="relative bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 animate-in slide-in-from-bottom duration-300 safe-area-pb"
+        className="relative bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-4 pb-3 animate-in slide-in-from-bottom duration-300"
+        style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom, 12px))' }}
         data-testid="modal-weight-picker"
       >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-1 rounded-full bg-gray-100"
+          className="absolute top-3 right-3 p-1 rounded-full bg-gray-100"
           data-testid="button-close-weight-picker"
         >
-          <X className="h-5 w-5 text-gray-600" />
+          <X className="h-4 w-4 text-gray-600" />
         </button>
 
-        <div className="flex items-center gap-4 mb-5">
-          <div className="w-20 h-20 bg-gray-50 rounded-xl overflow-hidden flex-shrink-0">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-14 h-14 bg-gray-50 rounded-lg overflow-hidden flex-shrink-0">
             {product.image ? (
               <img src={product.image} alt={product.name} className="w-full h-full object-contain" />
             ) : (
@@ -79,12 +80,12 @@ export function WeightPickerModal({ product, open, onClose, onAddToCart, isPendi
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-gray-800 text-lg">{product.name}</h3>
-            <p className="text-sm text-gray-500">Select weight</p>
+            <h3 className="font-semibold text-gray-800 text-base leading-tight">{product.name}</h3>
+            <p className="text-xs text-gray-500">Select weight</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 mb-5">
+        <div className="grid grid-cols-3 gap-2 mb-3">
           {WEIGHT_OPTIONS.map((option) => {
             const isSelected = selectedWeight === option.label;
             const price = getPrice(option.multiplier);
@@ -92,7 +93,7 @@ export function WeightPickerModal({ product, open, onClose, onAddToCart, isPendi
               <button
                 key={option.label}
                 onClick={() => setSelectedWeight(option.label)}
-                className={`relative rounded-xl border-2 p-3 text-center transition-all ${
+                className={`relative rounded-lg border-2 py-2 px-2 text-center transition-all ${
                   isSelected
                     ? "border-primary bg-primary/5"
                     : "border-gray-200"
@@ -100,14 +101,14 @@ export function WeightPickerModal({ product, open, onClose, onAddToCart, isPendi
                 data-testid={`option-weight-${option.label}`}
               >
                 {option.popular && (
-                  <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-primary text-white text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap">
+                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-primary text-white text-[9px] font-medium px-1.5 py-0.5 rounded-full whitespace-nowrap">
                     Popular
                   </span>
                 )}
-                <p className={`font-bold text-base ${isSelected ? "text-primary" : "text-gray-800"}`}>
+                <p className={`font-bold text-sm ${isSelected ? "text-primary" : "text-gray-800"}`}>
                   {option.label}
                 </p>
-                <p className={`text-sm font-medium mt-1 ${isSelected ? "text-primary" : "text-gray-600"}`}>
+                <p className={`text-xs font-medium ${isSelected ? "text-primary" : "text-gray-600"}`}>
                   ₹{price.toFixed(0)}
                 </p>
               </button>
@@ -115,26 +116,24 @@ export function WeightPickerModal({ product, open, onClose, onAddToCart, isPendi
           })}
         </div>
 
-        <div className="bg-gray-50 rounded-xl p-4 mb-5">
+        <div className="bg-gray-50 rounded-lg px-3 py-2.5 mb-3">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">
-                {product.name} - {selectedWeight}
-              </p>
-            </div>
-            <div className="text-right">
-              <span className="text-xl font-bold text-primary">₹{currentPrice.toFixed(0)}</span>
+            <p className="text-xs text-gray-500 truncate mr-2">
+              {product.name} - {selectedWeight}
+            </p>
+            <div className="text-right flex-shrink-0">
+              <span className="text-lg font-bold text-primary">₹{currentPrice.toFixed(0)}</span>
               {product.discountPercent && product.discountPercent > 0 && (
                 <div className="flex items-center gap-1 justify-end">
-                  <span className="text-xs text-gray-400 line-through">₹{currentOriginalPrice.toFixed(0)}</span>
-                  <span className="text-xs font-medium text-green-600">{product.discountPercent}% off</span>
+                  <span className="text-[10px] text-gray-400 line-through">₹{currentOriginalPrice.toFixed(0)}</span>
+                  <span className="text-[10px] font-medium text-green-600">{product.discountPercent}% off</span>
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           <Button
             variant="outline"
             className="flex-1"

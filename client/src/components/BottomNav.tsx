@@ -61,8 +61,8 @@ export function BottomNav() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 safe-area-pb">
-      <div className="flex items-center justify-around py-2">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 pb-1" style={{ paddingBottom: 'max(4px, env(safe-area-inset-bottom, 4px))' }}>
+      <div className="flex items-center justify-around pt-1.5 pb-0.5">
         {navItems.map((item) => {
           const isActive = item.path === location;
           const Icon = item.icon;
@@ -72,12 +72,13 @@ export function BottomNav() {
               <button
                 key={item.label}
                 onClick={item.action}
-                className="flex flex-col items-center gap-0.5 p-2 min-w-[60px]"
+                className="flex flex-col items-center gap-0.5 px-2 py-1 min-w-[48px]"
                 data-testid={`button-nav-${item.label.toLowerCase()}`}
               >
                 <div className="relative">
-                  <Icon className="h-6 w-6 text-gray-500" />
+                  <Icon className="h-5 w-5 text-gray-500" />
                 </div>
+                <span className="text-[10px] text-gray-500">{item.label}</span>
               </button>
             );
           }
@@ -85,19 +86,20 @@ export function BottomNav() {
           return (
             <Link key={item.label} href={item.path!}>
               <div 
-                className="flex flex-col items-center gap-0.5 p-2 min-w-[60px]"
+                className="flex flex-col items-center gap-0.5 px-2 py-1 min-w-[48px]"
                 data-testid={`link-nav-${item.label.toLowerCase()}`}
               >
                 <div className="relative">
                   <Icon 
-                    className={`h-6 w-6 ${isActive ? 'text-primary' : 'text-gray-500'}`} 
+                    className={`h-5 w-5 ${isActive ? 'text-primary' : 'text-gray-500'}`} 
                   />
                   {item.showBadge && item.badge > 0 && (
-                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-4 w-4 flex items-center justify-center">
+                    <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-bold rounded-full h-3.5 w-3.5 flex items-center justify-center">
                       {item.badge > 9 ? '9+' : item.badge}
                     </span>
                   )}
                 </div>
+                <span className={`text-[10px] ${isActive ? 'text-primary font-medium' : 'text-gray-500'}`}>{item.label}</span>
               </div>
             </Link>
           );
