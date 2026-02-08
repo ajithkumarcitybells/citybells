@@ -11,10 +11,9 @@ import { WeightPickerModal } from "./WeightPickerModal";
 
 interface ProductCardProps {
   product: Product;
-  isFruitCategory?: boolean;
 }
 
-export function ProductCard({ product, isFruitCategory }: ProductCardProps) {
+export function ProductCard({ product }: ProductCardProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -96,11 +95,7 @@ export function ProductCard({ product, isFruitCategory }: ProductCardProps) {
       });
       return;
     }
-    if (isFruitCategory) {
-      setShowWeightPicker(true);
-    } else {
-      addToCartMutation.mutate(undefined);
-    }
+    setShowWeightPicker(true);
   };
 
   const handleWeightAddToCart = (variant: string) => {
@@ -183,9 +178,7 @@ export function ProductCard({ product, isFruitCategory }: ProductCardProps) {
             )}
           </div>
           
-          {isFruitCategory && (
-            <p className="text-xs text-gray-400 mb-1">per kg price</p>
-          )}
+          <p className="text-xs text-gray-400 mb-1">per kg price</p>
           
           <Button
             onClick={handleAddToCart}
@@ -194,20 +187,18 @@ export function ProductCard({ product, isFruitCategory }: ProductCardProps) {
             size="sm"
             data-testid={`button-add-cart-${product.id}`}
           >
-            {addToCartMutation.isPending && !showWeightPicker ? "Adding..." : isFruitCategory ? "Select Weight" : "Add to Cart"}
+            {addToCartMutation.isPending && !showWeightPicker ? "Adding..." : "Select Weight"}
           </Button>
         </div>
       </div>
 
-      {isFruitCategory && (
-        <WeightPickerModal
-          product={product}
-          open={showWeightPicker}
-          onClose={() => setShowWeightPicker(false)}
-          onAddToCart={handleWeightAddToCart}
-          isPending={addToCartMutation.isPending}
-        />
-      )}
+      <WeightPickerModal
+        product={product}
+        open={showWeightPicker}
+        onClose={() => setShowWeightPicker(false)}
+        onAddToCart={handleWeightAddToCart}
+        isPending={addToCartMutation.isPending}
+      />
     </>
   );
 }

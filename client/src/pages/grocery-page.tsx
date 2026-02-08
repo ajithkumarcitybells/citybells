@@ -207,13 +207,9 @@ export default function GroceryPage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            {filteredProducts.map((product) => {
-              const productCategory = categories.find(c => c.id === product.categoryId);
-              const isFruit = productCategory?.name?.toLowerCase() === "fruits";
-              return (
-                <ProductCard key={product.id} product={product} isFruitCategory={isFruit} />
-              );
-            })}
+            {filteredProducts.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
           </div>
         )}
       </main>

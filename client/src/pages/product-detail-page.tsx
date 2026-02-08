@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { ChevronLeft, Search, Share2, Heart, Zap, RotateCcw, Truck, ChevronDown, ChevronUp, Minus, Plus } from "lucide-react";
+import { ChevronLeft, Search, Share2, Heart, Zap, RotateCcw, Truck, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Product, Category } from "@shared/schema";
+import type { Product } from "@shared/schema";
 import { WeightPickerModal } from "@/components/WeightPickerModal";
 
 export default function ProductDetailPage() {
@@ -15,7 +15,6 @@ export default function ProductDetailPage() {
   const { toast } = useToast();
   const { user } = useAuth();
   const [showHighlights, setShowHighlights] = useState(true);
-  const [quantity, setQuantity] = useState(1);
   const [showWeightPicker, setShowWeightPicker] = useState(false);
 
   const { data: product, isLoading } = useQuery<Product>({
@@ -28,31 +27,18 @@ export default function ProductDetailPage() {
     enabled: !!params?.id,
   });
 
-  const { data: categories = [] } = useQuery<Category[]>({
-    queryKey: ["/api/categories"],
-  });
-
   const { data: wishlistItems = [] } = useQuery<{ productId: string }[]>({
     queryKey: ["/api/wishlist"],
     enabled: !!user,
   });
 
-  const { data: cartItems = [] } = useQuery<{ id: string; productId: string; quantity: number }[]>({
-    queryKey: ["/api/cart"],
-    enabled: !!user,
-  });
-
   const isInWishlist = wishlistItems.some((item) => item.productId === params?.id);
-  const cartItem = cartItems.find((item) => item.productId === params?.id);
-
-  const productCategory = product ? categories.find(c => c.id === product.categoryId) : null;
-  const isFruitCategory = productCategory?.name?.toLowerCase() === "fruits";
 
   const addToCartMutation = useMutation({
     mutationFn: async (variant: string | undefined) => {
       return apiRequest("POST", "/api/cart", {
         productId: params?.id,
-        quantity,
+        quantity: 1,
         variant: variant || null,
       });
     },
@@ -63,21 +49,6 @@ export default function ProductDetailPage() {
     },
     onError: () => {
       toast({ title: "Please login", description: "You need to login to add items to cart", variant: "destructive" });
-    },
-  });
-
-  const updateCartMutation = useMutation({
-    mutationFn: async ({ cartItemId, newQuantity }: { cartItemId: string; newQuantity: number }) => {
-      if (newQuantity <= 0) {
-        return apiRequest("DELETE", `/api/cart/${cartItemId}`);
-      }
-      return apiRequest("PATCH", `/api/cart/${cartItemId}`, { quantity: newQuantity });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
-    },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to update cart", variant: "destructive" });
     },
   });
 
@@ -106,11 +77,7 @@ export default function ProductDetailPage() {
       setLocation("/auth");
       return;
     }
-    if (isFruitCategory) {
-      setShowWeightPicker(true);
-    } else {
-      addToCartMutation.mutate(undefined);
-    }
+    setShowWeightPicker(true);
   };
 
   if (isLoading) {
@@ -200,9 +167,7 @@ export default function ProductDetailPage() {
           <div className="inline-block bg-green-600 text-white px-3 py-1 rounded text-lg font-bold">
             ₹{Math.round(parseFloat(product.price))}
           </div>
-          {isFruitCategory && (
-            <span className="text-xs text-gray-400 ml-2">per kg</span>
-          )}
+          <span className="text-xs text-gray-400 ml-2">per kg</span>
           {discount > 0 && (
             <div className="flex items-center gap-2 mt-1">
               <span className="text-gray-400 line-through text-sm">
@@ -258,44 +223,20 @@ export default function ProductDetailPage() {
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 flex gap-3">
-        {cartItem && !isFruitCategory ? (
-          <div className="flex-1 flex items-center justify-center gap-4 bg-pink-500 rounded-xl py-3">
-            <button 
-              onClick={() => updateCartMutation.mutate({ cartItemId: cartItem.id, newQuantity: cartItem.quantity - 1 })}
-              disabled={updateCartMutation.isPending}
-              className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center"
-              data-testid="button-decrease-quantity"
-            >
-              <Minus className="h-4 w-4 text-white" />
-            </button>
-            <span className="text-white font-semibold text-lg" data-testid="text-cart-quantity">{cartItem.quantity}</span>
-            <button 
-              onClick={() => updateCartMutation.mutate({ cartItemId: cartItem.id, newQuantity: cartItem.quantity + 1 })}
-              disabled={updateCartMutation.isPending}
-              className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center"
-              data-testid="button-increase-quantity"
-            >
-              <Plus className="h-4 w-4 text-white" />
-            </button>
-          </div>
-        ) : (
-          <Button
-            onClick={handleAddToCart}
-            disabled={addToCartMutation.isPending}
-            className="flex-1 bg-pink-500 hover:bg-pink-600 text-white py-6 rounded-xl text-lg font-semibold"
-            data-testid="button-add-to-cart"
-          >
-            {addToCartMutation.isPending && !showWeightPicker
-              ? "Adding..."
-              : isFruitCategory
-                ? "Select Weight & Add"
-                : "Add to cart"
-            }
-          </Button>
-        )}
+        <Button
+          onClick={handleAddToCart}
+          disabled={addToCartMutation.isPending}
+          className="flex-1 bg-pink-500 hover:bg-pink-600 text-white py-6 rounded-xl text-lg font-semibold"
+          data-testid="button-add-to-cart"
+        >
+          {addToCartMutation.isPending && !showWeightPicker
+            ? "Adding..."
+            : "Select Weight & Add"
+          }
+        </Button>
       </div>
 
-      {isFruitCategory && product && (
+      {product && (
         <WeightPickerModal
           product={product}
           open={showWeightPicker}
