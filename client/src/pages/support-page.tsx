@@ -57,6 +57,7 @@ export default function SupportPage() {
   const { data: ticketDetail, isLoading: detailLoading } = useQuery<SupportTicketWithMessages>({
     queryKey: ["/api/support/tickets", selectedTicketId],
     enabled: !!selectedTicketId && view === "detail",
+    refetchInterval: 3000,
   });
 
   const createTicketMutation = useMutation({

@@ -47,6 +47,7 @@ export default function AdminSupportPage() {
   const { data: ticketDetail, isLoading: detailLoading } = useQuery<SupportTicketWithMessages>({
     queryKey: ["/api/support/tickets", selectedTicketId],
     enabled: !!selectedTicketId,
+    refetchInterval: 3000,
   });
 
   const sendMessageMutation = useMutation({
