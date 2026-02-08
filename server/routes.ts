@@ -476,6 +476,57 @@ export async function registerRoutes(
 
   // ==================== ADMIN ROUTES ====================
 
+  // Admin Dashboard Stats
+  app.get("/api/admin/stats", requireAdmin, async (req, res) => {
+    try {
+      const { db } = await import("./db");
+      const { users, products, orders, categories, supportTickets } = await import("@shared/schema");
+      const { count, sum, eq, sql, desc } = await import("drizzle-orm");
+
+      const [userCount] = await db.select({ count: count() }).from(users).where(eq(users.isAdmin, false));
+      const [productCount] = await db.select({ count: count() }).from(products);
+      const [categoryCount] = await db.select({ count: count() }).from(categories);
+      const [orderCount] = await db.select({ count: count() }).from(orders);
+      const [revenueResult] = await db.select({ total: sum(orders.totalAmount) }).from(orders);
+      const [openTicketCount] = await db.select({ count: count() }).from(supportTickets).where(eq(supportTickets.status, "open"));
+
+      const statusBreakdown = await db
+        .select({ status: orders.status, count: count() })
+        .from(orders)
+        .groupBy(orders.status);
+
+      const recentOrders = await db
+        .select({
+          id: orders.id,
+          orderNumber: orders.orderNumber,
+          totalAmount: orders.totalAmount,
+          status: orders.status,
+          paymentMethod: orders.paymentMethod,
+          createdAt: orders.createdAt,
+          username: users.username,
+          name: users.name,
+        })
+        .from(orders)
+        .leftJoin(users, eq(orders.userId, users.id))
+        .orderBy(desc(orders.createdAt))
+        .limit(10);
+
+      res.json({
+        totalUsers: userCount.count,
+        totalProducts: productCount.count,
+        totalCategories: categoryCount.count,
+        totalOrders: orderCount.count,
+        totalRevenue: revenueResult.total || "0",
+        openTickets: openTicketCount.count,
+        orderStatusBreakdown: statusBreakdown,
+        recentOrders,
+      });
+    } catch (err) {
+      console.error("Error fetching admin stats:", err);
+      res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
   // Admin Products
   app.get("/api/admin/products", requireAdmin, async (req, res) => {
     try {
