@@ -151,7 +151,7 @@ export function ProductCard({ product }: ProductCardProps) {
         <div className="p-3">
           <div className="flex items-center justify-between mb-1">
             <h3 
-              className="font-medium text-sm text-gray-800 line-clamp-1 flex-1 cursor-pointer hover:text-primary"
+              className="font-medium text-sm text-gray-800 flex-1 cursor-pointer hover:text-primary leading-tight"
               onClick={() => setLocation(`/product/${product.id}`)}
             >
               {product.name}
