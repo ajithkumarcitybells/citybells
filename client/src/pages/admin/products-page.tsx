@@ -335,13 +335,20 @@ export default function AdminProductsPage() {
         const categoryName = String(row["Category"] || "");
         const category = categories.find(c => c.name.toLowerCase() === categoryName.toLowerCase());
         
+        const originalPrice = parseFloat(String(row["Original Price"] || "0"));
+        const sellingPrice = parseFloat(String(row["Selling Price"] || "0"));
+        let discountPercent = Number(row["Discount %"]) || 0;
+        if (discountPercent === 0 && originalPrice > 0 && sellingPrice > 0 && sellingPrice < originalPrice) {
+          discountPercent = Math.round(((originalPrice - sellingPrice) / originalPrice) * 100);
+        }
+
         const productData = {
           name: String(row["Name"] || ""),
           description: String(row["Description"] || ""),
           categoryId: category?.id || "",
-          originalPrice: String(row["Original Price"] || "0"),
-          price: String(row["Selling Price"] || "0"),
-          discountPercent: Number(row["Discount %"]) || 0,
+          originalPrice: String(originalPrice),
+          price: String(sellingPrice),
+          discountPercent,
           stock: Number(row["Stock"]) || 100,
           unit: String(row["Unit"] || "1 pc"),
           image: String(row["Image"] || ""),
