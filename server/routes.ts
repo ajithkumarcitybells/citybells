@@ -24,6 +24,7 @@ import {
 const addToCartSchema = z.object({
   productId: z.string().min(1, "Product ID is required"),
   quantity: z.number().int().positive().default(1),
+  variant: z.string().nullable().optional(),
 });
 
 const updateCartSchema = z.object({
@@ -172,11 +173,12 @@ export async function registerRoutes(
         return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid request" });
       }
       
-      const { productId, quantity } = parsed.data;
+      const { productId, quantity, variant } = parsed.data;
       const item = await storage.addToCart({
         userId: req.user!.id,
         productId,
         quantity,
+        variant: variant || null,
       });
       res.status(201).json(item);
     } catch (err) {

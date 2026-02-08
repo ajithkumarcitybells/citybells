@@ -41,8 +41,24 @@ export default function CartPage() {
     },
   });
 
+  const getVariantMultiplier = (variant: string | null | undefined): number => {
+    if (!variant) return 1;
+    switch (variant) {
+      case "250g": return 0.25;
+      case "500g": return 0.5;
+      case "1kg": return 1;
+      default: return 1;
+    }
+  };
+
+  const getItemPrice = (item: CartItemWithProduct): number => {
+    const basePrice = parseFloat(item.product.price);
+    const multiplier = getVariantMultiplier(item.variant);
+    return Math.round(basePrice * multiplier * 100) / 100;
+  };
+
   const subtotal = cartItems.reduce((sum, item) => {
-    return sum + parseFloat(item.product.price) * (item.quantity || 1);
+    return sum + getItemPrice(item) * (item.quantity || 1);
   }, 0);
 
   const deliveryFee = subtotal > 500 ? 0 : 40;
@@ -121,9 +137,12 @@ export default function CartPage() {
                 </div>
                 
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-medium text-gray-800 truncate">{item.product.name}</h3>
+                  <h3 className="font-medium text-gray-800 truncate">
+                    {item.product.name}
+                    {item.variant && <span className="text-sm text-gray-500 ml-1">- {item.variant}</span>}
+                  </h3>
                   <p className="text-lg font-bold text-primary mt-1">
-                    ₹{parseFloat(item.product.price).toFixed(2)}
+                    ₹{getItemPrice(item).toFixed(2)}
                   </p>
                   
                   <div className="flex items-center gap-3 mt-2">
@@ -174,7 +193,7 @@ export default function CartPage() {
                 
                 <div className="text-right">
                   <p className="font-bold text-gray-800">
-                    ₹{(parseFloat(item.product.price) * (item.quantity || 1)).toFixed(2)}
+                    ₹{(getItemPrice(item) * (item.quantity || 1)).toFixed(2)}
                   </p>
                 </div>
               </div>

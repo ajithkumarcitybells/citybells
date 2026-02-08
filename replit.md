@@ -124,6 +124,13 @@ City Bell is a Progressive Web App (PWA) for a multi-service super app featuring
 3. Use "Start application" workflow to run the dev server
 
 ## Recent Changes
+- Added weight-based variants for fruit products (Feb 2026):
+  - Fruit products show "Select Weight" button instead of direct "Add to Cart"
+  - WeightPickerModal with 250g/500g/1kg options and dynamic pricing
+  - 500g highlighted as popular, remembers last selected weight via localStorage
+  - Cart items with different weight variants stored as separate entries
+  - Cart and checkout display variant info with correct pricing (multiplier-based)
+  - `variant` field added to cart_items table
 - Integrated Razorpay payment gateway (Feb 2026):
   - Online payments via UPI, Cards, Net Banking, Wallets
   - Backend routes for order creation and signature verification

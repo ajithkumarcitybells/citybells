@@ -30,7 +30,7 @@ import {
   type InsertAddress,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
@@ -215,9 +215,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async addToCart(item: InsertCartItem): Promise<CartItem> {
-    const existing = await db.select().from(cartItems).where(
-      and(eq(cartItems.userId, item.userId), eq(cartItems.productId, item.productId))
-    );
+    const conditions = [
+      eq(cartItems.userId, item.userId),
+      eq(cartItems.productId, item.productId),
+    ];
+    if (item.variant) {
+      conditions.push(eq(cartItems.variant, item.variant));
+    } else {
+      conditions.push(sql`${cartItems.variant} IS NULL`);
+    }
+    const existing = await db.select().from(cartItems).where(and(...conditions));
     
     if (existing.length > 0) {
       const [updated] = await db.update(cartItems)

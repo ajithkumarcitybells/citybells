@@ -90,8 +90,24 @@ export default function CheckoutPage() {
     }
   };
 
+  const getVariantMultiplier = (variant: string | null | undefined): number => {
+    if (!variant) return 1;
+    switch (variant) {
+      case "250g": return 0.25;
+      case "500g": return 0.5;
+      case "1kg": return 1;
+      default: return 1;
+    }
+  };
+
+  const getItemPrice = (item: CartItemWithProduct): number => {
+    const basePrice = parseFloat(item.product.price);
+    const multiplier = getVariantMultiplier(item.variant);
+    return Math.round(basePrice * multiplier * 100) / 100;
+  };
+
   const subtotal = cartItems.reduce((sum, item) => {
-    return sum + parseFloat(item.product.price) * (item.quantity || 1);
+    return sum + getItemPrice(item) * (item.quantity || 1);
   }, 0);
 
   const deliveryFee = subtotal > 500 ? 0 : 40;
@@ -121,8 +137,8 @@ export default function CheckoutPage() {
     mutationFn: async (paymentId?: string) => {
       const orderItems = cartItems.map(item => ({
         productId: item.product.id,
-        name: item.product.name,
-        price: item.product.price,
+        name: item.variant ? `${item.product.name} - ${item.variant}` : item.product.name,
+        price: getItemPrice(item).toString(),
         quantity: item.quantity || 1,
         image: item.product.image,
       }));

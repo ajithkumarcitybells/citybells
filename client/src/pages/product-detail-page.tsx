@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Product } from "@shared/schema";
+import type { Product, Category } from "@shared/schema";
+import { WeightPickerModal } from "@/components/WeightPickerModal";
 
 export default function ProductDetailPage() {
   const [, params] = useRoute("/product/:id");
@@ -15,6 +16,7 @@ export default function ProductDetailPage() {
   const { user } = useAuth();
   const [showHighlights, setShowHighlights] = useState(true);
   const [quantity, setQuantity] = useState(1);
+  const [showWeightPicker, setShowWeightPicker] = useState(false);
 
   const { data: product, isLoading } = useQuery<Product>({
     queryKey: ["/api/products", params?.id],
@@ -24,6 +26,10 @@ export default function ProductDetailPage() {
       return res.json();
     },
     enabled: !!params?.id,
+  });
+
+  const { data: categories = [] } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
   });
 
   const { data: wishlistItems = [] } = useQuery<{ productId: string }[]>({
@@ -39,13 +45,21 @@ export default function ProductDetailPage() {
   const isInWishlist = wishlistItems.some((item) => item.productId === params?.id);
   const cartItem = cartItems.find((item) => item.productId === params?.id);
 
+  const productCategory = product ? categories.find(c => c.id === product.categoryId) : null;
+  const isFruitCategory = productCategory?.name?.toLowerCase() === "fruits";
+
   const addToCartMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest("POST", "/api/cart", { productId: params?.id, quantity });
+    mutationFn: async (variant: string | undefined) => {
+      return apiRequest("POST", "/api/cart", {
+        productId: params?.id,
+        quantity,
+        variant: variant || null,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
       toast({ title: "Added to cart", description: `${product?.name} added to your cart` });
+      setShowWeightPicker(false);
     },
     onError: () => {
       toast({ title: "Please login", description: "You need to login to add items to cart", variant: "destructive" });
@@ -85,6 +99,19 @@ export default function ProductDetailPage() {
       toast({ title: "Please login", description: "You need to login to manage wishlist", variant: "destructive" });
     },
   });
+
+  const handleAddToCart = () => {
+    if (!user) {
+      toast({ title: "Please login", description: "You need to login to add items to cart", variant: "destructive" });
+      setLocation("/auth");
+      return;
+    }
+    if (isFruitCategory) {
+      setShowWeightPicker(true);
+    } else {
+      addToCartMutation.mutate(undefined);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -173,6 +200,9 @@ export default function ProductDetailPage() {
           <div className="inline-block bg-green-600 text-white px-3 py-1 rounded text-lg font-bold">
             ₹{Math.round(parseFloat(product.price))}
           </div>
+          {isFruitCategory && (
+            <span className="text-xs text-gray-400 ml-2">per kg</span>
+          )}
           {discount > 0 && (
             <div className="flex items-center gap-2 mt-1">
               <span className="text-gray-400 line-through text-sm">
@@ -228,7 +258,7 @@ export default function ProductDetailPage() {
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 flex gap-3">
-        {cartItem ? (
+        {cartItem && !isFruitCategory ? (
           <div className="flex-1 flex items-center justify-center gap-4 bg-pink-500 rounded-xl py-3">
             <button 
               onClick={() => updateCartMutation.mutate({ cartItemId: cartItem.id, newQuantity: cartItem.quantity - 1 })}
@@ -250,15 +280,30 @@ export default function ProductDetailPage() {
           </div>
         ) : (
           <Button
-            onClick={() => addToCartMutation.mutate()}
+            onClick={handleAddToCart}
             disabled={addToCartMutation.isPending}
             className="flex-1 bg-pink-500 hover:bg-pink-600 text-white py-6 rounded-xl text-lg font-semibold"
             data-testid="button-add-to-cart"
           >
-            {addToCartMutation.isPending ? "Adding..." : "Add to cart"}
+            {addToCartMutation.isPending && !showWeightPicker
+              ? "Adding..."
+              : isFruitCategory
+                ? "Select Weight & Add"
+                : "Add to cart"
+            }
           </Button>
         )}
       </div>
+
+      {isFruitCategory && product && (
+        <WeightPickerModal
+          product={product}
+          open={showWeightPicker}
+          onClose={() => setShowWeightPicker(false)}
+          onAddToCart={(variant) => addToCartMutation.mutate(variant)}
+          isPending={addToCartMutation.isPending}
+        />
+      )}
     </div>
   );
 }
