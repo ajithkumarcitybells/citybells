@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Category, Product, Banner } from "@shared/schema";
+import { Category, Product, Banner, CategoryAd } from "@shared/schema";
 
 export default function GroceryPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -58,6 +58,13 @@ export default function GroceryPage() {
 
   const { data: banners = [] } = useQuery<Banner[]>({
     queryKey: ["/api/banners"],
+  });
+
+  const categoryAdsUrl = selectedCategory 
+    ? `/api/category-ads?category=${selectedCategory}`
+    : `/api/category-ads`;
+  const { data: categoryAds = [], isLoading: adsLoading } = useQuery<CategoryAd[]>({
+    queryKey: [categoryAdsUrl],
   });
 
   const filteredProducts = useMemo(() => {
@@ -207,6 +214,41 @@ export default function GroceryPage() {
             </button>
           ))}
         </div>
+
+        {adsLoading ? (
+          <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
+            {Array(2).fill(0).map((_, i) => (
+              <Skeleton key={i} className="flex-shrink-0 h-28 rounded-xl" style={{ width: "75%", maxWidth: "320px" }} />
+            ))}
+          </div>
+        ) : categoryAds.length > 0 ? (
+          <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide" data-testid="category-ads-section">
+            {categoryAds.map((ad) => (
+              <a
+                key={ad.id}
+                href={ad.linkUrl || "#"}
+                target={ad.linkUrl ? "_blank" : undefined}
+                rel="noopener noreferrer"
+                className="flex-shrink-0 rounded-xl overflow-hidden border border-gray-100 shadow-sm bg-white"
+                style={{ width: "75%" , maxWidth: "320px" }}
+                data-testid={`ad-box-${ad.id}`}
+              >
+                {ad.image ? (
+                  <img
+                    src={ad.image}
+                    alt={ad.title}
+                    className="w-full h-28 object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="w-full h-28 bg-gradient-to-r from-green-100 to-yellow-100 flex items-center justify-center p-3">
+                    <span className="text-sm font-semibold text-green-800 text-center">{ad.title}</span>
+                  </div>
+                )}
+              </a>
+            ))}
+          </div>
+        ) : null}
 
         {productsLoading ? (
           <div className="grid grid-cols-2 gap-3">

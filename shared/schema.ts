@@ -238,6 +238,28 @@ export type SupportTicketWithMessages = SupportTicket & {
   userName?: string;
 };
 
+// Category Ads table (small promotional ads per category)
+export const categoryAds = pgTable("category_ads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  image: text("image"),
+  categoryId: varchar("category_id").references(() => categories.id),
+  linkUrl: text("link_url"),
+  isActive: boolean("is_active").default(true),
+  sortOrder: integer("sort_order").default(0),
+});
+
+export const insertCategoryAdSchema = createInsertSchema(categoryAds).omit({ id: true });
+export type InsertCategoryAd = z.infer<typeof insertCategoryAdSchema>;
+export type CategoryAd = typeof categoryAds.$inferSelect;
+
+export const categoryAdRelations = relations(categoryAds, ({ one }) => ({
+  category: one(categories, {
+    fields: [categoryAds.categoryId],
+    references: [categories.id],
+  }),
+}));
+
 // Type for cart item with product details
 export type CartItemWithProduct = CartItem & { product: Product };
 export type WishlistItemWithProduct = WishlistItem & { product: Product };

@@ -14,7 +14,8 @@ import {
   IndianRupee,
   AlertCircle,
   TrendingUp,
-  Clock
+  Clock,
+  Megaphone
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +29,7 @@ const adminMenuItems = [
   { icon: LayoutGrid, label: "Categories", href: "/admin/categories" },
   { icon: ShoppingCart, label: "Orders", href: "/admin/orders" },
   { icon: Image, label: "Banners", href: "/admin/banners" },
+  { icon: Megaphone, label: "Category Ads", href: "/admin/category-ads" },
   { icon: Settings, label: "Services", href: "/admin/services" },
   { icon: MessageCircle, label: "Support", href: "/admin/support" },
 ];

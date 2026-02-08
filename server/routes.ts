@@ -18,7 +18,8 @@ import {
   insertBannerSchema,
   insertOrderSchema,
   insertAddressSchema,
-  insertSupportTicketSchema
+  insertSupportTicketSchema,
+  insertCategoryAdSchema,
 } from "@shared/schema";
 
 // Validation schemas for API endpoints
@@ -140,6 +141,18 @@ export async function registerRoutes(
     } catch (err) {
       console.error("Error fetching banners:", err);
       res.status(500).json({ message: "Failed to fetch banners" });
+    }
+  });
+
+  // Category Ads
+  app.get("/api/category-ads", async (req, res) => {
+    try {
+      const categoryId = req.query.category as string | undefined;
+      const ads = await storage.getCategoryAds(categoryId);
+      res.json(ads);
+    } catch (err) {
+      console.error("Error fetching category ads:", err);
+      res.status(500).json({ message: "Failed to fetch category ads" });
     }
   });
 
@@ -708,6 +721,66 @@ export async function registerRoutes(
     } catch (err) {
       console.error("Error deleting banner:", err);
       res.status(500).json({ message: "Failed to delete banner" });
+    }
+  });
+
+  // Admin Category Ads
+  const categoryAdFormSchema = insertCategoryAdSchema.omit({ id: true }).extend({
+    title: z.string().min(1, "Title is required"),
+  });
+
+  app.get("/api/admin/category-ads", requireAdmin, async (req, res) => {
+    try {
+      const ads = await storage.getAllCategoryAds();
+      res.json(ads);
+    } catch (err) {
+      console.error("Error fetching category ads:", err);
+      res.status(500).json({ message: "Failed to fetch category ads" });
+    }
+  });
+
+  app.post("/api/admin/category-ads", requireAdmin, async (req, res) => {
+    try {
+      const parsed = categoryAdFormSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid ad data" });
+      }
+      const categories = await storage.getCategories();
+      if (!categories.find(c => c.id === parsed.data.categoryId)) {
+        return res.status(400).json({ message: "Invalid category" });
+      }
+      const ad = await storage.createCategoryAd(parsed.data);
+      res.status(201).json(ad);
+    } catch (err) {
+      console.error("Error creating category ad:", err);
+      res.status(500).json({ message: "Failed to create category ad" });
+    }
+  });
+
+  app.patch("/api/admin/category-ads/:id", requireAdmin, async (req, res) => {
+    try {
+      const parsed = categoryAdFormSchema.partial().safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid ad data" });
+      }
+      const ad = await storage.updateCategoryAd(req.params.id, parsed.data);
+      if (!ad) {
+        return res.status(404).json({ message: "Category ad not found" });
+      }
+      res.json(ad);
+    } catch (err) {
+      console.error("Error updating category ad:", err);
+      res.status(500).json({ message: "Failed to update category ad" });
+    }
+  });
+
+  app.delete("/api/admin/category-ads/:id", requireAdmin, async (req, res) => {
+    try {
+      await storage.deleteCategoryAd(req.params.id);
+      res.sendStatus(204);
+    } catch (err) {
+      console.error("Error deleting category ad:", err);
+      res.status(500).json({ message: "Failed to delete category ad" });
     }
   });
 

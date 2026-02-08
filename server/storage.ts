@@ -8,6 +8,7 @@ import {
   banners, 
   services,
   addresses,
+  categoryAds,
   type User, 
   type InsertUser,
   type Category,
@@ -28,6 +29,8 @@ import {
   type InsertService,
   type Address,
   type InsertAddress,
+  type CategoryAd,
+  type InsertCategoryAd,
   supportTickets,
   ticketMessages,
   type SupportTicket,
@@ -110,6 +113,13 @@ export interface IStorage {
   updateAddress(id: string, userId: string, address: Partial<InsertAddress>): Promise<Address | undefined>;
   deleteAddress(id: string, userId: string): Promise<void>;
   setDefaultAddress(id: string, userId: string): Promise<Address | undefined>;
+  
+  // Category Ads
+  getCategoryAds(categoryId?: string): Promise<CategoryAd[]>;
+  getAllCategoryAds(): Promise<CategoryAd[]>;
+  createCategoryAd(ad: InsertCategoryAd): Promise<CategoryAd>;
+  updateCategoryAd(id: string, ad: Partial<InsertCategoryAd>): Promise<CategoryAd | undefined>;
+  deleteCategoryAd(id: string): Promise<void>;
   
   // Support Tickets
   getTickets(userId: string): Promise<SupportTicket[]>;
@@ -412,6 +422,36 @@ export class DatabaseStorage implements IStorage {
 
   async deleteBanner(id: string): Promise<void> {
     await db.delete(banners).where(eq(banners.id, id));
+  }
+
+  // Category Ads
+  async getCategoryAds(categoryId?: string): Promise<CategoryAd[]> {
+    if (categoryId) {
+      return db.select().from(categoryAds)
+        .where(and(eq(categoryAds.isActive, true), eq(categoryAds.categoryId, categoryId)))
+        .orderBy(categoryAds.sortOrder);
+    }
+    return db.select().from(categoryAds)
+      .where(eq(categoryAds.isActive, true))
+      .orderBy(categoryAds.sortOrder);
+  }
+
+  async getAllCategoryAds(): Promise<CategoryAd[]> {
+    return db.select().from(categoryAds).orderBy(categoryAds.sortOrder);
+  }
+
+  async createCategoryAd(ad: InsertCategoryAd): Promise<CategoryAd> {
+    const [created] = await db.insert(categoryAds).values(ad).returning();
+    return created;
+  }
+
+  async updateCategoryAd(id: string, ad: Partial<InsertCategoryAd>): Promise<CategoryAd | undefined> {
+    const [updated] = await db.update(categoryAds).set(ad).where(eq(categoryAds.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteCategoryAd(id: string): Promise<void> {
+    await db.delete(categoryAds).where(eq(categoryAds.id, id));
   }
 
   // Services

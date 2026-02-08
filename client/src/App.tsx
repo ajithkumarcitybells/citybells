@@ -23,6 +23,7 @@ import AdminCategoriesPage from "@/pages/admin/categories-page";
 import AdminOrdersPage from "@/pages/admin/orders-page";
 import AdminOrderDetailPage from "@/pages/admin/order-detail-page";
 import AdminBannersPage from "@/pages/admin/banners-page";
+import AdminCategoryAdsPage from "@/pages/admin/category-ads-page";
 import AdminServicesPage from "@/pages/admin/services-page";
 import ProductDetailPage from "@/pages/product-detail-page";
 import AddressesPage from "@/pages/addresses-page";
@@ -55,6 +56,7 @@ function AppRouter() {
       <AdminRoute path="/admin/orders/:id" component={AdminOrderDetailPage} />
       <AdminRoute path="/admin/orders" component={AdminOrdersPage} />
       <AdminRoute path="/admin/banners" component={AdminBannersPage} />
+      <AdminRoute path="/admin/category-ads" component={AdminCategoryAdsPage} />
       <AdminRoute path="/admin/services" component={AdminServicesPage} />
       <Route component={NotFound} />
     </Switch>
