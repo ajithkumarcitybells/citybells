@@ -63,14 +63,6 @@ export function WeightPickerModal({ product, open, onClose, onAddToCart, isPendi
         style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom, 12px))' }}
         data-testid="modal-weight-picker"
       >
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 p-1 rounded-full bg-gray-100"
-          data-testid="button-close-weight-picker"
-        >
-          <X className="h-4 w-4 text-gray-600" />
-        </button>
-
         <div className="flex items-center gap-3 mb-3">
           <div className="w-14 h-14 bg-gray-50 rounded-lg overflow-hidden flex-shrink-0">
             {product.image ? (
@@ -82,6 +74,24 @@ export function WeightPickerModal({ product, open, onClose, onAddToCart, isPendi
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-gray-800 text-base leading-tight">{product.name}</h3>
             <p className="text-xs text-gray-500">Select weight</p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Button
+              size="sm"
+              className="bg-primary text-white"
+              onClick={handleAdd}
+              disabled={isPending}
+              data-testid="button-confirm-add-cart"
+            >
+              {isPending ? "Adding..." : "Add to Cart"}
+            </Button>
+            <button
+              onClick={onClose}
+              className="p-1 rounded-full bg-gray-100"
+              data-testid="button-close-weight-picker"
+            >
+              <X className="h-4 w-4 text-gray-600" />
+            </button>
           </div>
         </div>
 
@@ -133,24 +143,6 @@ export function WeightPickerModal({ product, open, onClose, onAddToCart, isPendi
           </div>
         </div>
 
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            className="flex-1"
-            onClick={onClose}
-            data-testid="button-cancel-weight"
-          >
-            Cancel
-          </Button>
-          <Button
-            className="flex-1 bg-primary text-white"
-            onClick={handleAdd}
-            disabled={isPending}
-            data-testid="button-confirm-add-cart"
-          >
-            {isPending ? "Adding..." : "Add to Cart"}
-          </Button>
-        </div>
       </div>
     </div>
   );
