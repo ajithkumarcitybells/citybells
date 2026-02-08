@@ -168,7 +168,7 @@ export default function AddressesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
-      <header className="bg-white border-b sticky top-0 z-40">
+      <header className="bg-white border-b sticky top-0 z-40 safe-area-pt">
         <div className="flex items-center gap-4 px-4 py-3">
           <Link href="/profile">
             <Button variant="ghost" size="icon" data-testid="button-back">

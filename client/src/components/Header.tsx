@@ -17,7 +17,7 @@ export function Header() {
   const cartCount = cartItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
 
   return (
-    <header className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
+    <header className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm safe-area-pt">
       <div className="flex items-center justify-between px-4 py-2">
         <Link href="/" data-testid="link-home">
           <div className="flex items-center gap-2">

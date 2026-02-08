@@ -101,7 +101,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         <Sidebar />
       </aside>
       
-      <div className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b z-50 px-4 py-3 flex items-center gap-3">
+      <div className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b z-50 px-4 py-3 flex items-center gap-3 safe-area-pt">
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon">
