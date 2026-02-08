@@ -61,20 +61,29 @@ export default function AdminOrdersPage() {
     refetchInterval: 30000,
   });
 
+  const isInitialLoad = useRef(true);
+
   useEffect(() => {
-    if (orders.length > 0 && previousOrderCount.current !== null) {
-      const newOrdersCount = orders.length - previousOrderCount.current;
-      if (newOrdersCount > 0) {
-        toast({
-          title: `${newOrdersCount} New Order${newOrdersCount > 1 ? 's' : ''}!`,
-          description: "You have new orders to process",
-        });
-        if (audioRef.current) {
-          audioRef.current.play().catch(() => {});
+    if (orders.length > 0) {
+      if (isInitialLoad.current) {
+        isInitialLoad.current = false;
+        previousOrderCount.current = orders.length;
+        return;
+      }
+      if (previousOrderCount.current !== null) {
+        const newOrdersCount = orders.length - previousOrderCount.current;
+        if (newOrdersCount > 0) {
+          toast({
+            title: `${newOrdersCount} New Order${newOrdersCount > 1 ? 's' : ''}!`,
+            description: "You have new orders to process",
+          });
+          if (audioRef.current) {
+            audioRef.current.play().catch(() => {});
+          }
         }
       }
+      previousOrderCount.current = orders.length;
     }
-    previousOrderCount.current = orders.length;
   }, [orders.length, toast]);
 
   const updateStatusMutation = useMutation({
