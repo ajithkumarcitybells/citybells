@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Upload, Image as ImageIcon, X as XIcon, ToggleLeft, ToggleRight, Download, FileSpreadsheet, ArrowLeft } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, Image as ImageIcon, X as XIcon, ToggleLeft, ToggleRight, Download, FileSpreadsheet, ArrowLeft, Search } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -58,6 +58,7 @@ export default function AdminProductsPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const excelInputRef = useRef<HTMLInputElement>(null);
 
@@ -403,7 +404,7 @@ export default function AdminProductsPage() {
       ) : (
         <div>
           <button
-            onClick={() => setSelectedCategoryId(null)}
+            onClick={() => { setSelectedCategoryId(null); setSearchQuery(""); }}
             className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
             data-testid="button-back-categories"
           >
@@ -421,10 +422,21 @@ export default function AdminProductsPage() {
               ({products.filter(p => p.categoryId === selectedCategoryId).length})
             </span>
           </div>
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search products..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+              data-testid="input-search-products"
+            />
+          </div>
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 p-4">
               {products
                 .filter(p => p.categoryId === selectedCategoryId)
+                .filter(p => !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase()))
                 .map((product) => (
                   <div
                     key={product.id}
