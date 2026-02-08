@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useLocation } from "wouter";
 import { Search, ListFilter } from "lucide-react";
 import { Header } from "@/components/Header";
 import { BottomNav } from "@/components/BottomNav";
@@ -19,18 +18,35 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Category, Product, Banner } from "@shared/schema";
 
 export default function GroceryPage() {
-  const [location] = useLocation();
-  const searchParams = new URLSearchParams(location.split('?')[1] || '');
-  const categoryParam = searchParams.get('category');
-  
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("default");
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(categoryParam);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showAllCategories, setShowAllCategories] = useState(false);
 
   useEffect(() => {
-    setSelectedCategory(categoryParam);
-  }, [categoryParam]);
+    const syncCategory = () => {
+      const params = new URLSearchParams(window.location.search);
+      setSelectedCategory(params.get('category'));
+    };
+    syncCategory();
+
+    window.addEventListener('popstate', syncCategory);
+    const origPushState = history.pushState.bind(history);
+    const origReplaceState = history.replaceState.bind(history);
+    history.pushState = (...args: Parameters<typeof history.pushState>) => {
+      origPushState(...args);
+      syncCategory();
+    };
+    history.replaceState = (...args: Parameters<typeof history.replaceState>) => {
+      origReplaceState(...args);
+      syncCategory();
+    };
+    return () => {
+      window.removeEventListener('popstate', syncCategory);
+      history.pushState = origPushState;
+      history.replaceState = origReplaceState;
+    };
+  }, []);
 
   const { data: categories = [], isLoading: categoriesLoading } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
