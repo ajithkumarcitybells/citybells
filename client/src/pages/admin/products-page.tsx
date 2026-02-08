@@ -30,14 +30,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -377,110 +369,99 @@ export default function AdminProductsPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        {isLoading ? (
-          <div className="p-4 space-y-4">
-            {Array(5).fill(0).map((_, i) => (
-              <div key={i} className="flex gap-4">
-                <Skeleton className="h-12 w-12 rounded-lg" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-1/3" />
-                  <Skeleton className="h-3 w-1/4" />
+      {isLoading ? (
+        <div className="space-y-4">
+          {Array(3).fill(0).map((_, i) => (
+            <div key={i} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-3">
+              <Skeleton className="h-5 w-1/4" />
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {Array(4).fill(0).map((_, j) => (
+                  <Skeleton key={j} className="h-40 rounded-lg" />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {categories
+            .filter(cat => products.some(p => p.categoryId === cat.id))
+            .map((category) => (
+              <div key={category.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                <div className="flex items-center gap-2 mb-4">
+                  {category.image && (
+                    <img src={category.image} alt={category.name} className="w-6 h-6 rounded object-cover" />
+                  )}
+                  <h2 className="text-lg font-semibold text-gray-800">{category.name}</h2>
+                  <span className="text-sm text-gray-400">
+                    ({products.filter(p => p.categoryId === category.id).length})
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                  {products
+                    .filter(p => p.categoryId === category.id)
+                    .map((product) => (
+                      <div
+                        key={product.id}
+                        className={`relative border rounded-lg p-3 ${product.isActive ? 'border-gray-200' : 'border-gray-200 opacity-60'}`}
+                        data-testid={`product-card-${product.id}`}
+                      >
+                        <div className="w-full h-24 bg-gray-100 rounded-md overflow-hidden mb-2">
+                          {product.image ? (
+                            <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-green-100 to-green-200" />
+                          )}
+                        </div>
+                        <p className="font-medium text-sm truncate">{product.name}</p>
+                        <p className="text-xs text-gray-500">{product.unit}</p>
+                        <div className="flex items-center gap-1 mt-1">
+                          <p className="font-semibold text-sm text-primary">₹{parseFloat(product.price).toFixed(0)}</p>
+                          {product.discountPercent && product.discountPercent > 0 && (
+                            <p className="text-xs text-gray-400 line-through">₹{parseFloat(product.originalPrice).toFixed(0)}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between mt-2">
+                          <button
+                            onClick={() => toggleStatusMutation.mutate({ id: product.id, isActive: !product.isActive })}
+                            disabled={toggleStatusMutation.isPending}
+                            className="flex items-center gap-0.5"
+                            data-testid={`button-toggle-status-${product.id}`}
+                          >
+                            {product.isActive ? (
+                              <ToggleRight className="h-5 w-5 text-green-500" />
+                            ) : (
+                              <ToggleLeft className="h-5 w-5 text-gray-400" />
+                            )}
+                          </button>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => openEditDialog(product)}
+                              data-testid={`button-edit-${product.id}`}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-red-500"
+                              onClick={() => deleteMutation.mutate(product.id)}
+                              data-testid={`button-delete-${product.id}`}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                 </div>
               </div>
             ))}
-          </div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Product</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Stock</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {products.map((product) => (
-                <TableRow key={product.id} data-testid={`product-row-${product.id}`}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gray-100 rounded-lg overflow-hidden">
-                        {product.image ? (
-                          <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-green-100 to-green-200" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-medium">{product.name}</p>
-                        <p className="text-xs text-gray-500">{product.unit}</p>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {categories.find(c => c.id === product.categoryId)?.name || '-'}
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium text-primary">₹{parseFloat(product.price).toFixed(2)}</p>
-                      {product.discountPercent && product.discountPercent > 0 && (
-                        <p className="text-xs text-gray-400 line-through">
-                          ₹{parseFloat(product.originalPrice).toFixed(2)}
-                        </p>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>{product.stock}</TableCell>
-                  <TableCell>
-                    <button
-                      onClick={() => toggleStatusMutation.mutate({ id: product.id, isActive: !product.isActive })}
-                      disabled={toggleStatusMutation.isPending}
-                      className="flex items-center gap-1"
-                      data-testid={`button-toggle-status-${product.id}`}
-                    >
-                      {product.isActive ? (
-                        <>
-                          <ToggleRight className="h-6 w-6 text-green-500" />
-                          <span className="text-xs text-green-600 font-medium">Active</span>
-                        </>
-                      ) : (
-                        <>
-                          <ToggleLeft className="h-6 w-6 text-gray-400" />
-                          <span className="text-xs text-gray-500 font-medium">Inactive</span>
-                        </>
-                      )}
-                    </button>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openEditDialog(product)}
-                        data-testid={`button-edit-${product.id}`}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteMutation.mutate(product.id)}
-                        className="text-red-500 hover:text-red-600"
-                        data-testid={`button-delete-${product.id}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </div>
+        </div>
+      )}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
