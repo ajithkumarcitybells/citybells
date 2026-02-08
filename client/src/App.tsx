@@ -27,6 +27,8 @@ import AdminServicesPage from "@/pages/admin/services-page";
 import ProductDetailPage from "@/pages/product-detail-page";
 import AddressesPage from "@/pages/addresses-page";
 import SettingsPage from "@/pages/settings-page";
+import SupportPage from "@/pages/support-page";
+import AdminSupportPage from "@/pages/admin/support-page";
 
 function AppRouter() {
   return (
@@ -45,6 +47,8 @@ function AppRouter() {
       <ProtectedRoute path="/orders" component={OrdersPage} />
       <ProtectedRoute path="/addresses" component={AddressesPage} />
       <ProtectedRoute path="/settings" component={SettingsPage} />
+      <ProtectedRoute path="/support" component={SupportPage} />
+      <AdminRoute path="/admin/support" component={AdminSupportPage} />
       <AdminRoute path="/admin" component={AdminDashboard} />
       <AdminRoute path="/admin/products" component={AdminProductsPage} />
       <AdminRoute path="/admin/categories" component={AdminCategoriesPage} />

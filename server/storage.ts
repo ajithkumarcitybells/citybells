@@ -28,6 +28,13 @@ import {
   type InsertService,
   type Address,
   type InsertAddress,
+  supportTickets,
+  ticketMessages,
+  type SupportTicket,
+  type InsertSupportTicket,
+  type SupportTicketWithMessages,
+  type TicketMessage,
+  type InsertTicketMessage,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -103,6 +110,15 @@ export interface IStorage {
   updateAddress(id: string, userId: string, address: Partial<InsertAddress>): Promise<Address | undefined>;
   deleteAddress(id: string, userId: string): Promise<void>;
   setDefaultAddress(id: string, userId: string): Promise<Address | undefined>;
+  
+  // Support Tickets
+  getTickets(userId: string): Promise<SupportTicket[]>;
+  getAllTickets(): Promise<(SupportTicket & { username?: string; userName?: string })[]>;
+  getTicket(id: string): Promise<SupportTicketWithMessages | undefined>;
+  createTicket(ticket: InsertSupportTicket): Promise<SupportTicket>;
+  updateTicketStatus(id: string, status: string): Promise<SupportTicket | undefined>;
+  addTicketMessage(message: InsertTicketMessage): Promise<TicketMessage>;
+  getTicketMessages(ticketId: string): Promise<TicketMessage[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -462,6 +478,52 @@ export class DatabaseStorage implements IStorage {
     // Set the specified address as default
     const [updated] = await db.update(addresses).set({ isDefault: true }).where(and(eq(addresses.id, id), eq(addresses.userId, userId))).returning();
     return updated || undefined;
+  }
+  // Support Tickets
+  async getTickets(userId: string): Promise<SupportTicket[]> {
+    return db.select().from(supportTickets).where(eq(supportTickets.userId, userId)).orderBy(desc(supportTickets.createdAt));
+  }
+
+  async getAllTickets(): Promise<(SupportTicket & { username?: string; userName?: string })[]> {
+    const tickets = await db.select().from(supportTickets).orderBy(desc(supportTickets.createdAt));
+    const result = [];
+    for (const ticket of tickets) {
+      const user = await this.getUser(ticket.userId);
+      result.push({
+        ...ticket,
+        username: user?.username,
+        userName: user?.name || user?.username,
+      });
+    }
+    return result;
+  }
+
+  async getTicket(id: string): Promise<SupportTicketWithMessages | undefined> {
+    const [ticket] = await db.select().from(supportTickets).where(eq(supportTickets.id, id));
+    if (!ticket) return undefined;
+    const messages = await db.select().from(ticketMessages).where(eq(ticketMessages.ticketId, id)).orderBy(ticketMessages.createdAt);
+    const user = await this.getUser(ticket.userId);
+    return { ...ticket, messages, username: user?.username, userName: user?.name || user?.username };
+  }
+
+  async createTicket(ticket: InsertSupportTicket): Promise<SupportTicket> {
+    const [created] = await db.insert(supportTickets).values(ticket).returning();
+    return created;
+  }
+
+  async updateTicketStatus(id: string, status: string): Promise<SupportTicket | undefined> {
+    const [updated] = await db.update(supportTickets).set({ status, updatedAt: new Date() }).where(eq(supportTickets.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async addTicketMessage(message: InsertTicketMessage): Promise<TicketMessage> {
+    const [created] = await db.insert(ticketMessages).values(message).returning();
+    await db.update(supportTickets).set({ updatedAt: new Date() }).where(eq(supportTickets.id, message.ticketId));
+    return created;
+  }
+
+  async getTicketMessages(ticketId: string): Promise<TicketMessage[]> {
+    return db.select().from(ticketMessages).where(eq(ticketMessages.ticketId, ticketId)).orderBy(ticketMessages.createdAt);
   }
 }
 

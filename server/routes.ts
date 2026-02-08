@@ -17,7 +17,8 @@ import {
   insertCategorySchema, 
   insertBannerSchema,
   insertOrderSchema,
-  insertAddressSchema
+  insertAddressSchema,
+  insertSupportTicketSchema
 } from "@shared/schema";
 
 // Validation schemas for API endpoints
@@ -675,6 +676,122 @@ export async function registerRoutes(
     } catch (err) {
       console.error("Error updating service:", err);
       res.status(500).json({ message: "Failed to update service" });
+    }
+  });
+
+  // Support Tickets - User routes
+  app.get("/api/support/tickets", requireAuth, async (req, res) => {
+    try {
+      const tickets = await storage.getTickets(req.user!.id);
+      res.json(tickets);
+    } catch (err) {
+      console.error("Error fetching tickets:", err);
+      res.status(500).json({ message: "Failed to fetch tickets" });
+    }
+  });
+
+  app.get("/api/support/tickets/:id", requireAuth, async (req, res) => {
+    try {
+      const ticket = await storage.getTicket(req.params.id);
+      if (!ticket) return res.status(404).json({ message: "Ticket not found" });
+      if (ticket.userId !== req.user!.id && !req.user!.isAdmin) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      res.json(ticket);
+    } catch (err) {
+      console.error("Error fetching ticket:", err);
+      res.status(500).json({ message: "Failed to fetch ticket" });
+    }
+  });
+
+  app.post("/api/support/tickets", requireAuth, async (req, res) => {
+    try {
+      const schema = z.object({
+        subject: z.string().min(1, "Subject is required"),
+        message: z.string().min(1, "Message is required"),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid data" });
+      }
+      
+      const ticket = await storage.createTicket({
+        userId: req.user!.id,
+        subject: parsed.data.subject,
+        status: "open",
+      });
+      
+      await storage.addTicketMessage({
+        ticketId: ticket.id,
+        senderId: req.user!.id,
+        message: parsed.data.message,
+        isAdmin: false,
+      });
+      
+      res.status(201).json(ticket);
+    } catch (err) {
+      console.error("Error creating ticket:", err);
+      res.status(500).json({ message: "Failed to create ticket" });
+    }
+  });
+
+  app.post("/api/support/tickets/:id/messages", requireAuth, async (req, res) => {
+    try {
+      const ticket = await storage.getTicket(req.params.id);
+      if (!ticket) return res.status(404).json({ message: "Ticket not found" });
+      if (ticket.userId !== req.user!.id && !req.user!.isAdmin) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      
+      const schema = z.object({
+        message: z.string().min(1, "Message is required"),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid data" });
+      }
+      
+      const ticketMessage = await storage.addTicketMessage({
+        ticketId: req.params.id,
+        senderId: req.user!.id,
+        message: parsed.data.message,
+        isAdmin: !!req.user!.isAdmin,
+      });
+      
+      res.status(201).json(ticketMessage);
+    } catch (err) {
+      console.error("Error adding message:", err);
+      res.status(500).json({ message: "Failed to add message" });
+    }
+  });
+
+  // Admin support ticket routes
+  app.get("/api/admin/support/tickets", requireAdmin, async (req, res) => {
+    try {
+      const tickets = await storage.getAllTickets();
+      res.json(tickets);
+    } catch (err) {
+      console.error("Error fetching all tickets:", err);
+      res.status(500).json({ message: "Failed to fetch tickets" });
+    }
+  });
+
+  app.patch("/api/admin/support/tickets/:id/status", requireAdmin, async (req, res) => {
+    try {
+      const schema = z.object({
+        status: z.enum(["open", "in_progress", "resolved", "closed"]),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+      
+      const ticket = await storage.updateTicketStatus(req.params.id, parsed.data.status);
+      if (!ticket) return res.status(404).json({ message: "Ticket not found" });
+      res.json(ticket);
+    } catch (err) {
+      console.error("Error updating ticket status:", err);
+      res.status(500).json({ message: "Failed to update ticket status" });
     }
   });
 

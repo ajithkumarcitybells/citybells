@@ -203,6 +203,40 @@ export const insertServiceSchema = createInsertSchema(services).omit({ id: true 
 export type InsertService = z.infer<typeof insertServiceSchema>;
 export type Service = typeof services.$inferSelect;
 
+// Support Tickets
+export const supportTickets = pgTable("support_tickets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  subject: text("subject").notNull(),
+  status: text("status").notNull().default("open"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSupportTicketSchema = createInsertSchema(supportTickets).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertSupportTicket = z.infer<typeof insertSupportTicketSchema>;
+export type SupportTicket = typeof supportTickets.$inferSelect;
+
+// Ticket Messages (for conversation thread)
+export const ticketMessages = pgTable("ticket_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ticketId: varchar("ticket_id").notNull(),
+  senderId: varchar("sender_id").notNull(),
+  message: text("message").notNull(),
+  isAdmin: boolean("is_admin").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertTicketMessageSchema = createInsertSchema(ticketMessages).omit({ id: true, createdAt: true });
+export type InsertTicketMessage = z.infer<typeof insertTicketMessageSchema>;
+export type TicketMessage = typeof ticketMessages.$inferSelect;
+
+export type SupportTicketWithMessages = SupportTicket & { 
+  messages: TicketMessage[];
+  username?: string;
+  userName?: string;
+};
+
 // Type for cart item with product details
 export type CartItemWithProduct = CartItem & { product: Product };
 export type WishlistItemWithProduct = WishlistItem & { product: Product };

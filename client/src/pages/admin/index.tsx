@@ -7,7 +7,8 @@ import {
   Image, 
   Settings,
   ChevronLeft,
-  Menu
+  Menu,
+  MessageCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -20,6 +21,7 @@ const adminMenuItems = [
   { icon: ShoppingCart, label: "Orders", href: "/admin/orders" },
   { icon: Image, label: "Banners", href: "/admin/banners" },
   { icon: Settings, label: "Services", href: "/admin/services" },
+  { icon: MessageCircle, label: "Support", href: "/admin/support" },
 ];
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {

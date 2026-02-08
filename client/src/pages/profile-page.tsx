@@ -9,7 +9,8 @@ import {
   LogOut,
   ChevronRight,
   Settings,
-  Shield
+  Shield,
+  MessageCircle
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { BottomNav } from "@/components/BottomNav";
@@ -47,6 +48,7 @@ export default function ProfilePage() {
     { icon: Heart, label: "Wishlist", href: "/wishlist" },
     { icon: MapPin, label: "Saved Addresses", href: "/addresses" },
     { icon: Settings, label: "Settings", href: "/settings" },
+    { icon: MessageCircle, label: "Help & Support", href: "/support" },
   ];
 
   return (
