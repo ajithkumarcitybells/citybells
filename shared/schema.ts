@@ -100,6 +100,7 @@ export const cartItems = pgTable("cart_items", {
   userId: varchar("user_id").references(() => users.id).notNull(),
   productId: varchar("product_id").references(() => products.id).notNull(),
   quantity: integer("quantity").default(1),
+  variant: text("variant"),
 });
 
 export const insertCartItemSchema = createInsertSchema(cartItems).omit({ id: true });
