@@ -226,12 +226,12 @@ export default function ProductDetailPage() {
         <Button
           onClick={handleAddToCart}
           disabled={addToCartMutation.isPending}
-          className="flex-1 bg-pink-500 hover:bg-pink-600 text-white py-6 rounded-xl text-lg font-semibold"
+          className="flex-1 bg-primary text-white py-6 rounded-xl text-lg font-semibold"
           data-testid="button-add-to-cart"
         >
           {addToCartMutation.isPending && !showWeightPicker
             ? "Adding..."
-            : "Select Weight & Add"
+            : "Add to Cart"
           }
         </Button>
       </div>
