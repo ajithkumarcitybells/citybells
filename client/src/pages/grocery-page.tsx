@@ -216,33 +216,32 @@ export default function GroceryPage() {
         </div>
 
         {adsLoading ? (
-          <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
-            {Array(2).fill(0).map((_, i) => (
-              <Skeleton key={i} className="flex-shrink-0 h-28 rounded-xl" style={{ width: "75%", maxWidth: "320px" }} />
+          <div className="flex gap-2.5 overflow-x-auto pb-2 -mx-4 px-4">
+            {Array(3).fill(0).map((_, i) => (
+              <Skeleton key={i} className="flex-shrink-0 w-44 h-24 rounded-lg" />
             ))}
           </div>
         ) : categoryAds.length > 0 ? (
-          <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide" data-testid="category-ads-section">
+          <div className="flex gap-2.5 overflow-x-auto pb-2 -mx-4 px-4 snap-x snap-mandatory" data-testid="category-ads-section">
             {categoryAds.map((ad) => (
               <a
                 key={ad.id}
                 href={ad.linkUrl || "#"}
                 target={ad.linkUrl ? "_blank" : undefined}
                 rel="noopener noreferrer"
-                className="flex-shrink-0 rounded-xl overflow-hidden border border-gray-100 shadow-sm bg-white"
-                style={{ width: "75%" , maxWidth: "320px" }}
+                className="flex-shrink-0 w-44 rounded-lg overflow-hidden border border-gray-100 shadow-sm bg-white snap-start"
                 data-testid={`ad-box-${ad.id}`}
               >
                 {ad.image ? (
                   <img
                     src={ad.image}
                     alt={ad.title}
-                    className="w-full h-28 object-cover"
+                    className="w-full h-24 object-cover"
                     loading="lazy"
                   />
                 ) : (
-                  <div className="w-full h-28 bg-gradient-to-r from-green-100 to-yellow-100 flex items-center justify-center p-3">
-                    <span className="text-sm font-semibold text-green-800 text-center">{ad.title}</span>
+                  <div className="w-full h-24 bg-gradient-to-r from-green-100 to-yellow-100 flex items-center justify-center p-2">
+                    <span className="text-xs font-semibold text-green-800 text-center">{ad.title}</span>
                   </div>
                 )}
               </a>
