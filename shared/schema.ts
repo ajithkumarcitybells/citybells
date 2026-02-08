@@ -33,6 +33,12 @@ export const addresses = pgTable("addresses", {
   userId: varchar("user_id").references(() => users.id).notNull(),
   label: text("label").notNull(), // "Home", "Work", "Other"
   fullAddress: text("full_address").notNull(),
+  addressLine1: text("address_line_1"),
+  addressLine2: text("address_line_2"),
+  city: text("city"),
+  state: text("state"),
+  country: text("country"),
+  pincode: text("pincode"),
   flatHouseNo: text("flat_house_no"),
   landmark: text("landmark"),
   latitude: decimal("latitude", { precision: 10, scale: 7 }),

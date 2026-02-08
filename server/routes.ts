@@ -371,20 +371,20 @@ export async function registerRoutes(
   });
 
   // Addresses - using shared schema with required fields extended
-  const addressFormSchema = insertAddressSchema
-    .pick({
-      label: true,
-      fullAddress: true,
-      flatHouseNo: true,
-      landmark: true,
-      latitude: true,
-      longitude: true,
-      isDefault: true,
-    })
-    .extend({
-      label: z.string().min(1, "Label is required"),
-      fullAddress: z.string().min(1, "Address is required"),
-    });
+  const addressFormSchema = z.object({
+    label: z.string().min(1, "Label is required"),
+    addressLine1: z.string().min(1, "Address Line 1 is required"),
+    addressLine2: z.string().optional().default(""),
+    city: z.string().min(1, "City is required"),
+    state: z.string().min(1, "State is required"),
+    country: z.string().min(1, "Country is required"),
+    pincode: z.string().min(1, "Pincode is required"),
+    flatHouseNo: z.string().optional(),
+    landmark: z.string().optional(),
+    latitude: z.string().optional(),
+    longitude: z.string().optional(),
+    isDefault: z.boolean().optional(),
+  });
 
   app.get("/api/addresses", requireAuth, async (req, res) => {
     try {
@@ -403,9 +403,13 @@ export async function registerRoutes(
         return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid address data" });
       }
 
+      const parts = [parsed.data.addressLine1, parsed.data.addressLine2, parsed.data.city, parsed.data.state, parsed.data.country, parsed.data.pincode].filter(Boolean);
+      const fullAddress = parts.join(", ");
+
       const address = await storage.createAddress({
         userId: req.user!.id,
         ...parsed.data,
+        fullAddress,
       });
       res.status(201).json(address);
     } catch (err) {
@@ -421,7 +425,21 @@ export async function registerRoutes(
         return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid address data" });
       }
 
-      const address = await storage.updateAddress(req.params.id, req.user!.id, parsed.data);
+      const updateData: any = { ...parsed.data };
+      if (parsed.data.addressLine1 || parsed.data.city || parsed.data.state || parsed.data.country || parsed.data.pincode) {
+        const existing = await storage.getAddress(req.params.id, req.user!.id);
+        if (existing) {
+          const line1 = parsed.data.addressLine1 ?? existing.addressLine1 ?? "";
+          const line2 = parsed.data.addressLine2 ?? existing.addressLine2 ?? "";
+          const c = parsed.data.city ?? existing.city ?? "";
+          const s = parsed.data.state ?? existing.state ?? "";
+          const co = parsed.data.country ?? existing.country ?? "";
+          const p = parsed.data.pincode ?? existing.pincode ?? "";
+          updateData.fullAddress = [line1, line2, c, s, co, p].filter(Boolean).join(", ");
+        }
+      }
+
+      const address = await storage.updateAddress(req.params.id, req.user!.id, updateData);
       if (!address) {
         return res.status(404).json({ message: "Address not found" });
       }

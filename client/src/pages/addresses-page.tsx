@@ -20,10 +20,23 @@ const addressLabels = [
 
 interface AddressFormData {
   label: string;
-  fullAddress: string;
-  flatHouseNo: string;
-  landmark: string;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  country: string;
+  pincode: string;
 }
+
+const emptyForm: AddressFormData = {
+  label: "Home",
+  addressLine1: "",
+  addressLine2: "",
+  city: "",
+  state: "",
+  country: "India",
+  pincode: "",
+};
 
 export default function AddressesPage() {
   const { user } = useAuth();
@@ -31,12 +44,7 @@ export default function AddressesPage() {
   const { toast } = useToast();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingAddress, setEditingAddress] = useState<Address | null>(null);
-  const [formData, setFormData] = useState<AddressFormData>({
-    label: "Home",
-    fullAddress: "",
-    flatHouseNo: "",
-    landmark: "",
-  });
+  const [formData, setFormData] = useState<AddressFormData>({ ...emptyForm });
 
   const { data: addresses = [], isLoading } = useQuery<Address[]>({
     queryKey: ["/api/addresses"],
@@ -51,7 +59,7 @@ export default function AddressesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/addresses"] });
       setShowAddForm(false);
-      setFormData({ label: "Home", fullAddress: "", flatHouseNo: "", landmark: "" });
+      setFormData({ ...emptyForm });
       toast({ title: "Address saved successfully" });
     },
     onError: () => {
@@ -67,7 +75,7 @@ export default function AddressesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/addresses"] });
       setEditingAddress(null);
-      setFormData({ label: "Home", fullAddress: "", flatHouseNo: "", landmark: "" });
+      setFormData({ ...emptyForm });
       toast({ title: "Address updated successfully" });
     },
     onError: () => {
@@ -104,15 +112,27 @@ export default function AddressesPage() {
     if (address && address !== "Tap to set location") {
       setFormData((prev) => ({
         ...prev,
-        fullAddress: address,
+        addressLine1: address,
       }));
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.fullAddress.trim()) {
-      toast({ title: "Please enter an address", variant: "destructive" });
+    if (!formData.addressLine1.trim()) {
+      toast({ title: "Please enter Address Line 1", variant: "destructive" });
+      return;
+    }
+    if (!formData.city.trim()) {
+      toast({ title: "Please enter City", variant: "destructive" });
+      return;
+    }
+    if (!formData.state.trim()) {
+      toast({ title: "Please enter State", variant: "destructive" });
+      return;
+    }
+    if (!formData.pincode.trim()) {
+      toast({ title: "Please enter Pincode", variant: "destructive" });
       return;
     }
     if (editingAddress) {
@@ -126,9 +146,12 @@ export default function AddressesPage() {
     setEditingAddress(addr);
     setFormData({
       label: addr.label,
-      fullAddress: addr.fullAddress,
-      flatHouseNo: addr.flatHouseNo || "",
-      landmark: addr.landmark || "",
+      addressLine1: addr.addressLine1 || addr.fullAddress || "",
+      addressLine2: addr.addressLine2 || "",
+      city: addr.city || "",
+      state: addr.state || "",
+      country: addr.country || "India",
+      pincode: addr.pincode || "",
     });
     setShowAddForm(true);
   };
@@ -136,7 +159,7 @@ export default function AddressesPage() {
   const handleCancel = () => {
     setShowAddForm(false);
     setEditingAddress(null);
-    setFormData({ label: "Home", fullAddress: "", flatHouseNo: "", landmark: "" });
+    setFormData({ ...emptyForm });
   };
 
   const getLabelInfo = (label: string) => {
@@ -200,20 +223,20 @@ export default function AddressesPage() {
                               </span>
                             )}
                           </div>
-                          <a 
-                          href={`geo:0,0?q=${encodeURIComponent(addr.fullAddress)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-blue-600 hover:text-blue-800 hover:underline mt-1 block"
-                          data-testid={`link-map-${addr.id}`}
-                        >
-                          {addr.fullAddress}
-                        </a>
-                          {addr.flatHouseNo && (
-                            <p className="text-xs text-gray-500">{addr.flatHouseNo}</p>
+                          {addr.addressLine1 && (
+                            <p className="text-sm text-gray-700 mt-1">{addr.addressLine1}</p>
                           )}
-                          {addr.landmark && (
-                            <p className="text-xs text-gray-500">Near: {addr.landmark}</p>
+                          {addr.addressLine2 && (
+                            <p className="text-sm text-gray-600">{addr.addressLine2}</p>
+                          )}
+                          <p className="text-sm text-gray-600">
+                            {[addr.city, addr.state, addr.pincode].filter(Boolean).join(", ")}
+                          </p>
+                          {addr.country && (
+                            <p className="text-xs text-gray-500">{addr.country}</p>
+                          )}
+                          {!addr.addressLine1 && addr.fullAddress && (
+                            <p className="text-sm text-gray-600 mt-1">{addr.fullAddress}</p>
                           )}
                         </div>
                       </div>
@@ -314,36 +337,71 @@ export default function AddressesPage() {
               </div>
 
               <div>
-                <Label className="text-sm text-gray-600">Full Address *</Label>
+                <Label className="text-sm text-gray-600">Address Line 1 *</Label>
                 <Input
-                  value={formData.fullAddress}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, fullAddress: e.target.value }))}
-                  placeholder="Street, Area, City, Pincode"
+                  value={formData.addressLine1}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, addressLine1: e.target.value }))}
+                  placeholder="House/Flat No, Street, Area"
                   className="mt-1"
-                  data-testid="input-full-address"
+                  data-testid="input-address-line1"
                 />
               </div>
 
               <div>
-                <Label className="text-sm text-gray-600">Flat/House No, Building</Label>
+                <Label className="text-sm text-gray-600">Address Line 2</Label>
                 <Input
-                  value={formData.flatHouseNo}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, flatHouseNo: e.target.value }))}
-                  placeholder="Flat 101, Tower A"
+                  value={formData.addressLine2}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, addressLine2: e.target.value }))}
+                  placeholder="Landmark, Colony, Sector (Optional)"
                   className="mt-1"
-                  data-testid="input-flat-house"
+                  data-testid="input-address-line2"
                 />
               </div>
 
-              <div>
-                <Label className="text-sm text-gray-600">Landmark</Label>
-                <Input
-                  value={formData.landmark}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, landmark: e.target.value }))}
-                  placeholder="Near park, hospital, etc."
-                  className="mt-1"
-                  data-testid="input-landmark"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-sm text-gray-600">City *</Label>
+                  <Input
+                    value={formData.city}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, city: e.target.value }))}
+                    placeholder="City"
+                    className="mt-1"
+                    data-testid="input-city"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm text-gray-600">State *</Label>
+                  <Input
+                    value={formData.state}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, state: e.target.value }))}
+                    placeholder="State"
+                    className="mt-1"
+                    data-testid="input-state"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-sm text-gray-600">Country *</Label>
+                  <Input
+                    value={formData.country}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, country: e.target.value }))}
+                    placeholder="Country"
+                    className="mt-1"
+                    data-testid="input-country"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm text-gray-600">Pincode *</Label>
+                  <Input
+                    value={formData.pincode}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, pincode: e.target.value }))}
+                    placeholder="Pincode"
+                    className="mt-1"
+                    data-testid="input-pincode"
+                  />
+                </div>
               </div>
 
               <div className="flex gap-2">

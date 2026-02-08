@@ -19,10 +19,23 @@ const addressLabels = [
 
 interface AddressFormData {
   label: string;
-  fullAddress: string;
-  flatHouseNo: string;
-  landmark: string;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  country: string;
+  pincode: string;
 }
+
+const emptyForm: AddressFormData = {
+  label: "Home",
+  addressLine1: "",
+  addressLine2: "",
+  city: "",
+  state: "",
+  country: "India",
+  pincode: "",
+};
 
 export function AddressPicker() {
   const { user } = useAuth();
@@ -30,12 +43,7 @@ export function AddressPicker() {
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [formData, setFormData] = useState<AddressFormData>({
-    label: "Home",
-    fullAddress: "",
-    flatHouseNo: "",
-    landmark: "",
-  });
+  const [formData, setFormData] = useState<AddressFormData>({ ...emptyForm });
 
   const { data: addresses = [], isLoading } = useQuery<Address[]>({
     queryKey: ["/api/addresses"],
@@ -50,7 +58,7 @@ export function AddressPicker() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/addresses"] });
       setShowAddForm(false);
-      setFormData({ label: "Home", fullAddress: "", flatHouseNo: "", landmark: "" });
+      setFormData({ ...emptyForm });
       toast({ title: "Address saved successfully" });
     },
     onError: () => {
@@ -89,15 +97,27 @@ export function AddressPicker() {
     if (address && address !== "Tap to set location") {
       setFormData((prev) => ({
         ...prev,
-        fullAddress: address,
+        addressLine1: address,
       }));
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.fullAddress.trim()) {
-      toast({ title: "Please enter an address", variant: "destructive" });
+    if (!formData.addressLine1.trim()) {
+      toast({ title: "Please enter Address Line 1", variant: "destructive" });
+      return;
+    }
+    if (!formData.city.trim()) {
+      toast({ title: "Please enter City", variant: "destructive" });
+      return;
+    }
+    if (!formData.state.trim()) {
+      toast({ title: "Please enter State", variant: "destructive" });
+      return;
+    }
+    if (!formData.pincode.trim()) {
+      toast({ title: "Please enter Pincode", variant: "destructive" });
       return;
     }
     createAddressMutation.mutate(formData);
@@ -197,22 +217,9 @@ export function AddressPicker() {
               </div>
 
               <div>
-                <Label htmlFor="flatHouseNo" className="text-xs text-gray-600">
-                  Flat / House No. / Building
-                </Label>
-                <Input
-                  id="flatHouseNo"
-                  value={formData.flatHouseNo}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, flatHouseNo: e.target.value }))}
-                  placeholder="Enter flat/house number"
-                  data-testid="input-flat-house"
-                />
-              </div>
-
-              <div>
                 <div className="flex items-center justify-between mb-1">
-                  <Label htmlFor="fullAddress" className="text-xs text-gray-600">
-                    Complete Address *
+                  <Label htmlFor="addressLine1" className="text-xs text-gray-600">
+                    Address Line 1 *
                   </Label>
                   {address && address !== "Tap to set location" && (
                     <button
@@ -225,26 +232,76 @@ export function AddressPicker() {
                   )}
                 </div>
                 <Input
-                  id="fullAddress"
-                  value={formData.fullAddress}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, fullAddress: e.target.value }))}
-                  placeholder="Area, Street, City, Pincode"
+                  id="addressLine1"
+                  value={formData.addressLine1}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, addressLine1: e.target.value }))}
+                  placeholder="House/Flat No, Street, Area"
                   required
-                  data-testid="input-full-address"
+                  data-testid="input-address-line1"
                 />
               </div>
 
               <div>
-                <Label htmlFor="landmark" className="text-xs text-gray-600">
-                  Landmark (Optional)
+                <Label htmlFor="addressLine2" className="text-xs text-gray-600">
+                  Address Line 2
                 </Label>
                 <Input
-                  id="landmark"
-                  value={formData.landmark}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, landmark: e.target.value }))}
-                  placeholder="Nearby landmark"
-                  data-testid="input-landmark"
+                  id="addressLine2"
+                  value={formData.addressLine2}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, addressLine2: e.target.value }))}
+                  placeholder="Landmark, Colony, Sector (Optional)"
+                  data-testid="input-address-line2"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="city" className="text-xs text-gray-600">City *</Label>
+                  <Input
+                    id="city"
+                    value={formData.city}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, city: e.target.value }))}
+                    placeholder="City"
+                    required
+                    data-testid="input-city"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="state" className="text-xs text-gray-600">State *</Label>
+                  <Input
+                    id="state"
+                    value={formData.state}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, state: e.target.value }))}
+                    placeholder="State"
+                    required
+                    data-testid="input-state"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="country" className="text-xs text-gray-600">Country *</Label>
+                  <Input
+                    id="country"
+                    value={formData.country}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, country: e.target.value }))}
+                    placeholder="Country"
+                    required
+                    data-testid="input-country"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="pincode" className="text-xs text-gray-600">Pincode *</Label>
+                  <Input
+                    id="pincode"
+                    value={formData.pincode}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, pincode: e.target.value }))}
+                    placeholder="Pincode"
+                    required
+                    data-testid="input-pincode"
+                  />
+                </div>
               </div>
 
               <Button
@@ -283,12 +340,17 @@ export function AddressPicker() {
                           <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">Default</span>
                         )}
                       </div>
-                      {addr.flatHouseNo && (
-                        <p className="text-sm text-gray-600">{addr.flatHouseNo}</p>
+                      {addr.addressLine1 && (
+                        <p className="text-sm text-gray-600">{addr.addressLine1}</p>
                       )}
-                      <p className="text-sm text-gray-500 truncate">{addr.fullAddress}</p>
-                      {addr.landmark && (
-                        <p className="text-xs text-gray-400">Near {addr.landmark}</p>
+                      {addr.addressLine2 && (
+                        <p className="text-sm text-gray-500">{addr.addressLine2}</p>
+                      )}
+                      <p className="text-sm text-gray-500 truncate">
+                        {[addr.city, addr.state, addr.pincode].filter(Boolean).join(", ")}
+                      </p>
+                      {!addr.addressLine1 && addr.fullAddress && (
+                        <p className="text-sm text-gray-500 truncate">{addr.fullAddress}</p>
                       )}
                     </div>
                     <div className="flex items-center gap-1">

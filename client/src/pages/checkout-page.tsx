@@ -6,7 +6,6 @@ import { Header } from "@/components/Header";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -32,6 +31,11 @@ export default function CheckoutPage() {
   const [, setLocation] = useLocation();
   
   const [address, setAddress] = useState("");
+  const [addressLine2, setAddressLine2] = useState("");
+  const [checkoutCity, setCheckoutCity] = useState("");
+  const [checkoutState, setCheckoutState] = useState("");
+  const [checkoutCountry, setCheckoutCountry] = useState("India");
+  const [checkoutPincode, setCheckoutPincode] = useState("");
   const [phone, setPhone] = useState(user?.phone || "");
   const [selectedSlot, setSelectedSlot] = useState("morning");
   const [paymentMethod, setPaymentMethod] = useState("cod");
@@ -143,10 +147,15 @@ export default function CheckoutPage() {
         image: item.product.image,
       }));
 
+      let deliveryAddr = address;
+      if (showNewAddress || savedAddresses.length === 0) {
+        deliveryAddr = [address, addressLine2, checkoutCity, checkoutState, checkoutCountry, checkoutPincode].filter(Boolean).join(", ");
+      }
+
       const res = await apiRequest("POST", "/api/orders", {
         items: orderItems,
         totalAmount: total.toString(),
-        deliveryAddress: address,
+        deliveryAddress: deliveryAddr,
         deliverySlot: deliverySlots.find(s => s.id === selectedSlot)?.time,
         paymentMethod: paymentId ? "razorpay" : "cod",
         paymentId,
@@ -333,7 +342,11 @@ export default function CheckoutPage() {
                             <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">Default</span>
                           )}
                         </div>
-                        <p className="text-sm text-gray-600 truncate">{addr.fullAddress}</p>
+                        <p className="text-sm text-gray-600 truncate">
+                          {addr.addressLine1 
+                            ? [addr.addressLine1, addr.city, addr.state, addr.pincode].filter(Boolean).join(", ")
+                            : addr.fullAddress}
+                        </p>
                       </div>
                       <div className="flex-shrink-0">
                         <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
@@ -382,17 +395,77 @@ export default function CheckoutPage() {
               />
             </div>
             {(showNewAddress || savedAddresses.length === 0) && (
-              <div>
-                <Label htmlFor="address">Full Address</Label>
-                <Textarea
-                  id="address"
-                  placeholder="Enter your delivery address"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  className="mt-1 resize-none"
-                  rows={3}
-                  data-testid="input-address"
-                />
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="addressLine1">Address Line 1 *</Label>
+                  <Input
+                    id="addressLine1"
+                    placeholder="House/Flat No, Street, Area"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    className="mt-1"
+                    data-testid="input-address"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="addressLine2">Address Line 2</Label>
+                  <Input
+                    id="addressLine2"
+                    placeholder="Landmark, Colony, Sector (Optional)"
+                    value={addressLine2}
+                    onChange={(e) => setAddressLine2(e.target.value)}
+                    className="mt-1"
+                    data-testid="input-address-line2"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="checkoutCity">City *</Label>
+                    <Input
+                      id="checkoutCity"
+                      placeholder="City"
+                      value={checkoutCity}
+                      onChange={(e) => setCheckoutCity(e.target.value)}
+                      className="mt-1"
+                      data-testid="input-city"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="checkoutState">State *</Label>
+                    <Input
+                      id="checkoutState"
+                      placeholder="State"
+                      value={checkoutState}
+                      onChange={(e) => setCheckoutState(e.target.value)}
+                      className="mt-1"
+                      data-testid="input-state"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="checkoutCountry">Country *</Label>
+                    <Input
+                      id="checkoutCountry"
+                      placeholder="Country"
+                      value={checkoutCountry}
+                      onChange={(e) => setCheckoutCountry(e.target.value)}
+                      className="mt-1"
+                      data-testid="input-country"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="checkoutPincode">Pincode *</Label>
+                    <Input
+                      id="checkoutPincode"
+                      placeholder="Pincode"
+                      value={checkoutPincode}
+                      onChange={(e) => setCheckoutPincode(e.target.value)}
+                      className="mt-1"
+                      data-testid="input-pincode"
+                    />
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -497,7 +570,7 @@ export default function CheckoutPage() {
         <div className="max-w-lg mx-auto">
           <Button 
             onClick={handlePlaceOrder}
-            disabled={!address || !phone || placeOrderMutation.isPending || isProcessingPayment}
+            disabled={!address || !phone || ((showNewAddress || savedAddresses.length === 0) && (!checkoutCity || !checkoutState || !checkoutPincode)) || placeOrderMutation.isPending || isProcessingPayment}
             className="w-full bg-primary text-white font-semibold py-6"
             data-testid="button-place-order"
           >
