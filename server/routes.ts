@@ -709,6 +709,7 @@ export async function registerRoutes(
       const schema = z.object({
         subject: z.string().min(1, "Subject is required"),
         message: z.string().min(1, "Message is required"),
+        image: z.string().nullable().optional(),
       });
       const parsed = schema.safeParse(req.body);
       if (!parsed.success) {
@@ -725,6 +726,7 @@ export async function registerRoutes(
         ticketId: ticket.id,
         senderId: req.user!.id,
         message: parsed.data.message,
+        image: parsed.data.image || null,
         isAdmin: false,
       });
       
@@ -745,6 +747,7 @@ export async function registerRoutes(
       
       const schema = z.object({
         message: z.string().min(1, "Message is required"),
+        image: z.string().nullable().optional(),
       });
       const parsed = schema.safeParse(req.body);
       if (!parsed.success) {
@@ -755,6 +758,7 @@ export async function registerRoutes(
         ticketId: req.params.id,
         senderId: req.user!.id,
         message: parsed.data.message,
+        image: parsed.data.image || null,
         isAdmin: !!req.user!.isAdmin,
       });
       

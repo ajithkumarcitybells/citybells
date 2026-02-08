@@ -223,6 +223,7 @@ export const ticketMessages = pgTable("ticket_messages", {
   ticketId: varchar("ticket_id").notNull(),
   senderId: varchar("sender_id").notNull(),
   message: text("message").notNull(),
+  image: text("image"),
   isAdmin: boolean("is_admin").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });

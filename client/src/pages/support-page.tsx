@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { MessageCircle, ArrowLeft, Send, Plus } from "lucide-react";
+import { MessageCircle, ArrowLeft, Send, Plus, ImagePlus, X } from "lucide-react";
 import { Header } from "@/components/Header";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { useUpload } from "@/hooks/use-upload";
 import type { SupportTicket, SupportTicketWithMessages } from "@shared/schema";
 
 const statusColors: Record<string, string> = {
@@ -36,6 +37,17 @@ export default function SupportPage() {
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [replyMessage, setReplyMessage] = useState("");
+  const [ticketImage, setTicketImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { uploadFile, isUploading } = useUpload({
+    onSuccess: (response) => {
+      setTicketImage(response.objectPath);
+      toast({ title: "Image uploaded successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to upload image", variant: "destructive" });
+    },
+  });
 
   const { data: tickets = [], isLoading: ticketsLoading } = useQuery<SupportTicket[]>({
     queryKey: ["/api/support/tickets"],
@@ -48,7 +60,7 @@ export default function SupportPage() {
   });
 
   const createTicketMutation = useMutation({
-    mutationFn: async (data: { subject: string; message: string }) => {
+    mutationFn: async (data: { subject: string; message: string; image?: string | null }) => {
       const res = await apiRequest("POST", "/api/support/tickets", data);
       return res.json();
     },
@@ -56,6 +68,7 @@ export default function SupportPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/support/tickets"] });
       setSubject("");
       setMessage("");
+      setTicketImage(null);
       setView("list");
       toast({ title: "Ticket created successfully" });
     },
@@ -81,7 +94,18 @@ export default function SupportPage() {
 
   const handleCreateTicket = () => {
     if (!subject.trim() || !message.trim()) return;
-    createTicketMutation.mutate({ subject: subject.trim(), message: message.trim() });
+    createTicketMutation.mutate({ subject: subject.trim(), message: message.trim(), image: ticketImage });
+  };
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Image must be less than 5MB", variant: "destructive" });
+      return;
+    }
+    await uploadFile(file);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleSendReply = () => {
@@ -130,9 +154,48 @@ export default function SupportPage() {
                 data-testid="input-ticket-message"
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Attach Image (optional)</label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageSelect}
+                className="hidden"
+                data-testid="input-ticket-image-file"
+              />
+              {ticketImage ? (
+                <div className="relative inline-block">
+                  <img
+                    src={ticketImage}
+                    alt="Attached"
+                    className="h-32 w-32 object-cover rounded-lg border border-gray-200"
+                    data-testid="img-ticket-preview"
+                  />
+                  <button
+                    onClick={() => setTicketImage(null)}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
+                    data-testid="button-remove-image"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="gap-2"
+                  data-testid="button-attach-image"
+                >
+                  <ImagePlus className="h-4 w-4" />
+                  {isUploading ? "Uploading..." : "Add Image"}
+                </Button>
+              )}
+            </div>
             <Button
               onClick={handleCreateTicket}
-              disabled={createTicketMutation.isPending || !subject.trim() || !message.trim()}
+              disabled={createTicketMutation.isPending || isUploading || !subject.trim() || !message.trim()}
               className="w-full bg-primary text-white"
               data-testid="button-submit-ticket"
             >
@@ -191,6 +254,14 @@ export default function SupportPage() {
                         {msg.isAdmin ? "Admin" : "You"}
                       </p>
                       <p className="text-sm" data-testid={`text-message-content-${msg.id}`}>{msg.message}</p>
+                      {msg.image && (
+                        <img
+                          src={msg.image}
+                          alt="Attached"
+                          className="mt-2 max-w-full rounded-lg max-h-48 object-contain"
+                          data-testid={`img-message-${msg.id}`}
+                        />
+                      )}
                       <p className={`text-xs mt-1 ${msg.isAdmin ? "text-gray-500" : "text-white/70"}`}>
                         {msg.createdAt ? new Date(msg.createdAt).toLocaleString() : ""}
                       </p>

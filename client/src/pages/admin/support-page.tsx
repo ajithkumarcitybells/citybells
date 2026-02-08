@@ -154,6 +154,14 @@ export default function AdminSupportPage() {
                         {msg.isAdmin ? "You (Admin)" : ticketDetail.userName || ticketDetail.username || "User"}
                       </p>
                       <p className="text-sm" data-testid={`text-message-content-${msg.id}`}>{msg.message}</p>
+                      {msg.image && (
+                        <img
+                          src={msg.image}
+                          alt="Attached"
+                          className="mt-2 max-w-full rounded-lg max-h-48 object-contain"
+                          data-testid={`img-message-${msg.id}`}
+                        />
+                      )}
                       <p className={`text-xs mt-1 ${msg.isAdmin ? "text-white/70" : "text-gray-500"}`}>
                         {msg.createdAt ? new Date(msg.createdAt).toLocaleString() : ""}
                       </p>
