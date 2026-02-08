@@ -15,18 +15,16 @@ export function ServiceCard({ name, description, image, isActive, href, isLarge 
   if (isLarge && isActive) {
     const content = (
       <div 
-        className="relative rounded-3xl overflow-hidden aspect-[16/10] bg-gradient-to-br from-green-500 via-green-400 to-green-300 border-[3px] border-white shadow-lg"
+        className="relative rounded-3xl overflow-hidden aspect-[16/10] border-[3px] border-white shadow-lg"
         data-testid={`card-service-${name.toLowerCase().replace(/\s+/g, '-')}`}
       >
-        <div className="absolute bottom-0 right-0 w-2/3 h-full">
-          <img 
-            src={image} 
-            alt={name}
-            className="w-full h-full object-cover"
-            loading="lazy"
-          />
-          <div className="absolute inset-0 bg-gradient-to-l from-blue-500/15 via-blue-500/20 to-green-500/30" />
-        </div>
+        <img 
+          src={image} 
+          alt={name}
+          className="w-full h-full object-cover"
+          loading="lazy"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
         
         <div className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm px-5 py-4 rounded-t-3xl">
           <h3 className="text-2xl font-bold text-gray-800">
