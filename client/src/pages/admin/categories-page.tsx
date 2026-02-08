@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, X as XIcon } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -48,6 +48,9 @@ export default function AdminCategoriesPage() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: categories = [], isLoading } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
@@ -72,6 +75,7 @@ export default function AdminCategoriesPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
       setIsDialogOpen(false);
       form.reset();
+      setImagePreview("");
       toast({ title: "Category created successfully" });
     },
     onError: (error: Error) => {
@@ -89,6 +93,7 @@ export default function AdminCategoriesPage() {
       setIsDialogOpen(false);
       setEditingCategory(null);
       form.reset();
+      setImagePreview("");
       toast({ title: "Category updated successfully" });
     },
     onError: (error: Error) => {
@@ -112,6 +117,7 @@ export default function AdminCategoriesPage() {
   const openCreateDialog = () => {
     setEditingCategory(null);
     form.reset();
+    setImagePreview("");
     setIsDialogOpen(true);
   };
 
@@ -123,7 +129,65 @@ export default function AdminCategoriesPage() {
       isActive: category.isActive ?? true,
       sortOrder: category.sortOrder || 0,
     });
+    setImagePreview(category.image || "");
     setIsDialogOpen(true);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Please select an image file", variant: "destructive" });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Image size must be less than 5MB", variant: "destructive" });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const urlRes = await fetch("/api/uploads/request-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: file.name,
+          size: file.size,
+          contentType: file.type,
+        }),
+      });
+
+      if (!urlRes.ok) throw new Error("Failed to get upload URL");
+      const { uploadURL, objectPath } = await urlRes.json();
+
+      const uploadRes = await fetch(uploadURL, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type },
+      });
+
+      if (!uploadRes.ok) throw new Error("Failed to upload image");
+
+      const imageUrl = objectPath;
+      form.setValue("image", imageUrl);
+      setImagePreview(imageUrl);
+      toast({ title: "Image uploaded successfully" });
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast({ title: "Failed to upload image", variant: "destructive" });
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const clearImage = () => {
+    form.setValue("image", "");
+    setImagePreview("");
   };
 
   const onSubmit = (data: CategoryFormData) => {
@@ -248,9 +312,52 @@ export default function AdminCategoriesPage() {
                 name="image"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Image URL</FormLabel>
+                    <FormLabel>Image</FormLabel>
                     <FormControl>
-                      <Input placeholder="https://..." {...field} />
+                      <div>
+                        {imagePreview ? (
+                          <div className="relative w-full h-32 bg-gray-100 rounded-lg overflow-hidden mb-2">
+                            <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={clearImage}
+                              className="absolute top-2 right-2 bg-white rounded-full p-1 shadow"
+                            >
+                              <XIcon className="h-4 w-4 text-gray-600" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div
+                            onClick={() => fileInputRef.current?.click()}
+                            className="w-full h-32 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary transition-colors"
+                          >
+                            <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                            <p className="text-sm text-gray-500">Click to upload image</p>
+                            <p className="text-xs text-gray-400 mt-1">Max 5MB</p>
+                          </div>
+                        )}
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          className="hidden"
+                        />
+                        <input type="hidden" {...field} />
+                        {imagePreview && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="mt-2"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isUploading}
+                            data-testid="button-change-image"
+                          >
+                            {isUploading ? "Uploading..." : "Change Image"}
+                          </Button>
+                        )}
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
