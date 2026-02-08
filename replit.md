@@ -53,6 +53,8 @@ City Bell is a Progressive Web App (PWA) for a multi-service super app featuring
 - **banners**: Promotional banners for homepage
 - **services**: Super app service toggles (Grocery, Food, etc.)
 - **addresses**: User delivery addresses with labels (Home/Work/Other)
+- **support_tickets**: User support/complaint tickets with status tracking
+- **ticket_messages**: Conversation messages within support tickets
 
 ## Key Features
 
@@ -66,6 +68,7 @@ City Bell is a Progressive Web App (PWA) for a multi-service super app featuring
 - Order history tracking
 - Auto-location detection using GPS + OpenStreetMap reverse geocoding
 - Address management (save/edit/delete multiple addresses with labels)
+- Support ticket system (raise complaints, track status, chat with admin)
 
 ### Admin Features
 - Product management (CRUD) with image upload
