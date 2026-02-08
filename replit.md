@@ -131,6 +131,16 @@ City Bell is a Progressive Web App (PWA) for a multi-service super app featuring
   - Cart items with different weight variants stored as separate entries
   - Cart and checkout display variant info with correct pricing (multiplier-based)
   - `variant` field added to cart_items table
+- Added admin order detail page with CB-prefixed order numbers (Feb 2026):
+  - `orderNumber` field on orders table (e.g., CB739AAE)
+  - Auto-generated on order creation with CB + 6 random alphanumeric chars
+  - Retry logic for unique constraint collisions
+  - Admin order detail page at /admin/orders/:id with full order info
+  - Clickable order IDs in admin orders list navigate to detail page
+  - Customer info, items, delivery address, payment details displayed
+  - Status update from detail page
+  - GET /api/admin/orders/:id endpoint with customer join
+  - Admin multi-select bulk delete on products page
 - Integrated Razorpay payment gateway (Feb 2026):
   - Online payments via UPI, Cards, Net Banking, Wallets
   - Backend routes for order creation and signature verification

@@ -145,6 +145,7 @@ export const wishlistItemRelations = relations(wishlistItems, ({ one }) => ({
 // Orders table
 export const orders = pgTable("orders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderNumber: varchar("order_number").unique(),
   userId: varchar("user_id").references(() => users.id).notNull(),
   items: jsonb("items").notNull(),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),

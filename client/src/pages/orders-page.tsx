@@ -98,7 +98,7 @@ export default function OrdersPage() {
                     <div>
                       <p className="text-xs text-gray-500">Order ID</p>
                       <p className="font-medium text-gray-800 text-sm">
-                        #{order.id.slice(0, 8).toUpperCase()}
+                        {order.orderNumber || `CB${order.id.slice(0, 6).toUpperCase()}`}
                       </p>
                     </div>
                     <Badge className={`${status.color} flex items-center gap-1`}>

@@ -81,6 +81,7 @@ export interface IStorage {
   getOrders(userId: string): Promise<Order[]>;
   getAllOrders(): Promise<Order[]>;
   getOrder(id: string): Promise<Order | undefined>;
+  getOrderWithCustomer(id: string): Promise<(Order & { customerName?: string; customerEmail?: string; customerPhone?: string; customerUsername?: string }) | undefined>;
   createOrder(order: InsertOrder): Promise<Order>;
   updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
   
@@ -326,9 +327,51 @@ export class DatabaseStorage implements IStorage {
     return order || undefined;
   }
 
+  async getOrderWithCustomer(id: string): Promise<(Order & { customerName?: string; customerEmail?: string; customerPhone?: string; customerUsername?: string }) | undefined> {
+    const result = await db
+      .select({
+        order: orders,
+        customerName: users.name,
+        customerEmail: users.email,
+        customerPhone: users.phone,
+        customerUsername: users.username,
+      })
+      .from(orders)
+      .leftJoin(users, eq(orders.userId, users.id))
+      .where(eq(orders.id, id));
+    
+    if (result.length === 0) return undefined;
+    const r = result[0];
+    return {
+      ...r.order,
+      customerName: r.customerName || undefined,
+      customerEmail: r.customerEmail || undefined,
+      customerPhone: r.customerPhone || undefined,
+      customerUsername: r.customerUsername || undefined,
+    };
+  }
+
+  private generateOrderNumber(): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = 'CB';
+    for (let i = 0; i < 6; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  }
+
   async createOrder(order: InsertOrder): Promise<Order> {
-    const [created] = await db.insert(orders).values(order).returning();
-    return created;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        const orderNumber = this.generateOrderNumber();
+        const [created] = await db.insert(orders).values({ ...order, orderNumber }).returning();
+        return created;
+      } catch (err: any) {
+        if (err?.code === '23505' && attempt < 4) continue;
+        throw err;
+      }
+    }
+    throw new Error("Failed to generate unique order number");
   }
 
   async updateOrderStatus(id: string, status: string): Promise<Order | undefined> {

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { Package, Clock, CheckCircle, Truck, XCircle, User, MapPin, ChevronDown, ChevronUp } from "lucide-react";
 import { AdminLayout } from "./index";
 import { Badge } from "@/components/ui/badge";
@@ -149,7 +150,11 @@ export default function AdminOrdersPage() {
                 return (
                   <TableRow key={order.id} data-testid={`order-row-${order.id}`}>
                     <TableCell>
-                      <p className="font-mono text-sm">#{order.id.slice(0, 8).toUpperCase()}</p>
+                      <Link href={`/admin/orders/${order.id}`}>
+                        <span className="font-mono text-sm text-blue-600 hover:text-blue-800 hover:underline cursor-pointer" data-testid={`link-order-${order.id}`}>
+                          {order.orderNumber || `CB${order.id.slice(0, 6).toUpperCase()}`}
+                        </span>
+                      </Link>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">

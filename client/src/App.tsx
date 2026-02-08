@@ -21,6 +21,7 @@ import AdminDashboard from "@/pages/admin/index";
 import AdminProductsPage from "@/pages/admin/products-page";
 import AdminCategoriesPage from "@/pages/admin/categories-page";
 import AdminOrdersPage from "@/pages/admin/orders-page";
+import AdminOrderDetailPage from "@/pages/admin/order-detail-page";
 import AdminBannersPage from "@/pages/admin/banners-page";
 import AdminServicesPage from "@/pages/admin/services-page";
 import ProductDetailPage from "@/pages/product-detail-page";
@@ -47,6 +48,7 @@ function AppRouter() {
       <AdminRoute path="/admin" component={AdminDashboard} />
       <AdminRoute path="/admin/products" component={AdminProductsPage} />
       <AdminRoute path="/admin/categories" component={AdminCategoriesPage} />
+      <AdminRoute path="/admin/orders/:id" component={AdminOrderDetailPage} />
       <AdminRoute path="/admin/orders" component={AdminOrdersPage} />
       <AdminRoute path="/admin/banners" component={AdminBannersPage} />
       <AdminRoute path="/admin/services" component={AdminServicesPage} />
