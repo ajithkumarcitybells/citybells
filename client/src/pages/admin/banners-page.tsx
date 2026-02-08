@@ -296,7 +296,7 @@ export default function AdminBannersPage() {
                 name="image"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Banner Image</FormLabel>
+                    <FormLabel>Banner Image (Size:1470 x 704 px). Upload below 5MB</FormLabel>
                     <FormControl>
                       <div className="space-y-3">
                         {imagePreview ? (
