@@ -113,7 +113,7 @@ export function ProductCard({ product }: ProductCardProps) {
         data-testid={`card-product-${product.id}`}
       >
         <div 
-          className="relative aspect-square bg-gray-50 p-2 cursor-pointer"
+          className="relative aspect-square p-2 cursor-pointer bg-[#fff]"
           onClick={() => setLocation(`/product/${product.id}`)}
         >
           <div className="absolute top-2 right-2 flex flex-col gap-1 z-10">
@@ -191,7 +191,6 @@ export function ProductCard({ product }: ProductCardProps) {
           </Button>
         </div>
       </div>
-
       <WeightPickerModal
         product={product}
         open={showWeightPicker}
