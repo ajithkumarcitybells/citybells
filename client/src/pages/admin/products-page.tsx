@@ -803,9 +803,18 @@ export default function AdminProductsPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Unit</FormLabel>
-                      <FormControl>
-                        <Input placeholder="1 kg, 500g, 1 pc" {...field} />
-                      </FormControl>
+                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-unit">
+                            <SelectValue placeholder="Select unit" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Kg">Kg</SelectItem>
+                          <SelectItem value="Pieces">Pieces</SelectItem>
+                          <SelectItem value="Bunch">Bunch</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}

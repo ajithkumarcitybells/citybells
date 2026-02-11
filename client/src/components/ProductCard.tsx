@@ -178,7 +178,7 @@ export function ProductCard({ product }: ProductCardProps) {
             )}
           </div>
           
-          <p className="text-xs text-gray-400 mb-1">per kg price</p>
+          <p className="text-xs text-gray-400 mb-1">per {product.unit || "Kg"} price</p>
           
           <Button
             onClick={handleAddToCart}
