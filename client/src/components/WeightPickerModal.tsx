@@ -15,6 +15,30 @@ const WEIGHT_OPTIONS: WeightOption[] = [
   { label: "1kg", multiplier: 1 },
 ];
 
+const PIECE_OPTIONS: WeightOption[] = [
+  { label: "1 Pc", multiplier: 1 },
+  { label: "2 Pcs", multiplier: 2, popular: true },
+  { label: "5 Pcs", multiplier: 5 },
+];
+
+const BUNCH_OPTIONS: WeightOption[] = [
+  { label: "1 Bunch", multiplier: 1 },
+  { label: "2 Bunch", multiplier: 2, popular: true },
+  { label: "3 Bunch", multiplier: 3 },
+];
+
+function getOptionsForUnit(unit?: string): WeightOption[] {
+  if (unit === "Pieces") return PIECE_OPTIONS;
+  if (unit === "Bunch") return BUNCH_OPTIONS;
+  return WEIGHT_OPTIONS;
+}
+
+function getDefaultForUnit(unit?: string): string {
+  if (unit === "Pieces") return "2 Pcs";
+  if (unit === "Bunch") return "2 Bunch";
+  return "500g";
+}
+
 const LAST_WEIGHT_KEY = "citybell_last_fruit_weight";
 
 interface WeightPickerModalProps {
@@ -26,17 +50,21 @@ interface WeightPickerModalProps {
 }
 
 export function WeightPickerModal({ product, open, onClose, onAddToCart, isPending }: WeightPickerModalProps) {
+  const options = getOptionsForUnit(product.unit);
+  const defaultOption = getDefaultForUnit(product.unit);
+  const storageKey = `${LAST_WEIGHT_KEY}_${product.unit || "Kg"}`;
+
   const [selectedWeight, setSelectedWeight] = useState<string>(() => {
-    const saved = localStorage.getItem(LAST_WEIGHT_KEY);
-    return saved || "500g";
+    const saved = localStorage.getItem(storageKey);
+    return saved && options.some(o => o.label === saved) ? saved : defaultOption;
   });
 
   useEffect(() => {
     if (open) {
-      const saved = localStorage.getItem(LAST_WEIGHT_KEY);
-      setSelectedWeight(saved || "500g");
+      const saved = localStorage.getItem(storageKey);
+      setSelectedWeight(saved && options.some(o => o.label === saved) ? saved : defaultOption);
     }
-  }, [open]);
+  }, [open, storageKey, defaultOption, options]);
 
   if (!open) return null;
 
@@ -46,12 +74,12 @@ export function WeightPickerModal({ product, open, onClose, onAddToCart, isPendi
   const getPrice = (multiplier: number) => Math.round(basePrice * multiplier * 100) / 100;
   const getOriginalPrice = (multiplier: number) => Math.round(baseOriginalPrice * multiplier * 100) / 100;
 
-  const selectedOption = WEIGHT_OPTIONS.find(o => o.label === selectedWeight)!;
+  const selectedOption = options.find(o => o.label === selectedWeight) || options[0];
   const currentPrice = getPrice(selectedOption.multiplier);
   const currentOriginalPrice = getOriginalPrice(selectedOption.multiplier);
 
   const handleAdd = () => {
-    localStorage.setItem(LAST_WEIGHT_KEY, selectedWeight);
+    localStorage.setItem(storageKey, selectedWeight);
     onAddToCart(selectedWeight);
   };
 
@@ -73,7 +101,7 @@ export function WeightPickerModal({ product, open, onClose, onAddToCart, isPendi
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-gray-800 text-base leading-tight">{product.name}</h3>
-            <p className="text-xs text-gray-500">Select weight</p>
+            <p className="text-xs text-gray-500">{product.unit === "Kg" || !product.unit ? "Select weight" : "Select quantity"}</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <Button
@@ -96,7 +124,7 @@ export function WeightPickerModal({ product, open, onClose, onAddToCart, isPendi
         </div>
 
         <div className="grid grid-cols-3 gap-2 mb-3">
-          {WEIGHT_OPTIONS.map((option) => {
+          {options.map((option) => {
             const isSelected = selectedWeight === option.label;
             const price = getPrice(option.multiplier);
             return (
