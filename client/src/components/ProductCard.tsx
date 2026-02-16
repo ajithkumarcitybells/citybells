@@ -109,7 +109,7 @@ export function ProductCard({ product }: ProductCardProps) {
   return (
     <>
       <div 
-        className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm"
+        className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm flex flex-col h-full"
         data-testid={`card-product-${product.id}`}
       >
         <div 
@@ -148,7 +148,7 @@ export function ProductCard({ product }: ProductCardProps) {
           )}
         </div>
         
-        <div className="p-3">
+        <div className="p-3 flex flex-col flex-1">
           <div className="flex items-center justify-between mb-1">
             <h3 
               className="font-medium text-sm text-gray-800 flex-1 cursor-pointer hover:text-primary leading-tight"
@@ -180,6 +180,7 @@ export function ProductCard({ product }: ProductCardProps) {
           
           <p className="text-xs text-gray-400 mb-1">per {product.unit || "Kg"} price</p>
           
+          <div className="mt-auto" />
           <Button
             onClick={handleAddToCart}
             disabled={addToCartMutation.isPending}
