@@ -111,6 +111,19 @@ City Bell is a Progressive Web App (PWA) for a multi-service super app featuring
 - `GET/PATCH /api/admin/orders/:id`
 - `POST/PATCH/DELETE /api/admin/banners/:id`
 - `PATCH /api/admin/services/:id`
+- `GET /api/admin/vendor-applications` - List all vendor applications
+- `GET /api/admin/vendor-applications/:id` - Get single application
+- `PATCH /api/admin/vendor-applications/:id` - Approve/reject (approval creates vendor user account)
+
+### Vendor Routes (requires vendor role)
+- `GET /api/vendor/products` - Get vendor's own products
+- `POST /api/vendor/products` - Create product (auto-sets vendorId)
+- `PATCH /api/vendor/products/:id` - Update own product
+- `DELETE /api/vendor/products/:id` - Delete own product
+- `GET /api/vendor/categories` - Get categories for product creation
+
+### Public Vendor Routes
+- `POST /api/vendor-applications` - Submit vendor application (no login required)
 
 ## Default Accounts
 - **Admin**: username: `admin`, password: `admin123`

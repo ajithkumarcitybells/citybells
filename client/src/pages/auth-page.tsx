@@ -56,17 +56,24 @@ export default function AuthPage() {
   });
 
   if (user) {
+    if (user.isVendor) return <Redirect to="/vendor/dashboard" />;
+    if (user.isAdmin) return <Redirect to="/admin" />;
     return <Redirect to="/" />;
   }
 
+  const getRedirectPath = (u: any) => {
+    if (u?.isVendor) return "/vendor/dashboard";
+    if (u?.isAdmin) return "/admin";
+    return "/";
+  };
+
   const onLoginSubmit = (data: LoginFormData) => {
     loginMutation.mutate(data, {
-      onSuccess: () => setLocation("/"),
+      onSuccess: (u) => setLocation(getRedirectPath(u)),
     });
   };
 
   const onRegisterSubmit = (data: RegisterFormData) => {
-    // Use email as username for login
     const { confirmPassword, ...registerData } = data;
     registerMutation.mutate({
       username: data.email,
@@ -75,7 +82,7 @@ export default function AuthPage() {
       email: data.email,
       phone: data.phone,
     }, {
-      onSuccess: () => setLocation("/"),
+      onSuccess: (u) => setLocation(getRedirectPath(u)),
     });
   };
 

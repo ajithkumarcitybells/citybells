@@ -4,7 +4,7 @@ import { z } from "zod";
 import crypto from "crypto";
 import Razorpay from "razorpay";
 import { storage } from "./storage";
-import { setupAuth, requireAuth, requireAdmin } from "./auth";
+import { setupAuth, requireAuth, requireAdmin, requireVendor } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 
 // Initialize Razorpay
@@ -20,6 +20,8 @@ import {
   insertAddressSchema,
   insertSupportTicketSchema,
   insertCategoryAdSchema,
+  insertVendorApplicationSchema,
+  users,
 } from "@shared/schema";
 
 // Validation schemas for API endpoints
@@ -930,6 +932,161 @@ export async function registerRoutes(
     } catch (err) {
       console.error("Error updating ticket status:", err);
       res.status(500).json({ message: "Failed to update ticket status" });
+    }
+  });
+
+  // ==================== VENDOR APPLICATION ROUTES ====================
+
+  // Public - Submit vendor application (no login required)
+  app.post("/api/vendor-applications", async (req, res) => {
+    try {
+      const parsed = insertVendorApplicationSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid application data" });
+      }
+      const existing = await storage.getUserByUsername(parsed.data.username);
+      if (existing) {
+        return res.status(400).json({ message: "Username already taken. Please choose a different username." });
+      }
+      const application = await storage.createVendorApplication(parsed.data);
+      res.status(201).json(application);
+    } catch (err) {
+      console.error("Error creating vendor application:", err);
+      res.status(500).json({ message: "Failed to submit application" });
+    }
+  });
+
+  // Admin - Get all vendor applications
+  app.get("/api/admin/vendor-applications", requireAdmin, async (req, res) => {
+    try {
+      const applications = await storage.getVendorApplications();
+      res.json(applications);
+    } catch (err) {
+      console.error("Error fetching vendor applications:", err);
+      res.status(500).json({ message: "Failed to fetch applications" });
+    }
+  });
+
+  // Admin - Get single vendor application
+  app.get("/api/admin/vendor-applications/:id", requireAdmin, async (req, res) => {
+    try {
+      const application = await storage.getVendorApplication(req.params.id);
+      if (!application) return res.status(404).json({ message: "Application not found" });
+      res.json(application);
+    } catch (err) {
+      console.error("Error fetching vendor application:", err);
+      res.status(500).json({ message: "Failed to fetch application" });
+    }
+  });
+
+  // Admin - Approve/Reject vendor application
+  app.patch("/api/admin/vendor-applications/:id", requireAdmin, async (req, res) => {
+    try {
+      const schema = z.object({
+        status: z.enum(["approved", "rejected"]),
+        adminNote: z.string().optional(),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+
+      const application = await storage.getVendorApplication(req.params.id);
+      if (!application) return res.status(404).json({ message: "Application not found" });
+
+      if (parsed.data.status === "approved") {
+        const existing = await storage.getUserByUsername(application.username);
+        if (existing) {
+          return res.status(400).json({ message: "Username already exists. Cannot create vendor account." });
+        }
+        const { hashPassword } = await import("./auth");
+        const hashedPassword = await hashPassword(application.password);
+        const { db } = await import("./db");
+        await db.insert(users).values({
+          username: application.username,
+          password: hashedPassword,
+          name: application.ownerName,
+          email: application.email,
+          phone: application.phone,
+          isAdmin: false,
+          isVendor: true,
+        });
+      }
+
+      const updated = await storage.updateVendorApplicationStatus(req.params.id, parsed.data.status, parsed.data.adminNote);
+      res.json(updated);
+    } catch (err) {
+      console.error("Error updating vendor application:", err);
+      res.status(500).json({ message: "Failed to update application" });
+    }
+  });
+
+  // ==================== VENDOR ROUTES ====================
+
+  // Vendor - Get own products
+  app.get("/api/vendor/products", requireVendor, async (req, res) => {
+    try {
+      const vendorProducts = await storage.getVendorProducts(req.user!.id);
+      res.json(vendorProducts);
+    } catch (err) {
+      console.error("Error fetching vendor products:", err);
+      res.status(500).json({ message: "Failed to fetch products" });
+    }
+  });
+
+  // Vendor - Create product
+  app.post("/api/vendor/products", requireVendor, async (req, res) => {
+    try {
+      const parsed = insertProductSchema.safeParse({ ...req.body, vendorId: req.user!.id });
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid product data" });
+      }
+      const product = await storage.createProduct(parsed.data);
+      res.status(201).json(product);
+    } catch (err) {
+      console.error("Error creating vendor product:", err);
+      res.status(500).json({ message: "Failed to create product" });
+    }
+  });
+
+  // Vendor - Update own product
+  app.patch("/api/vendor/products/:id", requireVendor, async (req, res) => {
+    try {
+      const existing = await storage.getProduct(req.params.id);
+      if (!existing || existing.vendorId !== req.user!.id) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      const product = await storage.updateProduct(req.params.id, req.body);
+      res.json(product);
+    } catch (err) {
+      console.error("Error updating vendor product:", err);
+      res.status(500).json({ message: "Failed to update product" });
+    }
+  });
+
+  // Vendor - Delete own product
+  app.delete("/api/vendor/products/:id", requireVendor, async (req, res) => {
+    try {
+      const existing = await storage.getProduct(req.params.id);
+      if (!existing || existing.vendorId !== req.user!.id) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      await storage.deleteProduct(req.params.id);
+      res.json({ message: "Product deleted" });
+    } catch (err) {
+      console.error("Error deleting vendor product:", err);
+      res.status(500).json({ message: "Failed to delete product" });
+    }
+  });
+
+  // Vendor - Get categories (for product creation dropdown)
+  app.get("/api/vendor/categories", requireVendor, async (req, res) => {
+    try {
+      const allCategories = await storage.getCategories();
+      res.json(allCategories);
+    } catch (err) {
+      console.error("Error fetching categories for vendor:", err);
+      res.status(500).json({ message: "Failed to fetch categories" });
     }
   });
 

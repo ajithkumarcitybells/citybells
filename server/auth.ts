@@ -200,3 +200,13 @@ export function requireAdmin(req: Express.Request, res: Express.Response, next: 
   }
   next();
 }
+
+export function requireVendor(req: Express.Request, res: Express.Response, next: Express.NextFunction) {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Please login to continue" });
+  }
+  if (!req.user?.isVendor) {
+    return res.status(403).json({ message: "Vendor access required" });
+  }
+  next();
+}

@@ -31,6 +31,7 @@ const adminMenuItems = [
   { icon: Image, label: "Banners", href: "/admin/banners" },
   { icon: Megaphone, label: "Category Ads", href: "/admin/category-ads" },
   { icon: Settings, label: "Services", href: "/admin/services" },
+  { icon: Users, label: "Vendors", href: "/admin/vendors" },
   { icon: MessageCircle, label: "Support", href: "/admin/support" },
 ];
 

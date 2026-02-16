@@ -38,6 +38,9 @@ import {
   type SupportTicketWithMessages,
   type TicketMessage,
   type InsertTicketMessage,
+  vendorApplications,
+  type VendorApplication,
+  type InsertVendorApplication,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -130,6 +133,15 @@ export interface IStorage {
   updateTicketStatus(id: string, status: string): Promise<SupportTicket | undefined>;
   addTicketMessage(message: InsertTicketMessage): Promise<TicketMessage>;
   getTicketMessages(ticketId: string): Promise<TicketMessage[]>;
+
+  // Vendor Applications
+  getVendorApplications(): Promise<VendorApplication[]>;
+  getVendorApplication(id: string): Promise<VendorApplication | undefined>;
+  createVendorApplication(application: InsertVendorApplication): Promise<VendorApplication>;
+  updateVendorApplicationStatus(id: string, status: string, adminNote?: string): Promise<VendorApplication | undefined>;
+
+  // Vendor Products
+  getVendorProducts(vendorId: string): Promise<Product[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -569,6 +581,33 @@ export class DatabaseStorage implements IStorage {
 
   async getTicketMessages(ticketId: string): Promise<TicketMessage[]> {
     return db.select().from(ticketMessages).where(eq(ticketMessages.ticketId, ticketId)).orderBy(ticketMessages.createdAt);
+  }
+
+  // Vendor Applications
+  async getVendorApplications(): Promise<VendorApplication[]> {
+    return db.select().from(vendorApplications).orderBy(desc(vendorApplications.createdAt));
+  }
+
+  async getVendorApplication(id: string): Promise<VendorApplication | undefined> {
+    const [app] = await db.select().from(vendorApplications).where(eq(vendorApplications.id, id));
+    return app || undefined;
+  }
+
+  async createVendorApplication(application: InsertVendorApplication): Promise<VendorApplication> {
+    const [created] = await db.insert(vendorApplications).values(application).returning();
+    return created;
+  }
+
+  async updateVendorApplicationStatus(id: string, status: string, adminNote?: string): Promise<VendorApplication | undefined> {
+    const updateData: Partial<VendorApplication> = { status };
+    if (adminNote !== undefined) updateData.adminNote = adminNote;
+    const [updated] = await db.update(vendorApplications).set(updateData).where(eq(vendorApplications.id, id)).returning();
+    return updated || undefined;
+  }
+
+  // Vendor Products
+  async getVendorProducts(vendorId: string): Promise<Product[]> {
+    return db.select().from(products).where(eq(products.vendorId, vendorId));
   }
 }
 

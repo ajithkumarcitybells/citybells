@@ -13,6 +13,7 @@ export const users = pgTable("users", {
   phone: text("phone"),
   address: text("address"),
   isAdmin: boolean("is_admin").default(false),
+  isVendor: boolean("is_vendor").default(false),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -86,6 +87,7 @@ export const products = pgTable("products", {
   stock: integer("stock").default(100),
   unit: text("unit").default("1 pc"),
   isActive: boolean("is_active").default(true),
+  vendorId: varchar("vendor_id").references(() => users.id),
 });
 
 export const insertProductSchema = createInsertSchema(products).omit({ id: true });
@@ -259,6 +261,28 @@ export const categoryAdRelations = relations(categoryAds, ({ one }) => ({
     references: [categories.id],
   }),
 }));
+
+// Vendor Applications table
+export const vendorApplications = pgTable("vendor_applications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  businessName: text("business_name").notNull(),
+  ownerName: text("owner_name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone").notNull(),
+  serviceType: text("service_type").notNull(),
+  description: text("description"),
+  address: text("address"),
+  username: text("username").notNull(),
+  password: text("password").notNull(),
+  certificates: text("certificates").array(),
+  status: text("status").notNull().default("pending"),
+  adminNote: text("admin_note"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertVendorApplicationSchema = createInsertSchema(vendorApplications).omit({ id: true, status: true, adminNote: true, createdAt: true });
+export type InsertVendorApplication = z.infer<typeof insertVendorApplicationSchema>;
+export type VendorApplication = typeof vendorApplications.$inferSelect;
 
 // Type for cart item with product details
 export type CartItemWithProduct = CartItem & { product: Product };

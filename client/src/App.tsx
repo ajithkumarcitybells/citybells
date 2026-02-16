@@ -6,7 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/use-auth";
 import { LocationProvider } from "@/hooks/use-location";
-import { ProtectedRoute, AdminRoute } from "@/lib/protected-route";
+import { ProtectedRoute, AdminRoute, VendorRoute } from "@/lib/protected-route";
 import SplashScreen from "@/components/SplashScreen";
 import NotFound from "@/pages/not-found";
 import HomePage from "@/pages/home-page";
@@ -30,6 +30,9 @@ import AddressesPage from "@/pages/addresses-page";
 import SettingsPage from "@/pages/settings-page";
 import SupportPage from "@/pages/support-page";
 import AdminSupportPage from "@/pages/admin/support-page";
+import AdminVendorsPage from "@/pages/admin/vendors-page";
+import VendorApplicationPage from "@/pages/vendor-application-page";
+import VendorDashboardPage from "@/pages/vendor-dashboard-page";
 
 function AppRouter() {
   return (
@@ -40,6 +43,7 @@ function AppRouter() {
       <Route path="/cart" component={CartPage} />
       <Route path="/wishlist" component={WishlistPage} />
       <Route path="/profile" component={ProfilePage} />
+      <Route path="/vendors" component={VendorApplicationPage} />
       <Route path="/auth" component={AuthPage} />
       <Route path="/login" component={AuthPage} />
       <Route path="/register" component={AuthPage} />
@@ -58,6 +62,8 @@ function AppRouter() {
       <AdminRoute path="/admin/banners" component={AdminBannersPage} />
       <AdminRoute path="/admin/category-ads" component={AdminCategoryAdsPage} />
       <AdminRoute path="/admin/services" component={AdminServicesPage} />
+      <AdminRoute path="/admin/vendors" component={AdminVendorsPage} />
+      <VendorRoute path="/vendor/dashboard" component={VendorDashboardPage} />
       <Route component={NotFound} />
     </Switch>
   );
