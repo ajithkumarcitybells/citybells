@@ -274,7 +274,7 @@ export const vendorApplications = pgTable("vendor_applications", {
   address: text("address"),
   username: text("username").notNull(),
   password: text("password").notNull(),
-  certificates: text("certificates").array(),
+  certificates: text("certificates").array().notNull(),
   status: text("status").notNull().default("pending"),
   adminNote: text("admin_note"),
   createdAt: timestamp("created_at").defaultNow(),

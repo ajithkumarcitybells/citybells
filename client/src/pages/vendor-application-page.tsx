@@ -56,7 +56,7 @@ const formSchema = insertVendorApplicationSchema.extend({
   password: z.string().min(6, "Password must be at least 6 characters"),
   description: z.string().optional().or(z.literal("")),
   address: z.string().optional().or(z.literal("")),
-  certificates: z.array(z.string()).optional(),
+  certificates: z.array(z.string()).min(1, "Please upload at least one certificate"),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -97,7 +97,7 @@ export default function VendorApplicationPage() {
     mutationFn: async (data: FormData) => {
       const res = await apiRequest("POST", "/api/vendor-applications", {
         ...data,
-        certificates: certificateUrls.length > 0 ? certificateUrls : undefined,
+        certificates: certificateUrls,
       });
       return res.json();
     },
@@ -125,14 +125,22 @@ export default function VendorApplicationPage() {
     for (let i = 0; i < files.length; i++) {
       const result = await uploadFile(files[i]);
       if (result) {
-        setCertificateUrls((prev) => [...prev, result.objectPath]);
+        setCertificateUrls((prev) => {
+          const updated = [...prev, result.objectPath];
+          form.setValue("certificates", updated, { shouldValidate: true });
+          return updated;
+        });
       }
     }
     e.target.value = "";
   };
 
   const removeCertificate = (index: number) => {
-    setCertificateUrls((prev) => prev.filter((_, i) => i !== index));
+    setCertificateUrls((prev) => {
+      const updated = prev.filter((_, i) => i !== index);
+      form.setValue("certificates", updated, { shouldValidate: true });
+      return updated;
+    });
   };
 
   const onSubmit = (data: FormData) => {
@@ -460,9 +468,7 @@ export default function VendorApplicationPage() {
                   <FormLabel className="flex items-center gap-2 mb-3">
                     <FileText className="h-4 w-4" />
                     Business Certificates{" "}
-                    <span className="text-gray-400 font-normal">
-                      (optional)
-                    </span>
+                    <span className="text-red-500 font-normal">*</span>
                   </FormLabel>
 
                   <div className="space-y-2">
@@ -505,6 +511,11 @@ export default function VendorApplicationPage() {
                         data-testid="input-certificates"
                       />
                     </label>
+                    {form.formState.errors.certificates && (
+                      <p className="text-sm text-red-500 mt-1" data-testid="error-certificates">
+                        {form.formState.errors.certificates.message}
+                      </p>
+                    )}
                   </div>
                 </div>
 
