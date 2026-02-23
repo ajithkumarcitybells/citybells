@@ -121,6 +121,7 @@ City Bell is a Progressive Web App (PWA) for a multi-service super app featuring
 - Address management (save/edit/delete multiple addresses)
 - Razorpay payment integration (UPI, Cards, Net Banking)
 - Support ticket system
+- Direct file upload via `/api/uploads/direct` (base64 JSON, files stored in `uploads/` directory, served via `/uploads/:filename`)
 
 ## API Endpoints
 

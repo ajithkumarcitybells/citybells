@@ -2,6 +2,8 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
 import crypto from "crypto";
+import path from "path";
+import fs from "fs";
 import Razorpay from "razorpay";
 import { storage } from "./storage";
 import { setupAuth, requireAuth, requireAdmin, requireVendor } from "./auth";
@@ -1613,6 +1615,39 @@ export async function registerRoutes(
     } catch (err) {
       console.error("Error fetching ecom stats:", err);
       res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
+  const uploadsDir = path.join(process.cwd(), "uploads");
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+  app.get("/uploads/:filename", (req, res) => {
+    const filePath = path.join(uploadsDir, req.params.filename);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: "File not found" });
+    }
+    res.sendFile(filePath);
+  });
+
+  app.post("/api/uploads/direct", async (req, res) => {
+    try {
+      const { fileName, fileData, contentType } = req.body;
+      if (!fileName || !fileData) {
+        return res.status(400).json({ error: "fileName and fileData are required" });
+      }
+
+      const ext = path.extname(fileName) || ".bin";
+      const uniqueName = `${crypto.randomUUID()}${ext}`;
+      const buffer = Buffer.from(fileData, "base64");
+      const filePath = path.join(uploadsDir, uniqueName);
+      fs.writeFileSync(filePath, buffer);
+
+      const objectPath = `/uploads/${uniqueName}`;
+      res.json({ objectPath, fileName: uniqueName, originalName: fileName });
+    } catch (err) {
+      console.error("Direct upload error:", err);
+      res.status(500).json({ error: "Failed to upload file" });
     }
   });
 

@@ -42,7 +42,6 @@ import {
 } from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useUpload } from "@/hooks/use-upload";
 import { insertVendorApplicationSchema } from "@shared/schema";
 import cityBellLogo from "@assets/citybells-logo_1769903304782.png";
 
@@ -66,16 +65,7 @@ export default function VendorApplicationPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [certificateUrls, setCertificateUrls] = useState<string[]>([]);
-
-  const { uploadFile, isUploading } = useUpload({
-    onError: (error) => {
-      toast({
-        title: "Upload failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
+  const [isUploading, setIsUploading] = useState(false);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -122,15 +112,49 @@ export default function VendorApplicationPage() {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    for (let i = 0; i < files.length; i++) {
-      const result = await uploadFile(files[i]);
-      if (result) {
+    setIsUploading(true);
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            resolve(result.split(",")[1]);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        const response = await fetch("/api/uploads/direct", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fileName: file.name,
+            fileData: base64,
+            contentType: file.type,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to upload file");
+        }
+
+        const result = await response.json();
         setCertificateUrls((prev) => {
           const updated = [...prev, result.objectPath];
           form.setValue("certificates", updated, { shouldValidate: true });
           return updated;
         });
       }
+    } catch (error: any) {
+      toast({
+        title: "Upload failed",
+        description: error.message || "Failed to upload file",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
     }
     e.target.value = "";
   };
