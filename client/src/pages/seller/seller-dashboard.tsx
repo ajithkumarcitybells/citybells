@@ -381,7 +381,13 @@ export default function SellerDashboard() {
 
   const lowStockProducts = products.filter(p => (p.stock || 0) <= 10);
 
-  if (!user || !user.isVendor) return null;
+  if (!user || !user.isVendor) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-muted-foreground">Loading seller dashboard...</p>
+      </div>
+    );
+  }
 
   const renderOverview = () => (
     <div className="space-y-6">
