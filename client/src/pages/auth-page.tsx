@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useLocation, Redirect } from "wouter";
-import { Eye, EyeOff, User, Mail, Phone, Lock, ShoppingBag, Truck, Heart, Shield } from "lucide-react";
+import { useLocation, Redirect, Link } from "wouter";
+import { Eye, EyeOff, User, Mail, Phone, Lock, ShoppingBag, Truck, Heart, Shield, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -56,13 +56,13 @@ export default function AuthPage() {
   });
 
   if (user) {
-    if (user.isVendor) return <Redirect to="/vendor/dashboard" />;
+    if (user.isVendor) return <Redirect to="/seller/dashboard" />;
     if (user.isAdmin) return <Redirect to="/admin" />;
     return <Redirect to="/" />;
   }
 
   const getRedirectPath = (u: any) => {
-    if (u?.isVendor) return "/vendor/dashboard";
+    if (u?.isVendor) return "/seller/dashboard";
     if (u?.isAdmin) return "/admin";
     return "/";
   };
@@ -87,9 +87,9 @@ export default function AuthPage() {
   };
 
   const features = [
-    { icon: ShoppingBag, title: "Fresh Groceries", desc: "Get fresh produce delivered to your doorstep" },
+    { icon: ShoppingBag, title: "Shop Everything", desc: "Groceries, electronics, fashion and more" },
     { icon: Truck, title: "Fast Delivery", desc: "Same-day delivery available in your area" },
-    { icon: Heart, title: "Save Favorites", desc: "Create wishlists and reorder with ease" },
+    { icon: Store, title: "Sell on City Bell", desc: "Start your store and reach thousands of customers" },
     { icon: Shield, title: "Secure Payments", desc: "Your transactions are always protected" },
   ];
 
@@ -309,6 +309,44 @@ export default function AuthPage() {
               </button>
             </p>
           </div>
+
+          {isLogin && (
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <div className="flex items-center gap-2 mb-3">
+                <Store className="h-5 w-5 text-orange-500" />
+                <span className="text-sm font-semibold text-gray-700">Are you a seller?</span>
+              </div>
+              <p className="text-xs text-gray-500 mb-3">
+                Sellers can log in with the username and password provided during vendor registration.
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1 border-orange-300 text-orange-600 hover:bg-orange-50"
+                  onClick={() => {
+                    loginForm.setValue("username", "");
+                    loginForm.setValue("password", "");
+                    loginForm.setFocus("username");
+                  }}
+                  data-testid="button-seller-login"
+                >
+                  <Store className="h-4 w-4 mr-2" />
+                  Seller Login
+                </Button>
+                <Link href="/vendors">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 border-primary text-primary hover:bg-green-50"
+                    data-testid="button-become-seller"
+                  >
+                    Become a Seller
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

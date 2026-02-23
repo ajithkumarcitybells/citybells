@@ -1,6 +1,8 @@
 import { Header } from "@/components/Header";
 import { BottomNav } from "@/components/BottomNav";
 import { ServiceCard } from "@/components/ServiceCard";
+import { Store, ArrowRight } from "lucide-react";
+import { Link } from "wouter";
 
 const services = [
   {
@@ -77,6 +79,19 @@ export default function HomePage() {
           
           {/* City Serve - Full width */}
           <ServiceCard {...services[6]} isLarge />
+
+          <Link href="/vendors">
+            <div className="mt-4 bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl p-4 flex items-center gap-4 cursor-pointer active:scale-[0.98] transition-transform" data-testid="link-sell-on-citybell">
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                <Store className="h-6 w-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-white font-bold text-base">Sell on City Bell</h3>
+                <p className="text-orange-100 text-xs">Start your online store and reach thousands of customers</p>
+              </div>
+              <ArrowRight className="h-5 w-5 text-white flex-shrink-0" />
+            </div>
+          </Link>
         </div>
       </main>
       
