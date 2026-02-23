@@ -10,7 +10,8 @@ import {
   ChevronRight,
   Settings,
   Shield,
-  MessageCircle
+  MessageCircle,
+  Store
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { BottomNav } from "@/components/BottomNav";
@@ -109,6 +110,26 @@ export default function ProfilePage() {
             </Link>
           ))}
         </div>
+
+        {user.isVendor && (
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <Link href="/seller/dashboard">
+              <div 
+                className="flex items-center gap-4 p-4 hover-elevate bg-orange-50 border border-orange-200"
+                data-testid="link-seller-dashboard"
+              >
+                <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+                  <Store className="h-5 w-5 text-orange-600" />
+                </div>
+                <div className="flex-1">
+                  <span className="font-semibold text-orange-700">Seller Dashboard</span>
+                  <p className="text-xs text-orange-500">Manage products, orders & earnings</p>
+                </div>
+                <ChevronRight className="h-5 w-5 text-orange-400" />
+              </div>
+            </Link>
+          </div>
+        )}
 
         {user.isAdmin && (
           <div className="bg-white rounded-xl shadow-sm overflow-hidden">

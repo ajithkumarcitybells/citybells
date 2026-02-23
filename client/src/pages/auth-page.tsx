@@ -56,20 +56,25 @@ export default function AuthPage() {
   });
 
   if (user) {
-    if (user.isVendor) return <Redirect to="/seller/dashboard" />;
+    if (user.isVendor) {
+      window.location.href = "/seller/dashboard";
+      return null;
+    }
     if (user.isAdmin) return <Redirect to="/admin" />;
     return <Redirect to="/" />;
   }
 
-  const getRedirectPath = (u: any) => {
-    if (u?.isVendor) return "/seller/dashboard";
-    if (u?.isAdmin) return "/admin";
-    return "/";
-  };
-
   const onLoginSubmit = (data: LoginFormData) => {
     loginMutation.mutate(data, {
-      onSuccess: (u) => setLocation(getRedirectPath(u)),
+      onSuccess: (u) => {
+        if (u?.isVendor) {
+          window.location.href = "/seller/dashboard";
+        } else if (u?.isAdmin) {
+          setLocation("/admin");
+        } else {
+          setLocation("/");
+        }
+      },
     });
   };
 
@@ -82,7 +87,15 @@ export default function AuthPage() {
       email: data.email,
       phone: data.phone,
     }, {
-      onSuccess: (u) => setLocation(getRedirectPath(u)),
+      onSuccess: (u) => {
+        if (u?.isVendor) {
+          window.location.href = "/seller/dashboard";
+        } else if (u?.isAdmin) {
+          setLocation("/admin");
+        } else {
+          setLocation("/");
+        }
+      },
     });
   };
 

@@ -1,4 +1,4 @@
-import { Home, LayoutGrid, ShoppingCart, Heart, User, ChevronLeft } from "lucide-react";
+import { Home, LayoutGrid, ShoppingCart, Heart, User, ChevronLeft, Store } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
@@ -37,13 +37,19 @@ export function BottomNav() {
       showBadge: false,
       badge: 0
     },
-    { 
-      icon: ShoppingCart, 
-      label: "Cart", 
+    ...(user?.isVendor ? [{
+      icon: Store,
+      label: "Dashboard",
+      path: "/seller/dashboard",
+      showBadge: false,
+      badge: 0
+    }] : [{
+      icon: ShoppingCart,
+      label: "Cart",
       path: "/cart",
       showBadge: cartCount > 0,
       badge: cartCount
-    },
+    }]),
     { 
       icon: Heart, 
       label: "Wishlist", 

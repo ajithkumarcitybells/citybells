@@ -67,7 +67,7 @@ export function VendorRoute({
   component: Component,
 }: {
   path: string;
-  component: () => React.JSX.Element;
+  component: () => React.JSX.Element | null;
 }) {
   const { user, isLoading } = useAuth();
 
@@ -84,10 +84,10 @@ export function VendorRoute({
   if (!user || !user.isVendor) {
     return (
       <Route path={path}>
-        <Redirect to="/" />
+        <Redirect to="/auth" />
       </Route>
     );
   }
 
-  return <Route path={path} component={Component} />;
+  return <Route path={path} component={Component as () => React.JSX.Element} />;
 }
