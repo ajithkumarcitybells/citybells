@@ -1090,6 +1090,532 @@ export async function registerRoutes(
     }
   });
 
+  // ==================== E-COMMERCE PUBLIC ROUTES ====================
+
+  app.get("/api/ecom/categories", async (req, res) => {
+    try {
+      const cats = await storage.getEcomCategories();
+      res.json(cats);
+    } catch (err) {
+      console.error("Error fetching ecom categories:", err);
+      res.status(500).json({ message: "Failed to fetch categories" });
+    }
+  });
+
+  app.get("/api/ecom/products", async (req, res) => {
+    try {
+      const { category, search, minPrice, maxPrice, vendor, brand, featured, sort } = req.query;
+      const filters: any = {};
+      if (category) filters.categoryId = category as string;
+      if (search) filters.search = search as string;
+      if (minPrice) filters.minPrice = Number(minPrice);
+      if (maxPrice) filters.maxPrice = Number(maxPrice);
+      if (vendor) filters.vendorId = vendor as string;
+      if (brand) filters.brand = brand as string;
+      if (featured === 'true') filters.isFeatured = true;
+      if (sort) filters.sortBy = sort as string;
+      const prods = await storage.getEcomProducts(filters);
+      res.json(prods);
+    } catch (err) {
+      console.error("Error fetching ecom products:", err);
+      res.status(500).json({ message: "Failed to fetch products" });
+    }
+  });
+
+  app.get("/api/ecom/products/:id", async (req, res) => {
+    try {
+      const product = await storage.getEcomProduct(req.params.id);
+      if (!product) return res.status(404).json({ message: "Product not found" });
+      res.json(product);
+    } catch (err) {
+      console.error("Error fetching ecom product:", err);
+      res.status(500).json({ message: "Failed to fetch product" });
+    }
+  });
+
+  app.get("/api/ecom/products/:id/reviews", async (req, res) => {
+    try {
+      const reviews = await storage.getEcomReviews(req.params.id);
+      res.json(reviews);
+    } catch (err) {
+      console.error("Error fetching reviews:", err);
+      res.status(500).json({ message: "Failed to fetch reviews" });
+    }
+  });
+
+  app.get("/api/ecom/seller/:userId", async (req, res) => {
+    try {
+      const profile = await storage.getSellerProfile(req.params.userId);
+      if (!profile) return res.status(404).json({ message: "Seller not found" });
+      res.json(profile);
+    } catch (err) {
+      console.error("Error fetching seller:", err);
+      res.status(500).json({ message: "Failed to fetch seller" });
+    }
+  });
+
+  // ==================== E-COMMERCE PROTECTED ROUTES ====================
+
+  app.post("/api/ecom/reviews", requireAuth, async (req, res) => {
+    try {
+      const schema = z.object({
+        productId: z.string().min(1),
+        rating: z.number().int().min(1).max(5),
+        title: z.string().optional(),
+        comment: z.string().optional(),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message });
+      const review = await storage.createEcomReview({ ...parsed.data, userId: req.user!.id });
+      res.status(201).json(review);
+    } catch (err) {
+      console.error("Error creating review:", err);
+      res.status(500).json({ message: "Failed to create review" });
+    }
+  });
+
+  app.get("/api/ecom/cart", requireAuth, async (req, res) => {
+    try {
+      const items = await storage.getEcomCartItems(req.user!.id);
+      res.json(items);
+    } catch (err) {
+      console.error("Error fetching ecom cart:", err);
+      res.status(500).json({ message: "Failed to fetch cart" });
+    }
+  });
+
+  app.post("/api/ecom/cart", requireAuth, async (req, res) => {
+    try {
+      const schema = z.object({
+        productId: z.string().min(1),
+        quantity: z.number().int().positive().default(1),
+        variant: z.string().nullable().optional(),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message });
+      const item = await storage.addToEcomCart({
+        userId: req.user!.id,
+        productId: parsed.data.productId,
+        quantity: parsed.data.quantity,
+        variant: parsed.data.variant || null,
+      });
+      res.status(201).json(item);
+    } catch (err) {
+      console.error("Error adding to ecom cart:", err);
+      res.status(500).json({ message: "Failed to add to cart" });
+    }
+  });
+
+  app.patch("/api/ecom/cart/:id", requireAuth, async (req, res) => {
+    try {
+      const schema = z.object({ quantity: z.number().int().min(1) });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message });
+      const item = await storage.updateEcomCartItem(req.params.id, req.user!.id, parsed.data.quantity);
+      if (!item) return res.status(404).json({ message: "Cart item not found" });
+      res.json(item);
+    } catch (err) {
+      console.error("Error updating ecom cart:", err);
+      res.status(500).json({ message: "Failed to update cart" });
+    }
+  });
+
+  app.delete("/api/ecom/cart/:id", requireAuth, async (req, res) => {
+    try {
+      await storage.removeFromEcomCart(req.params.id, req.user!.id);
+      res.sendStatus(204);
+    } catch (err) {
+      console.error("Error removing from ecom cart:", err);
+      res.status(500).json({ message: "Failed to remove from cart" });
+    }
+  });
+
+  app.get("/api/ecom/wishlist", requireAuth, async (req, res) => {
+    try {
+      const items = await storage.getEcomWishlistItems(req.user!.id);
+      res.json(items);
+    } catch (err) {
+      console.error("Error fetching ecom wishlist:", err);
+      res.status(500).json({ message: "Failed to fetch wishlist" });
+    }
+  });
+
+  app.post("/api/ecom/wishlist", requireAuth, async (req, res) => {
+    try {
+      const schema = z.object({ productId: z.string().min(1) });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message });
+      const item = await storage.addToEcomWishlist({ userId: req.user!.id, productId: parsed.data.productId });
+      res.status(201).json(item);
+    } catch (err) {
+      console.error("Error adding to ecom wishlist:", err);
+      res.status(500).json({ message: "Failed to add to wishlist" });
+    }
+  });
+
+  app.delete("/api/ecom/wishlist/:productId", requireAuth, async (req, res) => {
+    try {
+      await storage.removeFromEcomWishlist(req.user!.id, req.params.productId);
+      res.sendStatus(204);
+    } catch (err) {
+      console.error("Error removing from ecom wishlist:", err);
+      res.status(500).json({ message: "Failed to remove from wishlist" });
+    }
+  });
+
+  app.get("/api/ecom/orders", requireAuth, async (req, res) => {
+    try {
+      const ecomOrdrs = await storage.getEcomOrders(req.user!.id);
+      res.json(ecomOrdrs);
+    } catch (err) {
+      console.error("Error fetching ecom orders:", err);
+      res.status(500).json({ message: "Failed to fetch orders" });
+    }
+  });
+
+  app.post("/api/ecom/orders", requireAuth, async (req, res) => {
+    try {
+      const schema = z.object({
+        items: z.array(z.object({
+          productId: z.string(),
+          name: z.string(),
+          price: z.string(),
+          quantity: z.number().int().positive(),
+          image: z.string().optional(),
+          variant: z.string().optional(),
+          vendorId: z.string().optional(),
+        })).min(1),
+        totalAmount: z.string(),
+        deliveryAddress: z.string().min(1),
+        paymentMethod: z.enum(["cod", "online", "razorpay"]).default("cod"),
+        paymentId: z.string().optional(),
+        vendorId: z.string().optional(),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message });
+
+      const order = await storage.createEcomOrder({
+        userId: req.user!.id,
+        items: parsed.data.items,
+        totalAmount: parsed.data.totalAmount,
+        deliveryAddress: parsed.data.deliveryAddress,
+        paymentMethod: parsed.data.paymentMethod,
+        paymentId: parsed.data.paymentId,
+        vendorId: parsed.data.vendorId,
+        status: parsed.data.paymentId ? "confirmed" : "pending",
+      });
+
+      await storage.clearEcomCart(req.user!.id);
+      res.status(201).json(order);
+    } catch (err) {
+      console.error("Error creating ecom order:", err);
+      res.status(500).json({ message: "Failed to create order" });
+    }
+  });
+
+  // ==================== E-COMMERCE VENDOR ROUTES ====================
+
+  app.get("/api/ecom/vendor/products", requireVendor, async (req, res) => {
+    try {
+      const prods = await storage.getVendorEcomProducts(req.user!.id);
+      res.json(prods);
+    } catch (err) {
+      console.error("Error fetching vendor ecom products:", err);
+      res.status(500).json({ message: "Failed to fetch products" });
+    }
+  });
+
+  app.post("/api/ecom/vendor/products", requireVendor, async (req, res) => {
+    try {
+      const schema = z.object({
+        name: z.string().min(1),
+        description: z.string().optional(),
+        images: z.array(z.string()).optional(),
+        categoryId: z.string().optional(),
+        brand: z.string().optional(),
+        sku: z.string().optional(),
+        originalPrice: z.string().min(1),
+        discountPercent: z.coerce.number().min(0).max(100).default(0),
+        price: z.string().min(1),
+        variants: z.any().optional(),
+        specifications: z.any().optional(),
+        stock: z.coerce.number().min(0).default(100),
+        isActive: z.boolean().default(true),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message });
+      const product = await storage.createEcomProduct({ ...parsed.data, vendorId: req.user!.id });
+      res.status(201).json(product);
+    } catch (err) {
+      console.error("Error creating vendor ecom product:", err);
+      res.status(500).json({ message: "Failed to create product" });
+    }
+  });
+
+  app.patch("/api/ecom/vendor/products/:id", requireVendor, async (req, res) => {
+    try {
+      const existing = await storage.getEcomProduct(req.params.id);
+      if (!existing || existing.vendorId !== req.user!.id) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      const product = await storage.updateEcomProduct(req.params.id, req.body);
+      res.json(product);
+    } catch (err) {
+      console.error("Error updating vendor ecom product:", err);
+      res.status(500).json({ message: "Failed to update product" });
+    }
+  });
+
+  app.delete("/api/ecom/vendor/products/:id", requireVendor, async (req, res) => {
+    try {
+      const existing = await storage.getEcomProduct(req.params.id);
+      if (!existing || existing.vendorId !== req.user!.id) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      await storage.deleteEcomProduct(req.params.id);
+      res.json({ message: "Product deleted" });
+    } catch (err) {
+      console.error("Error deleting vendor ecom product:", err);
+      res.status(500).json({ message: "Failed to delete product" });
+    }
+  });
+
+  app.get("/api/ecom/vendor/orders", requireVendor, async (req, res) => {
+    try {
+      const vendorOrders = await storage.getVendorEcomOrders(req.user!.id);
+      res.json(vendorOrders);
+    } catch (err) {
+      console.error("Error fetching vendor ecom orders:", err);
+      res.status(500).json({ message: "Failed to fetch orders" });
+    }
+  });
+
+  app.patch("/api/ecom/vendor/orders/:id/status", requireVendor, async (req, res) => {
+    try {
+      const schema = z.object({ status: z.enum(["processing", "shipped", "delivered", "cancelled"]) });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message });
+      const order = await storage.getEcomOrder(req.params.id);
+      if (!order || order.vendorId !== req.user!.id) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      const updated = await storage.updateEcomOrderStatus(req.params.id, parsed.data.status);
+      res.json(updated);
+    } catch (err) {
+      console.error("Error updating vendor order status:", err);
+      res.status(500).json({ message: "Failed to update order" });
+    }
+  });
+
+  app.get("/api/ecom/vendor/stats", requireVendor, async (req, res) => {
+    try {
+      const stats = await storage.getSellerStats(req.user!.id);
+      res.json(stats);
+    } catch (err) {
+      console.error("Error fetching vendor stats:", err);
+      res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
+  app.get("/api/ecom/vendor/profile", requireVendor, async (req, res) => {
+    try {
+      const profile = await storage.getSellerProfile(req.user!.id);
+      res.json(profile || null);
+    } catch (err) {
+      console.error("Error fetching seller profile:", err);
+      res.status(500).json({ message: "Failed to fetch profile" });
+    }
+  });
+
+  app.post("/api/ecom/vendor/profile", requireVendor, async (req, res) => {
+    try {
+      const schema = z.object({
+        storeName: z.string().min(1),
+        storeDescription: z.string().optional(),
+        logo: z.string().optional(),
+        banner: z.string().optional(),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message });
+      const existing = await storage.getSellerProfile(req.user!.id);
+      if (existing) {
+        const updated = await storage.updateSellerProfile(req.user!.id, parsed.data);
+        return res.json(updated);
+      }
+      const profile = await storage.createSellerProfile({ ...parsed.data, userId: req.user!.id });
+      res.status(201).json(profile);
+    } catch (err) {
+      console.error("Error saving seller profile:", err);
+      res.status(500).json({ message: "Failed to save profile" });
+    }
+  });
+
+  app.get("/api/ecom/vendor/categories", requireVendor, async (req, res) => {
+    try {
+      const cats = await storage.getEcomCategories();
+      res.json(cats);
+    } catch (err) {
+      console.error("Error fetching ecom categories for vendor:", err);
+      res.status(500).json({ message: "Failed to fetch categories" });
+    }
+  });
+
+  // ==================== E-COMMERCE ADMIN ROUTES ====================
+
+  app.get("/api/admin/ecom/categories", requireAdmin, async (req, res) => {
+    try {
+      const cats = await storage.getAllEcomCategories();
+      res.json(cats);
+    } catch (err) {
+      console.error("Error fetching ecom categories:", err);
+      res.status(500).json({ message: "Failed to fetch categories" });
+    }
+  });
+
+  app.post("/api/admin/ecom/categories", requireAdmin, async (req, res) => {
+    try {
+      const schema = z.object({
+        name: z.string().min(1),
+        image: z.string().optional(),
+        parentId: z.string().optional(),
+        isActive: z.boolean().optional(),
+        sortOrder: z.number().optional(),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message });
+      const cat = await storage.createEcomCategory(parsed.data);
+      res.status(201).json(cat);
+    } catch (err) {
+      console.error("Error creating ecom category:", err);
+      res.status(500).json({ message: "Failed to create category" });
+    }
+  });
+
+  app.patch("/api/admin/ecom/categories/:id", requireAdmin, async (req, res) => {
+    try {
+      const cat = await storage.updateEcomCategory(req.params.id, req.body);
+      if (!cat) return res.status(404).json({ message: "Category not found" });
+      res.json(cat);
+    } catch (err) {
+      console.error("Error updating ecom category:", err);
+      res.status(500).json({ message: "Failed to update category" });
+    }
+  });
+
+  app.delete("/api/admin/ecom/categories/:id", requireAdmin, async (req, res) => {
+    try {
+      await storage.deleteEcomCategory(req.params.id);
+      res.sendStatus(204);
+    } catch (err) {
+      console.error("Error deleting ecom category:", err);
+      res.status(500).json({ message: "Failed to delete category" });
+    }
+  });
+
+  app.get("/api/admin/ecom/products", requireAdmin, async (req, res) => {
+    try {
+      const prods = await storage.getAllEcomProducts();
+      res.json(prods);
+    } catch (err) {
+      console.error("Error fetching ecom products:", err);
+      res.status(500).json({ message: "Failed to fetch products" });
+    }
+  });
+
+  app.patch("/api/admin/ecom/products/:id", requireAdmin, async (req, res) => {
+    try {
+      const product = await storage.updateEcomProduct(req.params.id, req.body);
+      if (!product) return res.status(404).json({ message: "Product not found" });
+      res.json(product);
+    } catch (err) {
+      console.error("Error updating ecom product:", err);
+      res.status(500).json({ message: "Failed to update product" });
+    }
+  });
+
+  app.delete("/api/admin/ecom/products/:id", requireAdmin, async (req, res) => {
+    try {
+      await storage.deleteEcomProduct(req.params.id);
+      res.sendStatus(204);
+    } catch (err) {
+      console.error("Error deleting ecom product:", err);
+      res.status(500).json({ message: "Failed to delete product" });
+    }
+  });
+
+  app.get("/api/admin/ecom/orders", requireAdmin, async (req, res) => {
+    try {
+      const allOrders = await storage.getAllEcomOrders();
+      res.json(allOrders);
+    } catch (err) {
+      console.error("Error fetching ecom orders:", err);
+      res.status(500).json({ message: "Failed to fetch orders" });
+    }
+  });
+
+  app.patch("/api/admin/ecom/orders/:id/status", requireAdmin, async (req, res) => {
+    try {
+      const schema = z.object({ status: z.enum(["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"]) });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message });
+      const updated = await storage.updateEcomOrderStatus(req.params.id, parsed.data.status);
+      if (!updated) return res.status(404).json({ message: "Order not found" });
+      res.json(updated);
+    } catch (err) {
+      console.error("Error updating ecom order:", err);
+      res.status(500).json({ message: "Failed to update order" });
+    }
+  });
+
+  app.get("/api/admin/ecom/sellers", requireAdmin, async (req, res) => {
+    try {
+      const sellers = await storage.getAllSellerProfiles();
+      res.json(sellers);
+    } catch (err) {
+      console.error("Error fetching sellers:", err);
+      res.status(500).json({ message: "Failed to fetch sellers" });
+    }
+  });
+
+  app.patch("/api/admin/ecom/sellers/:userId/commission", requireAdmin, async (req, res) => {
+    try {
+      const schema = z.object({ commissionRate: z.string() });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message });
+      const updated = await storage.updateSellerProfile(req.params.userId, { commissionRate: parsed.data.commissionRate });
+      if (!updated) return res.status(404).json({ message: "Seller not found" });
+      res.json(updated);
+    } catch (err) {
+      console.error("Error updating commission:", err);
+      res.status(500).json({ message: "Failed to update commission" });
+    }
+  });
+
+  app.get("/api/admin/ecom/stats", requireAdmin, async (req, res) => {
+    try {
+      const { db: database } = await import("./db");
+      const { ecomProducts: ep, ecomOrders: eo, sellerProfiles: sp, ecomCategories: ec } = await import("@shared/schema");
+      const { count: cnt, sum: sm } = await import("drizzle-orm");
+
+      const [productCount] = await database.select({ count: cnt() }).from(ep);
+      const [orderCount] = await database.select({ count: cnt() }).from(eo);
+      const [categoryCount] = await database.select({ count: cnt() }).from(ec);
+      const [sellerCount] = await database.select({ count: cnt() }).from(sp);
+      const [revenue] = await database.select({ total: sm(eo.totalAmount) }).from(eo);
+
+      res.json({
+        totalProducts: productCount.count,
+        totalOrders: orderCount.count,
+        totalCategories: categoryCount.count,
+        totalSellers: sellerCount.count,
+        totalRevenue: revenue.total || "0",
+      });
+    } catch (err) {
+      console.error("Error fetching ecom stats:", err);
+      res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

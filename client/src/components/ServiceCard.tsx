@@ -79,7 +79,39 @@ export function ServiceCard({ name, description, image, isActive, href, isLarge 
     );
   }
 
-  // Small inactive cards (E-Commerce, Food, Hotel, Taxi)
+  // Small active cards (E-Commerce)
+  if (isActive) {
+    const content = (
+      <div 
+        className="relative rounded-2xl overflow-hidden aspect-[4/3] bg-gray-100 border-[3px] border-white shadow-lg"
+        data-testid={`card-service-${name.toLowerCase().replace(/\s+/g, '-')}`}
+      >
+        <img 
+          src={image} 
+          alt={name}
+          className="w-full h-full object-cover"
+          loading="lazy"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
+        <div className="absolute bottom-3 left-3">
+          <h3 className="text-lg font-bold text-white">
+            {name.toUpperCase()}
+          </h3>
+          <p className="text-xs text-white/90">
+            {description}
+          </p>
+        </div>
+      </div>
+    );
+
+    return href ? (
+      <Link href={href} className="block hover-elevate active-elevate-2">
+        {content}
+      </Link>
+    ) : content;
+  }
+
+  // Small inactive cards (Food, Hotel, Taxi)
   return (
     <div 
       className="relative rounded-2xl overflow-hidden aspect-[4/3] bg-gray-100 border-[3px] border-white shadow-lg"
@@ -94,14 +126,12 @@ export function ServiceCard({ name, description, image, isActive, href, isLarge 
       
       <div className="absolute inset-0 bg-gradient-to-t from-blue-900/40 via-blue-800/15 to-blue-600/10" />
       
-      {!isActive && (
-        <div className="absolute top-3 right-3">
-          <div className="flex items-center gap-1.5 bg-black/60 px-3 py-1.5 rounded-full shadow-md">
-            <Lock className="h-3 w-3 text-white" />
-            <span className="text-xs font-medium text-white">COMING SOON</span>
-          </div>
+      <div className="absolute top-3 right-3">
+        <div className="flex items-center gap-1.5 bg-black/60 px-3 py-1.5 rounded-full shadow-md">
+          <Lock className="h-3 w-3 text-white" />
+          <span className="text-xs font-medium text-white">COMING SOON</span>
         </div>
-      )}
+      </div>
       
       <div className="absolute bottom-3 left-3">
         <h3 className="text-lg font-bold text-white">

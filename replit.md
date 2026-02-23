@@ -1,12 +1,12 @@
 # City Bell - Super App
 
 ## Overview
-City Bell is a Progressive Web App (PWA) for a multi-service super app featuring Grocery (active), E-commerce, Food, Taxi, Hotel, City Move, and City Serve services (coming soon). The app includes comprehensive user authentication with username/password, mobile-first responsive design with City Bell branding, a full admin panel, and Zepto/Blinkit-style location detection and address management.
+City Bell is a Progressive Web App (PWA) for a multi-service super app featuring Grocery (active), E-Commerce (active), Food, Taxi, Hotel, City Move, and City Serve services (coming soon). The app includes comprehensive user authentication with username/password, mobile-first responsive design with City Bell branding, a full admin panel, vendor/seller ecosystem, and Zepto/Blinkit-style location detection and address management.
 
 ## Current State
 - **Phase**: Production-ready MVP
 - **Last Updated**: February 2026
-- **Status**: Fully functional with seeded data
+- **Status**: Fully functional with seeded data (Grocery + E-Commerce)
 
 ## Project Architecture
 
@@ -19,6 +19,7 @@ City Bell is a Progressive Web App (PWA) for a multi-service super app featuring
 - **Database**: PostgreSQL with Drizzle ORM
 - **Authentication**: Passport.js with local strategy + express-session
 - **Session Storage**: connect-pg-simple (PostgreSQL sessions)
+- **Payments**: Razorpay integration
 
 ### File Structure
 ```
@@ -28,13 +29,15 @@ City Bell is a Progressive Web App (PWA) for a multi-service super app featuring
 │   │   ├── hooks/          # Custom React hooks (use-auth, use-toast)
 │   │   ├── lib/            # Utilities (queryClient, protected-route)
 │   │   ├── pages/          # Page components
-│   │   │   ├── admin/      # Admin panel pages
+│   │   │   ├── admin/      # Admin panel pages (grocery + e-commerce)
+│   │   │   ├── ecom/       # E-Commerce storefront pages
+│   │   │   ├── seller/     # Seller dashboard pages
 │   │   │   └── *.tsx       # User-facing pages
 │   │   └── App.tsx         # Main app with routing
 │   └── public/             # Static assets (manifest.json)
 ├── server/                 # Backend Express server
 │   ├── auth.ts             # Authentication setup (Passport)
-│   ├── routes.ts           # API routes
+│   ├── routes.ts           # API routes (grocery + e-commerce)
 │   ├── storage.ts          # Database storage layer
 │   ├── seed.ts             # Database seed script
 │   └── db.ts               # Drizzle database connection
@@ -44,89 +47,118 @@ City Bell is a Progressive Web App (PWA) for a multi-service super app featuring
 ```
 
 ### Database Schema
-- **users**: User accounts with auth (username/password)
+
+#### Grocery Tables
+- **users**: User accounts with auth (username/password, isAdmin, isVendor roles)
 - **products**: Grocery products with pricing, categories
-- **categories**: Product categories (Fruits, Vegetables, etc.)
-- **cart_items**: User shopping cart
-- **wishlist_items**: User wishlist
-- **orders**: Order history with status tracking
+- **categories**: Grocery product categories
+- **cart_items**: Grocery shopping cart
+- **wishlist_items**: Grocery wishlist
+- **orders**: Grocery order history with status tracking
 - **banners**: Promotional banners for homepage
-- **services**: Super app service toggles (Grocery, Food, etc.)
-- **addresses**: User delivery addresses with labels (Home/Work/Other)
-- **support_tickets**: User support/complaint tickets with status tracking
+- **services**: Super app service toggles
+- **addresses**: User delivery addresses with labels
+- **support_tickets**: User support/complaint tickets
 - **ticket_messages**: Conversation messages within support tickets
+- **vendor_applications**: Vendor onboarding applications
+
+#### E-Commerce Tables
+- **ecom_categories**: E-commerce product categories (Electronics, Fashion, Home, etc.)
+- **ecom_products**: E-commerce products with multi-image, variants, specifications, brand, SKU, vendorId
+- **ecom_reviews**: Product reviews & ratings with user info
+- **seller_profiles**: Seller store info (storeName, logo, commission, wallet)
+- **ecom_cart_items**: E-commerce shopping cart
+- **ecom_wishlist_items**: E-commerce wishlist
+- **ecom_orders**: E-commerce orders with vendorId for seller tracking
 
 ## Key Features
 
-### User Features
-- Username/password authentication
-- Product browsing by category
-- Search and filter products
-- Shopping cart with quantity management
+### Grocery Service
+- Product browsing by category with search and filter
+- Shopping cart with weight variants
 - Wishlist functionality
 - Order placement with delivery slots
 - Order history tracking
-- Auto-location detection using GPS + OpenStreetMap reverse geocoding
-- Address management (save/edit/delete multiple addresses with labels)
-- Support ticket system (raise complaints, track status, chat with admin)
+
+### E-Commerce Service (Amazon-like)
+- Home page with hero banners, category grid, deals, featured/trending products
+- Product listing with sidebar filters (category, price range, rating, brand)
+- Sort options (price, rating, newest, discount)
+- Product detail page with image gallery, variant selection, specifications
+- Reviews & ratings system
+- Separate e-commerce cart, checkout, and order tracking
+- Seller store pages
+
+### Seller Dashboard
+- Dashboard overview with sales stats and recent orders
+- Product management (add/edit/delete with variants, multi-image, brand, SKU)
+- Order management with status updates (processing/shipped/delivered)
+- Inventory management with low stock alerts
+- Earnings/wallet overview with commission breakdown
+- Store profile management (name, description, logo)
+
+### Vendor Onboarding
+- Vendor registration form (business details, documents, credentials)
+- Admin approval workflow (approve/reject/request modifications)
+- Auto-creation of vendor account on approval
+- Seller profile setup after approval
 
 ### Admin Features
-- Product management (CRUD) with image upload
-- Category management
-- Order management with status updates
-- Banner management for promotions
-- Service toggle (enable/disable services)
-- Product image upload via Object Storage (max 5MB)
+- Full grocery admin panel (products, categories, orders, banners, services)
+- E-Commerce admin panel:
+  - E-com category management
+  - Product moderation (approve/reject vendor products)
+  - Seller management with commission rates
+  - E-com order monitoring
+  - E-com analytics dashboard
+- Vendor application management
+- Support ticket management
+- User management
+
+### Common Features
+- Username/password authentication (3 roles: user, vendor, admin)
+- Auto-location detection with GPS + OpenStreetMap
+- Address management (save/edit/delete multiple addresses)
+- Razorpay payment integration (UPI, Cards, Net Banking)
+- Support ticket system
 
 ## API Endpoints
 
 ### Public Routes
-- `GET /api/categories` - Get all categories
-- `GET /api/products` - Get all products (optional ?category=id filter)
-- `GET /api/products/:id` - Get single product
-- `GET /api/banners` - Get promotional banners
-- `GET /api/services` - Get available services
+- `GET /api/categories` - Grocery categories
+- `GET /api/products` - Grocery products
+- `GET /api/banners` - Promotional banners
+- `GET /api/services` - Available services
+- `GET /api/ecom/categories` - E-com categories
+- `GET /api/ecom/products` - E-com products (search, filter, sort)
+- `GET /api/ecom/products/:id` - E-com product detail
+- `GET /api/ecom/products/:id/reviews` - Product reviews
+- `GET /api/ecom/seller/:userId` - Seller store page
 
 ### Auth Routes
-- `POST /api/register` - Register new user
-- `POST /api/login` - Login user
-- `POST /api/logout` - Logout user
-- `GET /api/user` - Get current user
+- `POST /api/register` / `POST /api/login` / `POST /api/logout` / `GET /api/user`
 
-### Protected Routes (requires login)
-- `GET/POST /api/cart` - Cart management
-- `PATCH/DELETE /api/cart/:id` - Update/remove cart items
-- `GET/POST /api/wishlist` - Wishlist management
-- `DELETE /api/wishlist/:productId` - Remove from wishlist
-- `GET/POST /api/orders` - Order management
-- `GET/POST /api/addresses` - Address management
-- `PATCH/DELETE /api/addresses/:id` - Update/remove addresses
-- `PATCH /api/addresses/:id/default` - Set default address
-- `POST /api/payment/create-order` - Create Razorpay order for payment
-- `POST /api/payment/verify` - Verify Razorpay payment signature
+### Protected Routes
+- Grocery: cart, wishlist, orders, addresses, payment
+- E-com: `/api/ecom/cart`, `/api/ecom/wishlist`, `/api/ecom/orders`, `/api/ecom/reviews`
 
-### Admin Routes (requires admin role)
-- `POST/PATCH/DELETE /api/admin/products/:id`
-- `POST/PATCH/DELETE /api/admin/categories/:id`
-- `GET/PATCH /api/admin/orders/:id`
-- `POST/PATCH/DELETE /api/admin/banners/:id`
-- `PATCH /api/admin/services/:id`
-- `GET /api/admin/vendor-applications` - List all vendor applications
-- `GET /api/admin/vendor-applications/:id` - Get single application
-- `PATCH /api/admin/vendor-applications/:id` - Approve/reject (approval creates vendor user account)
+### Vendor Routes (E-Commerce)
+- `GET/POST/PATCH/DELETE /api/ecom/vendor/products`
+- `GET /api/ecom/vendor/orders`
+- `PATCH /api/ecom/vendor/orders/:id/status`
+- `GET /api/ecom/vendor/stats`
+- `GET/POST /api/ecom/vendor/profile`
 
-### Vendor Routes (requires vendor role)
-- `GET /api/vendor/products` - Get vendor's own products
-- `POST /api/vendor/products` - Create product (auto-sets vendorId)
-- `PATCH /api/vendor/products/:id` - Update own product
-- `DELETE /api/vendor/products/:id` - Delete own product
-- `GET /api/vendor/categories` - Get categories for product creation
-
-### Public Vendor Routes
-- `POST /api/vendor-applications` - Submit vendor application (no login required)
+### Admin Routes (E-Commerce)
+- `GET/POST/PATCH/DELETE /api/admin/ecom/categories`
+- `GET/PATCH/DELETE /api/admin/ecom/products`
+- `GET /api/admin/ecom/orders` + status updates
+- `GET /api/admin/ecom/sellers` + commission updates
+- `GET /api/admin/ecom/stats`
 
 ## Default Accounts
 - **Admin**: username: `admin`, password: `admin123`
+- **Seller**: username: `seller1`, password: `seller123`
 
 ## Design System
 - **Primary Color**: Green (#22C543 / HSL 142 76% 36%)
@@ -138,40 +170,3 @@ City Bell is a Progressive Web App (PWA) for a multi-service super app featuring
 1. The app runs on port 5000
 2. Database is automatically initialized with seed data
 3. Use "Start application" workflow to run the dev server
-
-## Recent Changes
-- Added weight-based variants for fruit products (Feb 2026):
-  - Fruit products show "Select Weight" button instead of direct "Add to Cart"
-  - WeightPickerModal with 250g/500g/1kg options and dynamic pricing
-  - 500g highlighted as popular, remembers last selected weight via localStorage
-  - Cart items with different weight variants stored as separate entries
-  - Cart and checkout display variant info with correct pricing (multiplier-based)
-  - `variant` field added to cart_items table
-- Added admin order detail page with CB-prefixed order numbers (Feb 2026):
-  - `orderNumber` field on orders table (e.g., CB739AAE)
-  - Auto-generated on order creation with CB + 6 random alphanumeric chars
-  - Retry logic for unique constraint collisions
-  - Admin order detail page at /admin/orders/:id with full order info
-  - Clickable order IDs in admin orders list navigate to detail page
-  - Customer info, items, delivery address, payment details displayed
-  - Status update from detail page
-  - GET /api/admin/orders/:id endpoint with customer join
-  - Admin multi-select bulk delete on products page
-- Integrated Razorpay payment gateway (Feb 2026):
-  - Online payments via UPI, Cards, Net Banking, Wallets
-  - Backend routes for order creation and signature verification
-  - Secure HMAC-SHA256 signature verification
-  - Orders with successful payments auto-confirm (status: "confirmed")
-  - paymentId stored in orders table for reconciliation
-- Added City Serve service (home services like Urban Company) as "coming soon"
-- Implemented Zepto/Blinkit-style address management:
-  - Auto-location detection with GPS + OpenStreetMap reverse geocoding
-  - Save multiple delivery addresses with labels (Home/Work/Other)
-  - Set default address for delivery
-  - LocationProvider context for app-wide location state
-  - AddressPicker component with modal UI
-- Complete MVP implementation (Feb 2026)
-- Added Zod validation for all API endpoints
-- Fixed IDOR vulnerabilities with user-scoped cart/wishlist/address operations
-- Seeded 32 grocery products across 8 categories
-- PWA support with manifest.json

@@ -41,9 +41,33 @@ import {
   vendorApplications,
   type VendorApplication,
   type InsertVendorApplication,
+  ecomCategories,
+  ecomProducts,
+  ecomReviews,
+  sellerProfiles,
+  ecomCartItems,
+  ecomWishlistItems,
+  ecomOrders,
+  type EcomCategory,
+  type InsertEcomCategory,
+  type EcomProduct,
+  type InsertEcomProduct,
+  type EcomReview,
+  type InsertEcomReview,
+  type EcomReviewWithUser,
+  type SellerProfile,
+  type InsertSellerProfile,
+  type EcomCartItem,
+  type InsertEcomCartItem,
+  type EcomCartItemWithProduct,
+  type EcomWishlistItem,
+  type InsertEcomWishlistItem,
+  type EcomWishlistItemWithProduct,
+  type EcomOrder,
+  type InsertEcomOrder,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, ilike, gte, lte, count, sum, avg } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
@@ -142,6 +166,57 @@ export interface IStorage {
 
   // Vendor Products
   getVendorProducts(vendorId: string): Promise<Product[]>;
+
+  // E-Commerce Categories
+  getEcomCategories(): Promise<EcomCategory[]>;
+  getAllEcomCategories(): Promise<EcomCategory[]>;
+  getEcomCategory(id: string): Promise<EcomCategory | undefined>;
+  createEcomCategory(category: InsertEcomCategory): Promise<EcomCategory>;
+  updateEcomCategory(id: string, category: Partial<InsertEcomCategory>): Promise<EcomCategory | undefined>;
+  deleteEcomCategory(id: string): Promise<void>;
+
+  // E-Commerce Products
+  getEcomProducts(filters?: { categoryId?: string; search?: string; minPrice?: number; maxPrice?: number; vendorId?: string; brand?: string; isFeatured?: boolean; sortBy?: string }): Promise<EcomProduct[]>;
+  getAllEcomProducts(): Promise<EcomProduct[]>;
+  getEcomProduct(id: string): Promise<EcomProduct | undefined>;
+  createEcomProduct(product: InsertEcomProduct): Promise<EcomProduct>;
+  updateEcomProduct(id: string, product: Partial<InsertEcomProduct>): Promise<EcomProduct | undefined>;
+  deleteEcomProduct(id: string): Promise<void>;
+  getVendorEcomProducts(vendorId: string): Promise<EcomProduct[]>;
+
+  // E-Commerce Reviews
+  getEcomReviews(productId: string): Promise<EcomReviewWithUser[]>;
+  createEcomReview(review: InsertEcomReview): Promise<EcomReview>;
+
+  // Seller Profiles
+  getSellerProfile(userId: string): Promise<SellerProfile | undefined>;
+  getSellerProfileById(id: string): Promise<SellerProfile | undefined>;
+  getAllSellerProfiles(): Promise<(SellerProfile & { username?: string; name?: string })[]>;
+  createSellerProfile(profile: InsertSellerProfile): Promise<SellerProfile>;
+  updateSellerProfile(userId: string, profile: Partial<InsertSellerProfile>): Promise<SellerProfile | undefined>;
+
+  // E-Commerce Cart
+  getEcomCartItems(userId: string): Promise<EcomCartItemWithProduct[]>;
+  addToEcomCart(item: InsertEcomCartItem): Promise<EcomCartItem>;
+  updateEcomCartItem(id: string, userId: string, quantity: number): Promise<EcomCartItem | undefined>;
+  removeFromEcomCart(id: string, userId: string): Promise<void>;
+  clearEcomCart(userId: string): Promise<void>;
+
+  // E-Commerce Wishlist
+  getEcomWishlistItems(userId: string): Promise<EcomWishlistItemWithProduct[]>;
+  addToEcomWishlist(item: InsertEcomWishlistItem): Promise<EcomWishlistItem>;
+  removeFromEcomWishlist(userId: string, productId: string): Promise<void>;
+
+  // E-Commerce Orders
+  getEcomOrders(userId: string): Promise<EcomOrder[]>;
+  getAllEcomOrders(): Promise<EcomOrder[]>;
+  getVendorEcomOrders(vendorId: string): Promise<EcomOrder[]>;
+  getEcomOrder(id: string): Promise<EcomOrder | undefined>;
+  createEcomOrder(order: InsertEcomOrder): Promise<EcomOrder>;
+  updateEcomOrderStatus(id: string, status: string): Promise<EcomOrder | undefined>;
+
+  // Seller Analytics
+  getSellerStats(vendorId: string): Promise<{ totalProducts: number; totalOrders: number; totalRevenue: string; pendingOrders: number }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -608,6 +683,284 @@ export class DatabaseStorage implements IStorage {
   // Vendor Products
   async getVendorProducts(vendorId: string): Promise<Product[]> {
     return db.select().from(products).where(eq(products.vendorId, vendorId));
+  }
+
+  // E-Commerce Categories
+  async getEcomCategories(): Promise<EcomCategory[]> {
+    return db.select().from(ecomCategories).where(eq(ecomCategories.isActive, true)).orderBy(ecomCategories.sortOrder);
+  }
+
+  async getAllEcomCategories(): Promise<EcomCategory[]> {
+    return db.select().from(ecomCategories).orderBy(ecomCategories.sortOrder);
+  }
+
+  async getEcomCategory(id: string): Promise<EcomCategory | undefined> {
+    const [cat] = await db.select().from(ecomCategories).where(eq(ecomCategories.id, id));
+    return cat || undefined;
+  }
+
+  async createEcomCategory(category: InsertEcomCategory): Promise<EcomCategory> {
+    const [created] = await db.insert(ecomCategories).values(category).returning();
+    return created;
+  }
+
+  async updateEcomCategory(id: string, category: Partial<InsertEcomCategory>): Promise<EcomCategory | undefined> {
+    const [updated] = await db.update(ecomCategories).set(category).where(eq(ecomCategories.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteEcomCategory(id: string): Promise<void> {
+    await db.delete(ecomCategories).where(eq(ecomCategories.id, id));
+  }
+
+  // E-Commerce Products
+  async getEcomProducts(filters?: { categoryId?: string; search?: string; minPrice?: number; maxPrice?: number; vendorId?: string; brand?: string; isFeatured?: boolean; sortBy?: string }): Promise<EcomProduct[]> {
+    const conditions = [eq(ecomProducts.isActive, true), eq(ecomProducts.isApproved, true)];
+    
+    if (filters?.categoryId) conditions.push(eq(ecomProducts.categoryId, filters.categoryId));
+    if (filters?.vendorId) conditions.push(eq(ecomProducts.vendorId, filters.vendorId));
+    if (filters?.brand) conditions.push(eq(ecomProducts.brand, filters.brand));
+    if (filters?.isFeatured) conditions.push(eq(ecomProducts.isFeatured, true));
+    if (filters?.search) conditions.push(ilike(ecomProducts.name, `%${filters.search}%`));
+    if (filters?.minPrice) conditions.push(gte(ecomProducts.price, String(filters.minPrice)));
+    if (filters?.maxPrice) conditions.push(lte(ecomProducts.price, String(filters.maxPrice)));
+
+    let query = db.select().from(ecomProducts).where(and(...conditions));
+
+    if (filters?.sortBy === 'price_asc') {
+      return query.orderBy(ecomProducts.price);
+    } else if (filters?.sortBy === 'price_desc') {
+      return query.orderBy(desc(ecomProducts.price));
+    } else if (filters?.sortBy === 'rating') {
+      return query.orderBy(desc(ecomProducts.rating));
+    } else if (filters?.sortBy === 'newest') {
+      return query.orderBy(desc(ecomProducts.createdAt));
+    }
+    return query.orderBy(desc(ecomProducts.createdAt));
+  }
+
+  async getAllEcomProducts(): Promise<EcomProduct[]> {
+    return db.select().from(ecomProducts).orderBy(desc(ecomProducts.createdAt));
+  }
+
+  async getEcomProduct(id: string): Promise<EcomProduct | undefined> {
+    const [product] = await db.select().from(ecomProducts).where(eq(ecomProducts.id, id));
+    return product || undefined;
+  }
+
+  async createEcomProduct(product: InsertEcomProduct): Promise<EcomProduct> {
+    const [created] = await db.insert(ecomProducts).values(product).returning();
+    return created;
+  }
+
+  async updateEcomProduct(id: string, product: Partial<InsertEcomProduct>): Promise<EcomProduct | undefined> {
+    const [updated] = await db.update(ecomProducts).set(product).where(eq(ecomProducts.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteEcomProduct(id: string): Promise<void> {
+    await db.delete(ecomProducts).where(eq(ecomProducts.id, id));
+  }
+
+  async getVendorEcomProducts(vendorId: string): Promise<EcomProduct[]> {
+    return db.select().from(ecomProducts).where(eq(ecomProducts.vendorId, vendorId)).orderBy(desc(ecomProducts.createdAt));
+  }
+
+  // E-Commerce Reviews
+  async getEcomReviews(productId: string): Promise<EcomReviewWithUser[]> {
+    const reviews = await db.select({
+      review: ecomReviews,
+      username: users.username,
+      name: users.name,
+    }).from(ecomReviews)
+      .leftJoin(users, eq(ecomReviews.userId, users.id))
+      .where(eq(ecomReviews.productId, productId))
+      .orderBy(desc(ecomReviews.createdAt));
+    
+    return reviews.map(r => ({
+      ...r.review,
+      username: r.username || undefined,
+      name: r.name || undefined,
+    }));
+  }
+
+  async createEcomReview(review: InsertEcomReview): Promise<EcomReview> {
+    const [created] = await db.insert(ecomReviews).values(review).returning();
+    const allReviews = await db.select({ rating: ecomReviews.rating }).from(ecomReviews).where(eq(ecomReviews.productId, review.productId));
+    const avgRating = allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length;
+    await db.update(ecomProducts).set({
+      rating: avgRating.toFixed(1),
+      reviewCount: allReviews.length,
+    }).where(eq(ecomProducts.id, review.productId));
+    return created;
+  }
+
+  // Seller Profiles
+  async getSellerProfile(userId: string): Promise<SellerProfile | undefined> {
+    const [profile] = await db.select().from(sellerProfiles).where(eq(sellerProfiles.userId, userId));
+    return profile || undefined;
+  }
+
+  async getSellerProfileById(id: string): Promise<SellerProfile | undefined> {
+    const [profile] = await db.select().from(sellerProfiles).where(eq(sellerProfiles.id, id));
+    return profile || undefined;
+  }
+
+  async getAllSellerProfiles(): Promise<(SellerProfile & { username?: string; name?: string })[]> {
+    const profiles = await db.select({
+      profile: sellerProfiles,
+      username: users.username,
+      name: users.name,
+    }).from(sellerProfiles)
+      .leftJoin(users, eq(sellerProfiles.userId, users.id))
+      .orderBy(desc(sellerProfiles.createdAt));
+    
+    return profiles.map(p => ({
+      ...p.profile,
+      username: p.username || undefined,
+      name: p.name || undefined,
+    }));
+  }
+
+  async createSellerProfile(profile: InsertSellerProfile): Promise<SellerProfile> {
+    const [created] = await db.insert(sellerProfiles).values(profile).returning();
+    return created;
+  }
+
+  async updateSellerProfile(userId: string, profile: Partial<InsertSellerProfile>): Promise<SellerProfile | undefined> {
+    const [updated] = await db.update(sellerProfiles).set(profile).where(eq(sellerProfiles.userId, userId)).returning();
+    return updated || undefined;
+  }
+
+  // E-Commerce Cart
+  async getEcomCartItems(userId: string): Promise<EcomCartItemWithProduct[]> {
+    const items = await db.select().from(ecomCartItems)
+      .innerJoin(ecomProducts, eq(ecomCartItems.productId, ecomProducts.id))
+      .where(eq(ecomCartItems.userId, userId));
+    
+    return items.map(item => ({
+      ...item.ecom_cart_items,
+      product: item.ecom_products,
+    }));
+  }
+
+  async addToEcomCart(item: InsertEcomCartItem): Promise<EcomCartItem> {
+    const conditions = [
+      eq(ecomCartItems.userId, item.userId),
+      eq(ecomCartItems.productId, item.productId),
+    ];
+    if (item.variant) {
+      conditions.push(eq(ecomCartItems.variant, item.variant));
+    } else {
+      conditions.push(sql`${ecomCartItems.variant} IS NULL`);
+    }
+    const existing = await db.select().from(ecomCartItems).where(and(...conditions));
+    
+    if (existing.length > 0) {
+      const [updated] = await db.update(ecomCartItems)
+        .set({ quantity: (existing[0].quantity || 1) + (item.quantity || 1) })
+        .where(eq(ecomCartItems.id, existing[0].id))
+        .returning();
+      return updated;
+    }
+    
+    const [created] = await db.insert(ecomCartItems).values(item).returning();
+    return created;
+  }
+
+  async updateEcomCartItem(id: string, userId: string, quantity: number): Promise<EcomCartItem | undefined> {
+    const [updated] = await db.update(ecomCartItems)
+      .set({ quantity })
+      .where(and(eq(ecomCartItems.id, id), eq(ecomCartItems.userId, userId)))
+      .returning();
+    return updated || undefined;
+  }
+
+  async removeFromEcomCart(id: string, userId: string): Promise<void> {
+    await db.delete(ecomCartItems).where(and(eq(ecomCartItems.id, id), eq(ecomCartItems.userId, userId)));
+  }
+
+  async clearEcomCart(userId: string): Promise<void> {
+    await db.delete(ecomCartItems).where(eq(ecomCartItems.userId, userId));
+  }
+
+  // E-Commerce Wishlist
+  async getEcomWishlistItems(userId: string): Promise<EcomWishlistItemWithProduct[]> {
+    const items = await db.select().from(ecomWishlistItems)
+      .innerJoin(ecomProducts, eq(ecomWishlistItems.productId, ecomProducts.id))
+      .where(eq(ecomWishlistItems.userId, userId));
+    
+    return items.map(item => ({
+      ...item.ecom_wishlist_items,
+      product: item.ecom_products,
+    }));
+  }
+
+  async addToEcomWishlist(item: InsertEcomWishlistItem): Promise<EcomWishlistItem> {
+    const existing = await db.select().from(ecomWishlistItems).where(
+      and(eq(ecomWishlistItems.userId, item.userId), eq(ecomWishlistItems.productId, item.productId))
+    );
+    if (existing.length > 0) return existing[0];
+    const [created] = await db.insert(ecomWishlistItems).values(item).returning();
+    return created;
+  }
+
+  async removeFromEcomWishlist(userId: string, productId: string): Promise<void> {
+    await db.delete(ecomWishlistItems).where(
+      and(eq(ecomWishlistItems.userId, userId), eq(ecomWishlistItems.productId, productId))
+    );
+  }
+
+  // E-Commerce Orders
+  async getEcomOrders(userId: string): Promise<EcomOrder[]> {
+    return db.select().from(ecomOrders).where(eq(ecomOrders.userId, userId)).orderBy(desc(ecomOrders.createdAt));
+  }
+
+  async getAllEcomOrders(): Promise<EcomOrder[]> {
+    return db.select().from(ecomOrders).orderBy(desc(ecomOrders.createdAt));
+  }
+
+  async getVendorEcomOrders(vendorId: string): Promise<EcomOrder[]> {
+    return db.select().from(ecomOrders).where(eq(ecomOrders.vendorId, vendorId)).orderBy(desc(ecomOrders.createdAt));
+  }
+
+  async getEcomOrder(id: string): Promise<EcomOrder | undefined> {
+    const [order] = await db.select().from(ecomOrders).where(eq(ecomOrders.id, id));
+    return order || undefined;
+  }
+
+  async createEcomOrder(order: InsertEcomOrder): Promise<EcomOrder> {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        const orderNumber = 'EC' + this.generateOrderNumber().slice(2);
+        const [created] = await db.insert(ecomOrders).values({ ...order, orderNumber }).returning();
+        return created;
+      } catch (err: any) {
+        if (err?.code === '23505' && attempt < 4) continue;
+        throw err;
+      }
+    }
+    throw new Error("Failed to generate unique order number");
+  }
+
+  async updateEcomOrderStatus(id: string, status: string): Promise<EcomOrder | undefined> {
+    const [updated] = await db.update(ecomOrders).set({ status }).where(eq(ecomOrders.id, id)).returning();
+    return updated || undefined;
+  }
+
+  // Seller Analytics
+  async getSellerStats(vendorId: string): Promise<{ totalProducts: number; totalOrders: number; totalRevenue: string; pendingOrders: number }> {
+    const [productCount] = await db.select({ count: count() }).from(ecomProducts).where(eq(ecomProducts.vendorId, vendorId));
+    const [orderCount] = await db.select({ count: count() }).from(ecomOrders).where(eq(ecomOrders.vendorId, vendorId));
+    const [revenue] = await db.select({ total: sum(ecomOrders.totalAmount) }).from(ecomOrders).where(and(eq(ecomOrders.vendorId, vendorId), eq(ecomOrders.status, "delivered")));
+    const [pendingCount] = await db.select({ count: count() }).from(ecomOrders).where(and(eq(ecomOrders.vendorId, vendorId), eq(ecomOrders.status, "pending")));
+    
+    return {
+      totalProducts: productCount.count,
+      totalOrders: orderCount.count,
+      totalRevenue: revenue.total || "0",
+      pendingOrders: pendingCount.count,
+    };
   }
 }
 

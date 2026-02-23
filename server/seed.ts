@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { users, categories, products, banners, services, cartItems, wishlistItems } from "@shared/schema";
+import { users, categories, products, banners, services, cartItems, wishlistItems, ecomCategories, ecomProducts, sellerProfiles } from "@shared/schema";
 import { hashPassword } from "./auth";
 import { eq } from "drizzle-orm";
 
@@ -31,7 +31,8 @@ async function seed() {
   const existingCategories = await db.select().from(categories);
   
   if (existingCategories.length > 0) {
-    console.log(`Found ${existingCategories.length} existing categories, skipping seed to preserve data`);
+    console.log(`Found ${existingCategories.length} existing categories, skipping grocery seed to preserve data`);
+    await seedEcommerce();
     return;
   }
   
@@ -181,7 +182,7 @@ async function seed() {
   if (existingServices.length === 0) {
     const serviceData = [
       { name: "Grocery", description: "Fresh & Local Delivered Fast", image: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400", isActive: true, sortOrder: 0 },
-      { name: "E-Commerce", description: "Essentials & Elegance", image: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400", isActive: false, sortOrder: 1 },
+      { name: "E-Commerce", description: "Essentials & Elegance", image: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400", isActive: true, sortOrder: 1 },
       { name: "Food", description: "Delicious Meals Delivered", image: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400", isActive: false, sortOrder: 2 },
       { name: "City Move", description: "Instant Delivery", image: "https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?w=400", isActive: false, sortOrder: 3 },
       { name: "Hotel", description: "Book Your Stay", image: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400", isActive: false, sortOrder: 4 },
@@ -193,6 +194,107 @@ async function seed() {
   }
 
   console.log("Database seeding complete!");
+
+  // Seed E-Commerce data
+  await seedEcommerce();
+}
+
+async function seedEcommerce() {
+  const existingEcomCats = await db.select().from(ecomCategories);
+  if (existingEcomCats.length > 0) {
+    console.log(`Found ${existingEcomCats.length} existing e-com categories, skipping e-com seed`);
+    return;
+  }
+
+  console.log("Seeding e-commerce data...");
+
+  const ecomCatData = [
+    { name: "Electronics", image: "https://images.unsplash.com/photo-1498049794561-7780e7231661?w=400", sortOrder: 0 },
+    { name: "Fashion", image: "https://images.unsplash.com/photo-1445205170230-053b83016050?w=400", sortOrder: 1 },
+    { name: "Home & Kitchen", image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400", sortOrder: 2 },
+    { name: "Beauty & Personal Care", image: "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=400", sortOrder: 3 },
+    { name: "Sports & Fitness", image: "https://images.unsplash.com/photo-1461896836934-bd45ba8fcf9b?w=400", sortOrder: 4 },
+    { name: "Books", image: "https://images.unsplash.com/photo-1495446815901-a7297e633e8d?w=400", sortOrder: 5 },
+    { name: "Toys & Games", image: "https://images.unsplash.com/photo-1558060370-d644479cb6f7?w=400", sortOrder: 6 },
+    { name: "Accessories", image: "https://images.unsplash.com/photo-1523170335258-f5ed11844a49?w=400", sortOrder: 7 },
+  ];
+  const insertedEcomCats = await db.insert(ecomCategories).values(ecomCatData).returning();
+  console.log(`${insertedEcomCats.length} e-com categories created`);
+
+  const electronicsId = insertedEcomCats.find(c => c.name === "Electronics")!.id;
+  const fashionId = insertedEcomCats.find(c => c.name === "Fashion")!.id;
+  const homeId = insertedEcomCats.find(c => c.name === "Home & Kitchen")!.id;
+  const beautyId = insertedEcomCats.find(c => c.name === "Beauty & Personal Care")!.id;
+  const sportsId = insertedEcomCats.find(c => c.name === "Sports & Fitness")!.id;
+  const booksId = insertedEcomCats.find(c => c.name === "Books")!.id;
+  const toysId = insertedEcomCats.find(c => c.name === "Toys & Games")!.id;
+  const accessoriesId = insertedEcomCats.find(c => c.name === "Accessories")!.id;
+
+  const sellerPassword = await hashPassword("seller123");
+
+  const existingSeller = await db.select().from(users).where(eq(users.username, "seller1"));
+  let sellerId: string;
+  if (existingSeller.length === 0) {
+    const [seller] = await db.insert(users).values({
+      username: "seller1",
+      password: sellerPassword,
+      name: "City Bell Store",
+      email: "seller@citybell.com",
+      isVendor: true,
+    }).returning();
+    sellerId = seller.id;
+    console.log("Demo seller created (username: seller1, password: seller123)");
+  } else {
+    sellerId = existingSeller[0].id;
+    await db.update(users).set({ isVendor: true }).where(eq(users.id, sellerId));
+  }
+
+  const existingProfile = await db.select().from(sellerProfiles).where(eq(sellerProfiles.userId, sellerId));
+  if (existingProfile.length === 0) {
+    await db.insert(sellerProfiles).values({
+      userId: sellerId,
+      storeName: "City Bell Official Store",
+      storeDescription: "Your one-stop shop for quality electronics, fashion, and more. Fast delivery and genuine products guaranteed.",
+      logo: "https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=200",
+    });
+  }
+
+  const ecomProductData = [
+    { name: "Wireless Bluetooth Earbuds", description: "Premium wireless earbuds with noise cancellation, 24-hour battery life, and IPX5 water resistance. Perfect for workouts and daily commute.", images: ["https://images.unsplash.com/photo-1590658268037-6bf12f032f55?w=600", "https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1?w=600"], categoryId: electronicsId, vendorId: sellerId, brand: "SoundMax", sku: "SM-EB-001", originalPrice: "2999.00", discountPercent: 40, price: "1799.00", stock: 150, isApproved: true, isFeatured: true, variants: JSON.stringify([{type: "color", options: ["Black", "White", "Blue"]}]), specifications: JSON.stringify({battery: "24 hours", connectivity: "Bluetooth 5.3", waterproof: "IPX5"}) },
+    { name: "Smart Watch Pro", description: "Advanced smartwatch with heart rate monitor, SpO2 tracking, GPS, and 14-day battery life. 1.43-inch AMOLED display.", images: ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600"], categoryId: electronicsId, vendorId: sellerId, brand: "TechFit", sku: "TF-SW-002", originalPrice: "4999.00", discountPercent: 30, price: "3499.00", stock: 80, isApproved: true, isFeatured: true, variants: JSON.stringify([{type: "color", options: ["Black", "Silver", "Rose Gold"]}]), specifications: JSON.stringify({display: "1.43 AMOLED", battery: "14 days", sensors: "HR, SpO2, GPS"}) },
+    { name: "10000mAh Power Bank", description: "Compact 10000mAh power bank with 22.5W fast charging. Dual USB-C and USB-A ports. LED battery indicator.", images: ["https://images.unsplash.com/photo-1609091839311-d5365f9ff1c5?w=600"], categoryId: electronicsId, vendorId: sellerId, brand: "ChargeUp", sku: "CU-PB-003", originalPrice: "1499.00", discountPercent: 20, price: "1199.00", stock: 200, isApproved: true, isFeatured: false, specifications: JSON.stringify({capacity: "10000mAh", charging: "22.5W", ports: "USB-C, USB-A"}) },
+    { name: "Laptop Stand Aluminum", description: "Ergonomic aluminum laptop stand with adjustable height. Compatible with 10-17 inch laptops. Foldable and portable.", images: ["https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=600"], categoryId: electronicsId, vendorId: sellerId, brand: "ErgoDesk", sku: "ED-LS-004", originalPrice: "1899.00", discountPercent: 25, price: "1424.00", stock: 120, isApproved: true, specifications: JSON.stringify({material: "Aluminum", compatibility: "10-17 inch", weight: "280g"}) },
+    { name: "USB-C Hub 7-in-1", description: "Multiport USB-C hub with HDMI 4K, USB 3.0, SD card reader, and 100W PD charging. Essential for professionals.", images: ["https://images.unsplash.com/photo-1625842268584-8f3296236761?w=600"], categoryId: electronicsId, vendorId: sellerId, brand: "ConnectPro", sku: "CP-HB-005", originalPrice: "2499.00", discountPercent: 15, price: "2124.00", stock: 90, isApproved: true, specifications: JSON.stringify({ports: "HDMI, 2xUSB3.0, SD, TF, USB-C PD", resolution: "4K@60Hz"}) },
+
+    { name: "Men's Cotton Casual Shirt", description: "Premium cotton casual shirt with a relaxed fit. Breathable fabric perfect for everyday wear. Available in multiple colors.", images: ["https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=600", "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=600"], categoryId: fashionId, vendorId: sellerId, brand: "UrbanStyle", sku: "US-SH-006", originalPrice: "1299.00", discountPercent: 35, price: "844.00", stock: 300, isApproved: true, isFeatured: true, variants: JSON.stringify([{type: "size", options: ["S", "M", "L", "XL", "XXL"]}, {type: "color", options: ["Navy Blue", "White", "Black", "Olive"]}]) },
+    { name: "Women's Running Shoes", description: "Lightweight running shoes with memory foam insole and breathable mesh upper. Perfect for daily jogging and gym workouts.", images: ["https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600"], categoryId: fashionId, vendorId: sellerId, brand: "RunFlex", sku: "RF-RS-007", originalPrice: "3499.00", discountPercent: 30, price: "2449.00", stock: 150, isApproved: true, isFeatured: true, variants: JSON.stringify([{type: "size", options: ["UK 4", "UK 5", "UK 6", "UK 7", "UK 8"]}, {type: "color", options: ["Pink", "White", "Black"]}]) },
+    { name: "Leather Wallet Bifold", description: "Genuine leather bifold wallet with RFID protection. 6 card slots, 2 bill compartments, and coin pocket.", images: ["https://images.unsplash.com/photo-1627123424574-724758594e93?w=600"], categoryId: fashionId, vendorId: sellerId, brand: "LeatherCraft", sku: "LC-WL-008", originalPrice: "999.00", discountPercent: 20, price: "799.00", stock: 250, isApproved: true, variants: JSON.stringify([{type: "color", options: ["Brown", "Black", "Tan"]}]) },
+    { name: "Women's Ethnic Kurti", description: "Beautiful printed kurti in pure cotton with mandarin collar and 3/4 sleeves. Perfect for festivals and daily wear.", images: ["https://images.unsplash.com/photo-1583391733956-6c78276477e2?w=600"], categoryId: fashionId, vendorId: sellerId, brand: "EthnicVibes", sku: "EV-KT-009", originalPrice: "1599.00", discountPercent: 40, price: "959.00", stock: 200, isApproved: true, variants: JSON.stringify([{type: "size", options: ["S", "M", "L", "XL"]}, {type: "color", options: ["Red", "Blue", "Green", "Yellow"]}]) },
+
+    { name: "Non-Stick Cookware Set 5pc", description: "Premium 5-piece non-stick cookware set includes kadhai, frying pan, saucepan, tawa, and milk pot. PFOA-free coating.", images: ["https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=600"], categoryId: homeId, vendorId: sellerId, brand: "CookMaster", sku: "CM-CK-010", originalPrice: "3999.00", discountPercent: 25, price: "2999.00", stock: 60, isApproved: true, isFeatured: true, specifications: JSON.stringify({pieces: 5, material: "Aluminum", coating: "Non-stick PFOA-free"}) },
+    { name: "Bedsheet Set King Size", description: "300 thread count cotton bedsheet with 2 pillow covers. Soft, breathable, and wrinkle-resistant.", images: ["https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600"], categoryId: homeId, vendorId: sellerId, brand: "DreamSleep", sku: "DS-BS-011", originalPrice: "1999.00", discountPercent: 30, price: "1399.00", stock: 100, isApproved: true, variants: JSON.stringify([{type: "color", options: ["White", "Grey", "Blue", "Floral"]}]) },
+    { name: "LED Desk Lamp", description: "Adjustable LED desk lamp with 5 brightness levels, 3 color temperatures, and USB charging port. Touch control.", images: ["https://images.unsplash.com/photo-1507473885765-e6ed057ab6fe?w=600"], categoryId: homeId, vendorId: sellerId, brand: "BrightLife", sku: "BL-DL-012", originalPrice: "1299.00", discountPercent: 15, price: "1104.00", stock: 140, isApproved: true, specifications: JSON.stringify({brightness: "5 levels", colors: "3 temperatures", feature: "USB charging"}) },
+
+    { name: "Vitamin C Face Serum", description: "20% Vitamin C serum with Hyaluronic Acid and Niacinamide. Brightens skin, reduces dark spots. 30ml.", images: ["https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=600"], categoryId: beautyId, vendorId: sellerId, brand: "GlowUp", sku: "GU-FS-013", originalPrice: "699.00", discountPercent: 20, price: "559.00", stock: 300, isApproved: true, isFeatured: true, specifications: JSON.stringify({volume: "30ml", ingredients: "Vitamin C, Hyaluronic Acid, Niacinamide"}) },
+    { name: "Hair Dryer Professional", description: "2000W professional hair dryer with ionic technology, 3 heat settings, and cool shot button. Lightweight design.", images: ["https://images.unsplash.com/photo-1522338242992-e1a54571a9f7?w=600"], categoryId: beautyId, vendorId: sellerId, brand: "StylePro", sku: "SP-HD-014", originalPrice: "2499.00", discountPercent: 20, price: "1999.00", stock: 80, isApproved: true, specifications: JSON.stringify({wattage: "2000W", settings: "3 heat + cold", tech: "Ionic"}) },
+
+    { name: "Yoga Mat Premium 6mm", description: "Extra thick 6mm yoga mat with alignment lines. Anti-slip surface, eco-friendly TPE material. Includes carry strap.", images: ["https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f?w=600"], categoryId: sportsId, vendorId: sellerId, brand: "FlexFit", sku: "FF-YM-015", originalPrice: "1299.00", discountPercent: 25, price: "974.00", stock: 200, isApproved: true, isFeatured: true, variants: JSON.stringify([{type: "color", options: ["Purple", "Blue", "Green", "Pink"]}]) },
+    { name: "Resistance Bands Set", description: "Set of 5 resistance bands with different resistance levels. Includes door anchor, handles, and carry bag.", images: ["https://images.unsplash.com/photo-1598289431512-b97b0917affc?w=600"], categoryId: sportsId, vendorId: sellerId, brand: "FitBand", sku: "FB-RB-016", originalPrice: "899.00", discountPercent: 30, price: "629.00", stock: 180, isApproved: true, specifications: JSON.stringify({pieces: 5, levels: "Extra Light to Extra Heavy"}) },
+    { name: "Stainless Steel Water Bottle 1L", description: "Double-wall vacuum insulated 1L bottle. Keeps drinks cold 24hrs, hot 12hrs. BPA-free, leak-proof.", images: ["https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=600"], categoryId: sportsId, vendorId: sellerId, brand: "HydroMax", sku: "HM-WB-017", originalPrice: "799.00", discountPercent: 15, price: "679.00", stock: 250, isApproved: true, variants: JSON.stringify([{type: "color", options: ["Silver", "Black", "Blue", "Red"]}]) },
+
+    { name: "Atomic Habits by James Clear", description: "An easy and proven way to build good habits and break bad ones. International bestseller with practical strategies.", images: ["https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=600"], categoryId: booksId, vendorId: sellerId, brand: "Penguin", sku: "PG-BK-018", originalPrice: "799.00", discountPercent: 30, price: "559.00", stock: 500, isApproved: true, isFeatured: true },
+    { name: "The Psychology of Money", description: "Timeless lessons on wealth, greed, and happiness by Morgan Housel. A must-read for financial literacy.", images: ["https://images.unsplash.com/photo-1592496431122-2349e0fbc666?w=600"], categoryId: booksId, vendorId: sellerId, brand: "Jaico", sku: "JC-BK-019", originalPrice: "399.00", discountPercent: 25, price: "299.00", stock: 400, isApproved: true },
+
+    { name: "Building Blocks Set 500pc", description: "Creative building blocks set with 500 pieces in multiple colors and shapes. Compatible with major brands. Ages 4+.", images: ["https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?w=600"], categoryId: toysId, vendorId: sellerId, brand: "BuildFun", sku: "BF-BB-020", originalPrice: "1499.00", discountPercent: 20, price: "1199.00", stock: 120, isApproved: true, isFeatured: true },
+    { name: "Remote Control Car", description: "High-speed RC car with rechargeable battery. 2.4GHz remote, 30m range, all-terrain wheels.", images: ["https://images.unsplash.com/photo-1581235720704-06d3acfcb36f?w=600"], categoryId: toysId, vendorId: sellerId, brand: "SpeedKing", sku: "SK-RC-021", originalPrice: "1999.00", discountPercent: 25, price: "1499.00", stock: 70, isApproved: true },
+
+    { name: "Sunglasses UV400 Polarized", description: "Classic aviator sunglasses with UV400 polarized lenses. Lightweight metal frame with spring hinges.", images: ["https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=600"], categoryId: accessoriesId, vendorId: sellerId, brand: "ShadeElite", sku: "SE-SG-022", originalPrice: "1299.00", discountPercent: 35, price: "844.00", stock: 200, isApproved: true, isFeatured: true, variants: JSON.stringify([{type: "color", options: ["Gold/Green", "Silver/Blue", "Black/Grey"]}]) },
+    { name: "Laptop Backpack Anti-Theft", description: "Water-resistant laptop backpack with USB charging port and anti-theft pocket. Fits 15.6-inch laptops.", images: ["https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600"], categoryId: accessoriesId, vendorId: sellerId, brand: "TrekPack", sku: "TP-BP-023", originalPrice: "1999.00", discountPercent: 30, price: "1399.00", stock: 150, isApproved: true, specifications: JSON.stringify({size: "15.6 inch", material: "Water-resistant polyester", feature: "USB port, anti-theft"}) },
+  ];
+
+  const insertedEcomProducts = await db.insert(ecomProducts).values(ecomProductData).returning();
+  console.log(`${insertedEcomProducts.length} e-com products created`);
+  console.log("E-commerce seeding complete!");
 }
 
 // Export for use in server startup

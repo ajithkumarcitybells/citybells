@@ -296,3 +296,165 @@ export interface OrderItem {
   quantity: number;
   image?: string;
 }
+
+// ==================== E-COMMERCE TABLES ====================
+
+export const ecomCategories = pgTable("ecom_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  image: text("image"),
+  parentId: varchar("parent_id"),
+  isActive: boolean("is_active").default(true),
+  sortOrder: integer("sort_order").default(0),
+});
+
+export const insertEcomCategorySchema = createInsertSchema(ecomCategories).omit({ id: true });
+export type InsertEcomCategory = z.infer<typeof insertEcomCategorySchema>;
+export type EcomCategory = typeof ecomCategories.$inferSelect;
+
+export const ecomProducts = pgTable("ecom_products", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  images: text("images").array().default([]),
+  categoryId: varchar("category_id").references(() => ecomCategories.id),
+  vendorId: varchar("vendor_id").references(() => users.id),
+  brand: text("brand"),
+  sku: text("sku"),
+  originalPrice: decimal("original_price", { precision: 10, scale: 2 }).notNull(),
+  discountPercent: integer("discount_percent").default(0),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  variants: jsonb("variants").default([]),
+  specifications: jsonb("specifications").default({}),
+  stock: integer("stock").default(100),
+  rating: decimal("rating", { precision: 2, scale: 1 }).default("0"),
+  reviewCount: integer("review_count").default(0),
+  isActive: boolean("is_active").default(true),
+  isApproved: boolean("is_approved").default(false),
+  isFeatured: boolean("is_featured").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertEcomProductSchema = createInsertSchema(ecomProducts).omit({ id: true, rating: true, reviewCount: true, createdAt: true });
+export type InsertEcomProduct = z.infer<typeof insertEcomProductSchema>;
+export type EcomProduct = typeof ecomProducts.$inferSelect;
+
+export const ecomProductRelations = relations(ecomProducts, ({ one }) => ({
+  category: one(ecomCategories, {
+    fields: [ecomProducts.categoryId],
+    references: [ecomCategories.id],
+  }),
+  vendor: one(users, {
+    fields: [ecomProducts.vendorId],
+    references: [users.id],
+  }),
+}));
+
+export const ecomReviews = pgTable("ecom_reviews", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  productId: varchar("product_id").references(() => ecomProducts.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  rating: integer("rating").notNull(),
+  title: text("title"),
+  comment: text("comment"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertEcomReviewSchema = createInsertSchema(ecomReviews).omit({ id: true, createdAt: true });
+export type InsertEcomReview = z.infer<typeof insertEcomReviewSchema>;
+export type EcomReview = typeof ecomReviews.$inferSelect;
+
+export const ecomReviewRelations = relations(ecomReviews, ({ one }) => ({
+  product: one(ecomProducts, {
+    fields: [ecomReviews.productId],
+    references: [ecomProducts.id],
+  }),
+  user: one(users, {
+    fields: [ecomReviews.userId],
+    references: [users.id],
+  }),
+}));
+
+export const sellerProfiles = pgTable("seller_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  storeName: text("store_name").notNull(),
+  storeDescription: text("store_description"),
+  logo: text("logo"),
+  banner: text("banner"),
+  commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }).default("10.00"),
+  walletBalance: decimal("wallet_balance", { precision: 10, scale: 2 }).default("0.00"),
+  bankDetails: jsonb("bank_details").default({}),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSellerProfileSchema = createInsertSchema(sellerProfiles).omit({ id: true, walletBalance: true, createdAt: true });
+export type InsertSellerProfile = z.infer<typeof insertSellerProfileSchema>;
+export type SellerProfile = typeof sellerProfiles.$inferSelect;
+
+export const ecomCartItems = pgTable("ecom_cart_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  productId: varchar("product_id").references(() => ecomProducts.id).notNull(),
+  quantity: integer("quantity").default(1),
+  variant: text("variant"),
+});
+
+export const insertEcomCartItemSchema = createInsertSchema(ecomCartItems).omit({ id: true });
+export type InsertEcomCartItem = z.infer<typeof insertEcomCartItemSchema>;
+export type EcomCartItem = typeof ecomCartItems.$inferSelect;
+
+export const ecomCartItemRelations = relations(ecomCartItems, ({ one }) => ({
+  product: one(ecomProducts, {
+    fields: [ecomCartItems.productId],
+    references: [ecomProducts.id],
+  }),
+  user: one(users, {
+    fields: [ecomCartItems.userId],
+    references: [users.id],
+  }),
+}));
+
+export const ecomWishlistItems = pgTable("ecom_wishlist_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  productId: varchar("product_id").references(() => ecomProducts.id).notNull(),
+});
+
+export const insertEcomWishlistItemSchema = createInsertSchema(ecomWishlistItems).omit({ id: true });
+export type InsertEcomWishlistItem = z.infer<typeof insertEcomWishlistItemSchema>;
+export type EcomWishlistItem = typeof ecomWishlistItems.$inferSelect;
+
+export const ecomOrders = pgTable("ecom_orders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderNumber: varchar("order_number").unique(),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  vendorId: varchar("vendor_id").references(() => users.id),
+  items: jsonb("items").notNull(),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  status: text("status").default("pending"),
+  deliveryAddress: text("delivery_address").notNull(),
+  paymentMethod: text("payment_method").default("cod"),
+  paymentId: text("payment_id"),
+  trackingNumber: text("tracking_number"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertEcomOrderSchema = createInsertSchema(ecomOrders).omit({ id: true, createdAt: true });
+export type InsertEcomOrder = z.infer<typeof insertEcomOrderSchema>;
+export type EcomOrder = typeof ecomOrders.$inferSelect;
+
+export type EcomCartItemWithProduct = EcomCartItem & { product: EcomProduct };
+export type EcomWishlistItemWithProduct = EcomWishlistItem & { product: EcomProduct };
+export type EcomReviewWithUser = EcomReview & { username?: string; name?: string };
+
+export interface EcomOrderItem {
+  productId: string;
+  name: string;
+  price: string;
+  quantity: number;
+  image?: string;
+  variant?: string;
+  vendorId?: string;
+}

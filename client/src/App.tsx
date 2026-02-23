@@ -33,6 +33,18 @@ import AdminSupportPage from "@/pages/admin/support-page";
 import AdminVendorsPage from "@/pages/admin/vendors-page";
 import VendorApplicationPage from "@/pages/vendor-application-page";
 import VendorDashboardPage from "@/pages/vendor-dashboard-page";
+import AdminEcomDashboardPage from "@/pages/admin/ecom-dashboard-page";
+import AdminEcomCategoriesPage from "@/pages/admin/ecom-categories-page";
+import AdminEcomProductsPage from "@/pages/admin/ecom-products-page";
+import AdminEcomOrdersPage from "@/pages/admin/ecom-orders-page";
+import AdminEcomSellersPage from "@/pages/admin/ecom-sellers-page";
+import EcomHomePage from "@/pages/ecom/ecom-home-page";
+import EcomProductsPage from "@/pages/ecom/ecom-products-page";
+import EcomProductDetailPage from "@/pages/ecom/ecom-product-detail-page";
+import EcomCartPage from "@/pages/ecom/ecom-cart-page";
+import EcomCheckoutPage from "@/pages/ecom/ecom-checkout-page";
+import EcomOrdersPage from "@/pages/ecom/ecom-orders-page";
+import SellerDashboard from "@/pages/seller/seller-dashboard";
 
 function AppRouter() {
   return (
@@ -63,7 +75,19 @@ function AppRouter() {
       <AdminRoute path="/admin/category-ads" component={AdminCategoryAdsPage} />
       <AdminRoute path="/admin/services" component={AdminServicesPage} />
       <AdminRoute path="/admin/vendors" component={AdminVendorsPage} />
+      <AdminRoute path="/admin/ecom" component={AdminEcomDashboardPage} />
+      <AdminRoute path="/admin/ecom/categories" component={AdminEcomCategoriesPage} />
+      <AdminRoute path="/admin/ecom/products" component={AdminEcomProductsPage} />
+      <AdminRoute path="/admin/ecom/orders" component={AdminEcomOrdersPage} />
+      <AdminRoute path="/admin/ecom/sellers" component={AdminEcomSellersPage} />
       <VendorRoute path="/vendor/dashboard" component={VendorDashboardPage} />
+      <VendorRoute path="/seller/dashboard" component={SellerDashboard} />
+      <Route path="/ecommerce" component={EcomHomePage} />
+      <Route path="/ecommerce/products" component={EcomProductsPage} />
+      <Route path="/ecommerce/product/:id" component={EcomProductDetailPage} />
+      <Route path="/ecommerce/cart" component={EcomCartPage} />
+      <ProtectedRoute path="/ecommerce/checkout" component={EcomCheckoutPage} />
+      <ProtectedRoute path="/ecommerce/orders" component={EcomOrdersPage} />
       <Route component={NotFound} />
     </Switch>
   );

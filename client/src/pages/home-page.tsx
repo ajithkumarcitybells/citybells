@@ -15,7 +15,8 @@ const services = [
     name: "E-Commerce",
     description: "ESSENTIALS & ELEGANCE",
     image: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80",
-    isActive: false,
+    isActive: true,
+    href: "/ecommerce",
   },
   {
     name: "Food",

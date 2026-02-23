@@ -15,7 +15,9 @@ import {
   AlertCircle,
   TrendingUp,
   Clock,
-  Megaphone
+  Megaphone,
+  Store,
+  ShoppingBag
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +35,11 @@ const adminMenuItems = [
   { icon: Settings, label: "Services", href: "/admin/services" },
   { icon: Users, label: "Vendors", href: "/admin/vendors" },
   { icon: MessageCircle, label: "Support", href: "/admin/support" },
+  { icon: ShoppingBag, label: "E-Com Dashboard", href: "/admin/ecom" },
+  { icon: LayoutGrid, label: "E-Com Categories", href: "/admin/ecom/categories" },
+  { icon: Package, label: "E-Com Products", href: "/admin/ecom/products" },
+  { icon: ShoppingCart, label: "E-Com Orders", href: "/admin/ecom/orders" },
+  { icon: Store, label: "E-Com Sellers", href: "/admin/ecom/sellers" },
 ];
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
