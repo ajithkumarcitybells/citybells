@@ -138,7 +138,10 @@ City Bell is a Progressive Web App (PWA) for a multi-service super app featuring
 - Order placement with delivery address, status tracking
 - **Restaurant Dashboard**: Menu CRUD, order management, profile
 
-### City Moving (Porter-like)
+### City Moving (Parcel Delivery style)
+- Parcel delivery tracking app design: "Track your package" card, tracking number input, current shipments section
+- Auto-generated tracking numbers (CB + 8 alphanumeric chars) on each booking
+- Tracking details modal with status timeline (Created → Confirmed → Picked Up → In Transit → Delivered)
 - Vehicle type selection with capacity/pricing
 - Booking with pickup/drop, scheduling, helpers count
 - Price estimation, booking history

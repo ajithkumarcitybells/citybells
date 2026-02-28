@@ -573,6 +573,7 @@ export const movingBookings = pgTable("moving_bookings", {
   status: text("status").default("pending"),
   helpersCount: integer("helpers_count").default(0),
   description: text("description"),
+  trackingNumber: text("tracking_number"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

@@ -84,10 +84,12 @@ export function registerMovingRoutes(app: Express) {
       if (!parsed.success) {
         return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid request" });
       }
+      const trackingNumber = "CB" + Array.from({ length: 8 }, () => "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"[Math.floor(Math.random() * 36)]).join("");
       const booking = await movingStorage.createBooking({
         ...parsed.data,
         userId: req.user!.id,
         status: "pending",
+        trackingNumber,
       });
       res.status(201).json(booking);
     } catch (err) {
