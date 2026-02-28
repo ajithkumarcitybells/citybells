@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { users, categories, products, banners, services, cartItems, wishlistItems, ecomCategories, ecomProducts, sellerProfiles, foodRestaurants, foodMenuItems, movingVehicleTypes, hotels, hotelRooms, taxiVehicleTypes, cityServiceCategories, cityServices } from "@shared/schema";
+import { users, categories, products, banners, services, cartItems, wishlistItems, ecomCategories, ecomProducts, sellerProfiles, foodRestaurants, foodMenuItems, movingVehicleTypes, movingDrivers, hotels, hotelRooms, taxiVehicleTypes, taxiDrivers, cityServiceCategories, cityServices, cityServiceProviders } from "@shared/schema";
 import { hashPassword } from "./auth";
 import { eq } from "drizzle-orm";
 
@@ -508,10 +508,137 @@ async function seedNewServices() {
   console.log("All new services seeded successfully!");
 }
 
+async function seedPartnerAccounts() {
+  const existingRestPartner = await db.select().from(users).where(eq(users.username, "restaurant1"));
+  if (existingRestPartner.length > 0) {
+    console.log("Partner accounts already seeded, skipping");
+    return;
+  }
+
+  console.log("Seeding partner demo accounts...");
+  const partnerPassword = await hashPassword("partner123");
+
+  const [restaurantUser] = await db.insert(users).values({
+    username: "restaurant1",
+    password: partnerPassword,
+    name: "Spice Garden Owner",
+    email: "restaurant@citybell.com",
+    isVendor: true,
+    partnerType: "restaurant",
+  }).returning();
+
+  const allRestaurants = await db.select().from(foodRestaurants);
+  if (allRestaurants.length > 0) {
+    await db.update(foodRestaurants)
+      .set({ ownerId: restaurantUser.id })
+      .where(eq(foodRestaurants.id, allRestaurants[0].id));
+  }
+  console.log("  Restaurant partner: restaurant1 / partner123 (linked to Spice Garden)");
+
+  const [driverUser] = await db.insert(users).values({
+    username: "driver1",
+    password: partnerPassword,
+    name: "Rajesh Kumar",
+    email: "driver@citybell.com",
+    isVendor: true,
+    partnerType: "driver",
+  }).returning();
+
+  const allVehicleTypes = await db.select().from(movingVehicleTypes);
+  const miniTruck = allVehicleTypes.find(v => v.name === "Mini Truck") || allVehicleTypes[0];
+  if (miniTruck) {
+    await db.insert(movingDrivers).values({
+      userId: driverUser.id,
+      name: "Rajesh Kumar",
+      phone: "9876543210",
+      vehicleTypeId: miniTruck.id,
+      vehicleNumber: "KA-01-AB-1234",
+      isAvailable: true,
+      rating: "4.6",
+    });
+  }
+  console.log("  Moving driver: driver1 / partner123 (Mini Truck)");
+
+  const [hotelUser] = await db.insert(users).values({
+    username: "hotel1",
+    password: partnerPassword,
+    name: "Grand Palace Manager",
+    email: "hotel@citybell.com",
+    isVendor: true,
+    partnerType: "hotel",
+  }).returning();
+
+  const allHotels = await db.select().from(hotels);
+  if (allHotels.length > 0) {
+    await db.update(hotels)
+      .set({ managerId: hotelUser.id })
+      .where(eq(hotels.id, allHotels[0].id));
+  }
+  console.log("  Hotel manager: hotel1 / partner123 (linked to first hotel)");
+
+  const [taxiUser] = await db.insert(users).values({
+    username: "taxidriver1",
+    password: partnerPassword,
+    name: "Suresh Reddy",
+    email: "taxi@citybell.com",
+    isVendor: true,
+    partnerType: "driver",
+  }).returning();
+
+  const allTaxiTypes = await db.select().from(taxiVehicleTypes);
+  const sedan = allTaxiTypes.find(v => v.name === "Sedan") || allTaxiTypes[0];
+  if (sedan) {
+    await db.insert(taxiDrivers).values({
+      userId: taxiUser.id,
+      name: "Suresh Reddy",
+      phone: "9876543211",
+      vehicleTypeId: sedan.id,
+      vehicleNumber: "KA-02-CD-5678",
+      licenseNumber: "KA0520210012345",
+      isOnline: true,
+      rating: "4.7",
+    });
+  }
+  console.log("  Taxi driver: taxidriver1 / partner123 (Sedan)");
+
+  const [providerUser] = await db.insert(users).values({
+    username: "provider1",
+    password: partnerPassword,
+    name: "CleanPro Services",
+    email: "provider@citybell.com",
+    isVendor: true,
+    partnerType: "service_provider",
+  }).returning();
+
+  await db.insert(cityServiceProviders).values({
+    userId: providerUser.id,
+    name: "CleanPro Services",
+    phone: "9876543212",
+    specializations: ["Cleaning", "Pest Control", "Painting"],
+    experience: "5 years",
+    rating: "4.5",
+    isAvailable: true,
+    isAgency: true,
+    agencyName: "CleanPro Home Solutions",
+  });
+  console.log("  Service provider: provider1 / partner123 (CleanPro Services)");
+
+  const existingSeller = await db.select().from(users).where(eq(users.username, "seller1"));
+  if (existingSeller.length > 0 && !existingSeller[0].partnerType) {
+    await db.update(users)
+      .set({ partnerType: "seller" })
+      .where(eq(users.username, "seller1"));
+    console.log("  Updated seller1 partnerType to 'seller'");
+  }
+
+  console.log("All partner demo accounts created!");
+}
+
 export async function runSeed() {
   try {
     await seed();
     await seedNewServices();
+    await seedPartnerAccounts();
   } catch (err) {
     console.error("Seed error:", err);
   }

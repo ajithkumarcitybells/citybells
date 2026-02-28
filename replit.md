@@ -110,7 +110,12 @@ City Bell is a Progressive Web App (PWA) for a multi-service super app featuring
 
 ## Default Accounts
 - **Admin**: username: `admin`, password: `admin123`
-- **Seller**: username: `seller1`, password: `seller123`
+- **E-Com Seller**: username: `seller1`, password: `seller123` (partnerType: seller)
+- **Restaurant Owner**: username: `restaurant1`, password: `partner123` (partnerType: restaurant, linked to Spice Garden)
+- **Moving Driver**: username: `driver1`, password: `partner123` (partnerType: driver, Mini Truck)
+- **Hotel Manager**: username: `hotel1`, password: `partner123` (partnerType: hotel, linked to first hotel)
+- **Taxi Driver**: username: `taxidriver1`, password: `partner123` (partnerType: driver, Sedan)
+- **Service Provider**: username: `provider1`, password: `partner123` (partnerType: service_provider, CleanPro Services)
 - Seed data includes 10 restaurants, 5 vehicle types, 10 hotels, 4 taxi types, 8 service categories with 29+ services
 
 ## Key Features
