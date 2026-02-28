@@ -5,7 +5,6 @@ import {
   ChevronLeft, Car, MapPin, Phone, Star, Loader2, Power, Clock,
   DollarSign, TrendingUp, CheckCircle2, Navigation, User, CreditCard,
 } from "lucide-react";
-import { Header } from "@/components/Header";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -105,8 +104,13 @@ export default function TaxiDriverDashboard() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 pb-20">
-        <Header />
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
+        <div className="sticky top-0 z-50 bg-gradient-to-r from-yellow-400 to-amber-500 px-4 py-3 flex items-center gap-3">
+          <Button size="icon" variant="ghost" onClick={() => setLocation("/profile")} className="text-gray-900 no-default-hover-elevate" data-testid="button-back">
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-lg font-bold text-gray-900" data-testid="text-page-title">Driver Dashboard</h1>
+        </div>
         <main className="px-4 py-8 max-w-lg mx-auto text-center">
           <p className="text-gray-500 mb-4">Please log in to access your dashboard</p>
           <Button onClick={() => setLocation("/auth")} data-testid="button-login">Log In</Button>
@@ -118,8 +122,13 @@ export default function TaxiDriverDashboard() {
 
   if (driverLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 pb-20">
-        <Header />
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
+        <div className="sticky top-0 z-50 bg-gradient-to-r from-yellow-400 to-amber-500 px-4 py-3 flex items-center gap-3">
+          <Button size="icon" variant="ghost" onClick={() => setLocation("/profile")} className="text-gray-900 no-default-hover-elevate" data-testid="button-back">
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-lg font-bold text-gray-900" data-testid="text-page-title">Driver Dashboard</h1>
+        </div>
         <main className="px-4 py-4 max-w-lg mx-auto space-y-4">
           <Skeleton className="h-8 w-40" />
           <Skeleton className="h-24 w-full rounded-lg" />
@@ -132,8 +141,13 @@ export default function TaxiDriverDashboard() {
 
   if (!driver) {
     return (
-      <div className="min-h-screen bg-gray-50 pb-20">
-        <Header />
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
+        <div className="sticky top-0 z-50 bg-gradient-to-r from-yellow-400 to-amber-500 px-4 py-3 flex items-center gap-3">
+          <Button size="icon" variant="ghost" onClick={() => setLocation("/profile")} className="text-gray-900 no-default-hover-elevate" data-testid="button-back">
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-lg font-bold text-gray-900" data-testid="text-page-title">Driver Dashboard</h1>
+        </div>
         <main className="px-4 py-8 max-w-lg mx-auto text-center">
           <Car className="h-12 w-12 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-500 mb-2">Driver profile not found</p>
@@ -151,16 +165,15 @@ export default function TaxiDriverDashboard() {
   const completedRides = rides.filter((r) => r.status === "completed");
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      <Header />
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20">
+      <div className="sticky top-0 z-50 bg-gradient-to-r from-yellow-400 to-amber-500 px-4 py-3 flex items-center gap-3">
+        <Button size="icon" variant="ghost" onClick={() => setLocation("/profile")} className="text-gray-900 no-default-hover-elevate" data-testid="button-back">
+          <ChevronLeft className="h-5 w-5" />
+        </Button>
+        <h1 className="text-lg font-bold text-gray-900" data-testid="text-page-title">Driver Dashboard</h1>
+      </div>
 
       <main className="px-4 py-4 max-w-lg mx-auto">
-        <div className="flex items-center gap-2 mb-4">
-          <Button size="icon" variant="ghost" onClick={() => setLocation("/profile")} data-testid="button-back">
-            <ChevronLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-lg font-bold text-gray-800" data-testid="text-page-title">Driver Dashboard</h1>
-        </div>
 
         <Card className={`p-4 mb-4 ${driver.isOnline ? "bg-green-50 border-green-200" : "bg-gray-50 border-gray-200"}`}>
           <div className="flex items-center justify-between gap-2 flex-wrap">
