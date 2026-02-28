@@ -162,10 +162,12 @@ City Bell is a Progressive Web App (PWA) for a multi-service super app featuring
 - Ride history: filter tabs (All/Completed/Cancelled), styled ride cards with rating interaction
 - **Taxi Driver Dashboard**: Yellow/amber header, online/offline toggle, ride management, earnings
 
-### City Services (UrbanCompany-like)
-- Category browsing (cleaning, plumbing, electrician, etc.)
-- Service selection with price/duration/rating
-- Booking with date/time/address
+### City Services (Urban Company style)
+- Dark purple (#1a0533) header theme across all city services pages
+- Home page: location pin header, rounded search bar, circular category icons (4-column grid), promotional gradient banners (horizontal scroll), "Most Booked Services" horizontal scroll cards with Book buttons, popular services list with Add buttons
+- Category page: dark purple header with search + sort pills (Relevance/Rating/Price), UC-style service cards with image thumbnail, rating, price, Add + View Details buttons
+- Booking page: hero image with gradient overlay + rating badge, "Included in this service" checklist, date chip picker (7 days), time slot chips (Morning/Afternoon/Evening), price summary card, purple "Proceed to Book" CTA
+- Bookings page: dark purple header, Upcoming/Completed/Cancelled tab filters, booking cards with provider info panel, star rating for completed, cancel for upcoming
 - **Service Provider Dashboard**: Booking management, availability, specializations
 
 ### Admin Panel (Central Control)
