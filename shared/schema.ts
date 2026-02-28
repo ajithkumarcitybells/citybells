@@ -333,6 +333,7 @@ export const ecomProducts = pgTable("ecom_products", {
   isActive: boolean("is_active").default(true),
   isApproved: boolean("is_approved").default(false),
   isFeatured: boolean("is_featured").default(false),
+  isInstantDelivery: boolean("is_instant_delivery").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

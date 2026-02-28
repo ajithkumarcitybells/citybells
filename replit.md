@@ -124,8 +124,10 @@ City Bell is a Progressive Web App (PWA) for a multi-service super app featuring
 - Product browsing by category, search, filters
 - Shopping cart with weight variants, wishlist, order tracking
 
-### E-Commerce Service (Amazon-like)
-- Category-based browsing, search, filters (price, rating, brand)
+### E-Commerce Service (Flipkart-like)
+- Flipkart-inspired home page: horizontal category strip, hero carousel, promotional deal cards, instant delivery section
+- `isInstantDelivery` boolean on ecom_products — admin-toggleable, shown as dedicated section on home page
+- Category-based browsing, search, filters (price, rating, brand, instant delivery)
 - Product detail with gallery, variants, reviews
 - Seller store pages, separate cart/checkout/orders
 

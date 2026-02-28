@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
-import { Search, ChevronRight, Star, ShoppingBag, Zap, TrendingUp, Award } from "lucide-react";
+import { Search, ChevronRight, Star, ShoppingBag, Zap, TrendingUp, Award, Timer, Tag } from "lucide-react";
 import { Header } from "@/components/Header";
 import { BottomNav } from "@/components/BottomNav";
 import { Input } from "@/components/ui/input";
@@ -40,7 +40,7 @@ function HeroBanner() {
   }, [slides.length]);
 
   return (
-    <div className="relative rounded-2xl overflow-hidden" data-testid="ecom-hero-banner">
+    <div className="relative overflow-hidden" data-testid="ecom-hero-banner">
       <div
         className="flex transition-transform duration-500 ease-out"
         style={{ transform: `translateX(-${current * 100}%)` }}
@@ -48,7 +48,7 @@ function HeroBanner() {
         {slides.map((s, i) => (
           <div
             key={i}
-            className={`min-w-full aspect-[2/1] bg-gradient-to-r ${s.bg} flex flex-col justify-center px-6`}
+            className={`min-w-full aspect-[2.5/1] bg-gradient-to-r ${s.bg} flex flex-col justify-center px-6`}
           >
             <span className="text-xs font-semibold text-white/80 mb-1">CITY BELL E-COMMERCE</span>
             <h2 className="text-2xl font-bold text-white mb-1">{s.title}</h2>
@@ -77,15 +77,121 @@ function HeroBanner() {
   );
 }
 
+function CategoryStrip({ categories }: { categories: EcomCategory[] }) {
+  const [, setLocation] = useLocation();
+
+  return (
+    <div className="flex gap-4 overflow-x-auto pb-2 px-4 scrollbar-hide" data-testid="category-strip">
+      <div
+        onClick={() => setLocation("/ecommerce/products")}
+        className="flex flex-col items-center gap-1 flex-shrink-0 cursor-pointer"
+        data-testid="category-strip-all"
+      >
+        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900 dark:to-purple-900 flex items-center justify-center border border-gray-200 dark:border-gray-700">
+          <ShoppingBag className="h-6 w-6 text-indigo-500" />
+        </div>
+        <span className="text-[10px] font-medium text-foreground/70 text-center leading-tight w-14 line-clamp-2">All</span>
+      </div>
+      {categories.filter(c => c.isActive).map((cat) => (
+        <div
+          key={cat.id}
+          onClick={() => setLocation(`/ecommerce/products?category=${cat.id}`)}
+          className="flex flex-col items-center gap-1 flex-shrink-0 cursor-pointer"
+          data-testid={`category-strip-${cat.id}`}
+        >
+          <div className="w-14 h-14 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+            {cat.image ? (
+              <img src={cat.image} alt={cat.name} className="w-full h-full object-cover" loading="lazy" />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900 dark:to-purple-900 flex items-center justify-center">
+                <ShoppingBag className="h-5 w-5 text-indigo-400" />
+              </div>
+            )}
+          </div>
+          <span className="text-[10px] font-medium text-foreground/70 text-center leading-tight w-14 line-clamp-2">{cat.name}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PromotionalDeals() {
+  const deals = [
+    {
+      title: "From ₹1,799",
+      subtitle: "Top Electronics Deals",
+      gradient: "from-blue-500 to-blue-700",
+      icon: Tag,
+    },
+    {
+      title: "Up to 40% Off!",
+      subtitle: "Fashion & Lifestyle",
+      gradient: "from-orange-500 to-red-500",
+      icon: Zap,
+    },
+    {
+      title: "Free 75 Min Delivery",
+      subtitle: "On Instant Items",
+      gradient: "from-green-500 to-emerald-600",
+      icon: Timer,
+    },
+  ];
+
+  return (
+    <div className="flex gap-3 overflow-x-auto pb-2 px-4 scrollbar-hide" data-testid="promotional-deals">
+      {deals.map((deal, i) => (
+        <Link key={i} href="/ecommerce/products?sort=discount">
+          <div
+            className={`flex-shrink-0 w-44 rounded-md bg-gradient-to-r ${deal.gradient} p-3 cursor-pointer`}
+            data-testid={`card-deal-${i}`}
+          >
+            <deal.icon className="h-5 w-5 text-white/80 mb-1.5" />
+            <p className="text-sm font-bold text-white leading-tight">{deal.title}</p>
+            <p className="text-[11px] text-white/80 mt-0.5">{deal.subtitle}</p>
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function InstantDeliverySection({ products }: { products: EcomProduct[] }) {
+  const [, setLocation] = useLocation();
+
+  if (products.length === 0) return null;
+
+  return (
+    <div data-testid="instant-delivery-section">
+      <div className="flex items-center justify-between mb-3 px-4">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 bg-gradient-to-r from-yellow-400 to-green-500 text-white px-2 py-0.5 rounded-md">
+            <Zap className="h-3.5 w-3.5" />
+            <span className="text-xs font-bold">INSTANT</span>
+          </div>
+          <h2 className="text-base font-semibold text-foreground" data-testid="text-instant-delivery-heading">Instant Delivery</h2>
+        </div>
+        <Link href="/ecommerce/products?instant=true" className="text-sm font-medium text-primary flex items-center gap-0.5" data-testid="link-instant-see-all">
+          See All <ChevronRight className="h-3.5 w-3.5" />
+        </Link>
+      </div>
+      <div className="flex gap-3 overflow-x-auto pb-2 px-4 scrollbar-hide">
+        {products.map((p) => (
+          <ProductHorizontalCard key={p.id} product={p} showInstantBadge />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function CategoryGrid({ categories }: { categories: EcomCategory[] }) {
   const [, setLocation] = useLocation();
 
   if (categories.length === 0) return null;
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-base font-semibold text-gray-800" data-testid="text-categories-heading">Shop by Category</h2>
+    <div className="px-4">
+      <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+        <h2 className="text-base font-semibold text-foreground" data-testid="text-categories-heading">Shop by Category</h2>
         <Link href="/ecommerce/products" className="text-sm font-medium text-primary flex items-center gap-0.5" data-testid="link-view-all-categories">
           View All <ChevronRight className="h-3.5 w-3.5" />
         </Link>
@@ -98,16 +204,16 @@ function CategoryGrid({ categories }: { categories: EcomCategory[] }) {
             className="flex flex-col items-center gap-1.5 cursor-pointer"
             data-testid={`card-ecom-category-${cat.id}`}
           >
-            <div className="w-full aspect-square rounded-xl overflow-hidden bg-gray-100 border border-gray-100">
+            <div className="w-full aspect-square rounded-full overflow-hidden bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
               {cat.image ? (
                 <img src={cat.image} alt={cat.name} className="w-full h-full object-cover" loading="lazy" />
               ) : (
-                <div className="w-full h-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
+                <div className="w-full h-full bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900 dark:to-purple-900 flex items-center justify-center">
                   <ShoppingBag className="h-6 w-6 text-indigo-400" />
                 </div>
               )}
             </div>
-            <span className="text-[11px] font-medium text-gray-700 text-center leading-tight line-clamp-2">{cat.name}</span>
+            <span className="text-[11px] font-medium text-foreground/70 text-center leading-tight line-clamp-2">{cat.name}</span>
           </div>
         ))}
       </div>
@@ -115,7 +221,7 @@ function CategoryGrid({ categories }: { categories: EcomCategory[] }) {
   );
 }
 
-function ProductHorizontalCard({ product }: { product: EcomProduct }) {
+function ProductHorizontalCard({ product, showInstantBadge }: { product: EcomProduct; showInstantBadge?: boolean }) {
   const [, setLocation] = useLocation();
   const price = parseFloat(product.price);
   const origPrice = parseFloat(product.originalPrice);
@@ -124,34 +230,40 @@ function ProductHorizontalCard({ product }: { product: EcomProduct }) {
 
   return (
     <Card
-      className="flex-shrink-0 w-40 overflow-hidden cursor-pointer border-gray-100"
+      className="flex-shrink-0 w-40 overflow-hidden cursor-pointer"
       onClick={() => setLocation(`/ecommerce/product/${product.id}`)}
       data-testid={`card-ecom-product-${product.id}`}
     >
-      <div className="aspect-square bg-gray-50 p-2 relative">
+      <div className="aspect-square bg-gray-50 dark:bg-gray-800 p-2 relative">
         {firstImage ? (
           <img src={firstImage} alt={product.name} className="w-full h-full object-contain" loading="lazy" />
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 rounded-md" />
+          <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 rounded-md" />
         )}
         {product.discountPercent && product.discountPercent > 0 && (
           <Badge variant="destructive" className="absolute top-1 left-1 text-[10px] px-1.5 py-0" data-testid={`badge-discount-${product.id}`}>
             {product.discountPercent}% OFF
           </Badge>
         )}
+        {showInstantBadge && (
+          <div className="absolute bottom-1 right-1 bg-gradient-to-r from-yellow-400 to-green-500 text-white rounded-md px-1.5 py-0.5 flex items-center gap-0.5">
+            <Zap className="h-2.5 w-2.5" />
+            <span className="text-[9px] font-bold">INSTANT</span>
+          </div>
+        )}
       </div>
       <div className="p-2">
-        <p className="text-xs font-medium text-gray-800 line-clamp-2 leading-tight mb-1" data-testid={`text-product-name-${product.id}`}>{product.name}</p>
+        <p className="text-xs font-medium text-foreground line-clamp-2 leading-tight mb-1" data-testid={`text-product-name-${product.id}`}>{product.name}</p>
         {rating > 0 && (
           <div className="flex items-center gap-0.5 mb-1">
             <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-            <span className="text-[10px] text-gray-500">{rating.toFixed(1)}</span>
+            <span className="text-[10px] text-muted-foreground">{rating.toFixed(1)}</span>
           </div>
         )}
         <div className="flex items-center gap-1 flex-wrap">
-          <span className="text-sm font-bold text-gray-900" data-testid={`text-price-${product.id}`}>₹{price.toFixed(0)}</span>
+          <span className="text-sm font-bold text-foreground" data-testid={`text-price-${product.id}`}>₹{price.toFixed(0)}</span>
           {product.discountPercent && product.discountPercent > 0 && (
-            <span className="text-[10px] text-gray-400 line-through">₹{origPrice.toFixed(0)}</span>
+            <span className="text-[10px] text-muted-foreground line-through">₹{origPrice.toFixed(0)}</span>
           )}
         </div>
       </div>
@@ -176,16 +288,16 @@ function ProductSection({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between gap-2 mb-3 px-4 flex-wrap">
         <div className="flex items-center gap-2">
           <Icon className="h-4 w-4 text-primary" />
-          <h2 className="text-base font-semibold text-gray-800">{title}</h2>
+          <h2 className="text-base font-semibold text-foreground">{title}</h2>
         </div>
         <Link href={linkHref} className="text-sm font-medium text-primary flex items-center gap-0.5" data-testid={`link-${title.toLowerCase().replace(/\s+/g, "-")}`}>
           {linkText} <ChevronRight className="h-3.5 w-3.5" />
         </Link>
       </div>
-      <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
+      <div className="flex gap-3 overflow-x-auto pb-2 px-4 scrollbar-hide">
         {products.map((p) => (
           <ProductHorizontalCard key={p.id} product={p} />
         ))}
@@ -206,18 +318,18 @@ export default function EcomHomePage() {
     queryKey: ["/api/ecom/products"],
   });
 
+  const activeProducts = allProducts.filter((p) => p.isActive && p.isApproved);
   const featuredProducts = allProducts.filter((p) => p.isFeatured && p.isActive && p.isApproved);
-  const dealProducts = allProducts
-    .filter((p) => p.isActive && p.isApproved && (p.discountPercent || 0) > 0)
+  const instantProducts = allProducts.filter((p) => p.isInstantDelivery && p.isActive && p.isApproved);
+  const dealProducts = activeProducts
+    .filter((p) => (p.discountPercent || 0) > 0)
     .sort((a, b) => (b.discountPercent || 0) - (a.discountPercent || 0))
     .slice(0, 10);
-  const topRated = allProducts
-    .filter((p) => p.isActive && p.isApproved && parseFloat(p.rating || "0") > 0)
+  const topRated = activeProducts
+    .filter((p) => parseFloat(p.rating || "0") > 0)
     .sort((a, b) => parseFloat(b.rating || "0") - parseFloat(a.rating || "0"))
     .slice(0, 10);
-  const newest = allProducts
-    .filter((p) => p.isActive && p.isApproved)
-    .slice(0, 10);
+  const newest = activeProducts.slice(0, 10);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -227,39 +339,43 @@ export default function EcomHomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-background pb-20">
       <Header />
 
-      <main className="px-4 py-4 max-w-lg mx-auto space-y-5">
-        <form onSubmit={handleSearch} className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            type="search"
-            placeholder="Search products, brands..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 bg-white border-gray-200"
-            data-testid="input-ecom-search"
-          />
-        </form>
-
-        <HeroBanner />
+      <main className="max-w-lg mx-auto space-y-4">
+        <div className="px-4 pt-3">
+          <form onSubmit={handleSearch} className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search products, brands..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+              data-testid="input-ecom-search"
+            />
+          </form>
+        </div>
 
         {catLoading ? (
-          <div className="grid grid-cols-4 gap-3">
-            {Array(8).fill(0).map((_, i) => (
-              <div key={i} className="flex flex-col items-center gap-1.5">
-                <Skeleton className="w-full aspect-square rounded-xl" />
-                <Skeleton className="w-12 h-3" />
+          <div className="flex gap-4 overflow-x-auto pb-2 px-4">
+            {Array(6).fill(0).map((_, i) => (
+              <div key={i} className="flex flex-col items-center gap-1 flex-shrink-0">
+                <Skeleton className="w-14 h-14 rounded-full" />
+                <Skeleton className="w-10 h-3" />
               </div>
             ))}
           </div>
         ) : (
-          <CategoryGrid categories={categories} />
+          <CategoryStrip categories={categories} />
         )}
 
+        <HeroBanner />
+
+        <PromotionalDeals />
+
         {prodLoading ? (
-          <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4">
+          <div className="flex gap-3 overflow-x-auto pb-2 px-4">
             {Array(4).fill(0).map((_, i) => (
               <div key={i} className="flex-shrink-0 w-40">
                 <Skeleton className="aspect-square rounded-t-md" />
@@ -272,6 +388,10 @@ export default function EcomHomePage() {
           </div>
         ) : (
           <>
+            <InstantDeliverySection products={instantProducts} />
+
+            {catLoading ? null : <CategoryGrid categories={categories} />}
+
             <ProductSection
               title="Deal of the Day"
               icon={Zap}

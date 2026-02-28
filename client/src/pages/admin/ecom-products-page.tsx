@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Package, CheckCircle, XCircle, Search, Star, Trash2, Eye } from "lucide-react";
+import { Package, CheckCircle, XCircle, Search, Star, Trash2, Eye, Zap, Award } from "lucide-react";
 import { AdminLayout } from "./index";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { EcomProduct, EcomCategory } from "@shared/schema";
@@ -178,7 +179,15 @@ export default function AdminEcomProductsPage() {
               </div>
 
               <div className="flex items-start justify-between gap-1 mb-1">
-                <p className="font-medium text-sm truncate flex-1" data-testid={`text-product-name-${product.id}`}>{product.name}</p>
+                <div className="flex items-center gap-1 flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate" data-testid={`text-product-name-${product.id}`}>{product.name}</p>
+                  {product.isInstantDelivery && (
+                    <Zap className="h-3.5 w-3.5 text-yellow-500 flex-shrink-0" data-testid={`icon-instant-${product.id}`} />
+                  )}
+                  {product.isFeatured && (
+                    <Award className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" data-testid={`icon-featured-${product.id}`} />
+                  )}
+                </div>
                 {product.isApproved ? (
                   <Badge className="bg-green-100 text-green-700 no-default-hover-elevate no-default-active-elevate text-xs">Approved</Badge>
                 ) : (
@@ -301,6 +310,36 @@ export default function AdminEcomProductsPage() {
                   <p className="text-gray-500">Status</p>
                   <p className="font-semibold">{selectedProduct.isApproved ? "Approved" : "Pending"}</p>
                 </div>
+              </div>
+              <div className="flex items-center justify-between py-3 border-t border-b">
+                <div className="flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-yellow-500" />
+                  <span className="text-sm font-medium">Instant Delivery</span>
+                </div>
+                <Switch
+                  checked={!!selectedProduct.isInstantDelivery}
+                  onCheckedChange={(checked) => {
+                    updateMutation.mutate({ id: selectedProduct.id, data: { isInstantDelivery: checked } });
+                    setSelectedProduct({ ...selectedProduct, isInstantDelivery: checked });
+                  }}
+                  disabled={updateMutation.isPending}
+                  data-testid="switch-instant-delivery"
+                />
+              </div>
+              <div className="flex items-center justify-between py-3 border-b">
+                <div className="flex items-center gap-2">
+                  <Award className="h-4 w-4 text-blue-500" />
+                  <span className="text-sm font-medium">Featured</span>
+                </div>
+                <Switch
+                  checked={!!selectedProduct.isFeatured}
+                  onCheckedChange={(checked) => {
+                    updateMutation.mutate({ id: selectedProduct.id, data: { isFeatured: checked } });
+                    setSelectedProduct({ ...selectedProduct, isFeatured: checked });
+                  }}
+                  disabled={updateMutation.isPending}
+                  data-testid="switch-featured"
+                />
               </div>
               <div className="flex gap-2 pt-2">
                 {!selectedProduct.isApproved ? (

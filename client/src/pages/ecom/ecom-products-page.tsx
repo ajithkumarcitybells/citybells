@@ -35,15 +35,18 @@ export default function EcomProductsPage() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [currentPage, setCurrentPage] = useState(1);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [instantOnly, setInstantOnly] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const cat = params.get("category");
     const search = params.get("search");
     const sort = params.get("sort");
+    const instant = params.get("instant");
     if (cat) setSelectedCategories([cat]);
     if (search) setSearchQuery(search);
     if (sort) setSortBy(sort);
+    if (instant === "true") setInstantOnly(true);
   }, []);
 
   const { data: categories = [] } = useQuery<EcomCategory[]>({
@@ -107,6 +110,10 @@ export default function EcomProductsPage() {
   const filteredProducts = useMemo(() => {
     let result = products.filter((p) => p.isActive && p.isApproved);
 
+    if (instantOnly) {
+      result = result.filter((p) => p.isInstantDelivery);
+    }
+
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
@@ -149,7 +156,7 @@ export default function EcomProductsPage() {
     }
 
     return result;
-  }, [products, searchQuery, selectedCategories, priceRange, minRating, sortBy]);
+  }, [products, searchQuery, selectedCategories, priceRange, minRating, sortBy, instantOnly]);
 
   const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
   const paginatedProducts = filteredProducts.slice(
