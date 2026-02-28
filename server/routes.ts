@@ -8,6 +8,11 @@ import Razorpay from "razorpay";
 import { storage } from "./storage";
 import { setupAuth, requireAuth, requireAdmin, requireVendor } from "./auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
+import { registerTaxiRoutes } from "./taxi-routes";
+import { registerHotelRoutes } from "./hotel-routes";
+import { registerMovingRoutes } from "./moving-routes";
+import { registerFoodRoutes } from "./food-routes";
+import { registerCityServicesRoutes } from "./city-services-routes";
 
 // Initialize Razorpay
 const razorpay = new Razorpay({
@@ -93,6 +98,13 @@ export async function registerRoutes(
 
   // Initialize services in database
   await storage.initializeServices();
+
+  // Register food delivery routes
+  registerFoodRoutes(app);
+  registerMovingRoutes(app);
+  registerCityServicesRoutes(app);
+  registerHotelRoutes(app);
+  registerTaxiRoutes(app);
 
   // ==================== PUBLIC ROUTES ====================
 
@@ -1004,6 +1016,14 @@ export async function registerRoutes(
         const { hashPassword } = await import("./auth");
         const hashedPassword = await hashPassword(application.password);
         const { db } = await import("./db");
+        const serviceTypeToPartnerType: Record<string, string> = {
+          "E-commerce": "seller",
+          "Food": "restaurant",
+          "City Moving": "driver",
+          "Hotel": "hotel",
+          "City Services": "service_provider",
+          "Taxi": "driver",
+        };
         await db.insert(users).values({
           username: application.username,
           password: hashedPassword,
@@ -1012,6 +1032,7 @@ export async function registerRoutes(
           phone: application.phone,
           isAdmin: false,
           isVendor: true,
+          partnerType: serviceTypeToPartnerType[application.serviceType] || "seller",
         });
       }
 

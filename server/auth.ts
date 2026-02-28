@@ -210,3 +210,15 @@ export function requireVendor(req: Express.Request, res: Express.Response, next:
   }
   next();
 }
+
+export function requirePartner(type: string) {
+  return (req: Express.Request, res: Express.Response, next: Express.NextFunction) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Please login to continue" });
+    }
+    if (!req.user?.isVendor || req.user?.partnerType !== type) {
+      return res.status(403).json({ message: `${type} partner access required` });
+    }
+    next();
+  };
+}

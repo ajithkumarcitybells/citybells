@@ -17,7 +17,12 @@ import {
   Clock,
   Megaphone,
   Store,
-  ShoppingBag
+  ShoppingBag,
+  UtensilsCrossed,
+  Truck,
+  Building2,
+  Car,
+  Wrench
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,21 +30,66 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/hooks/use-auth";
 import cityBellLogo from "@assets/citybells-logo_1769903304782.png";
 
-const adminMenuItems = [
-  { icon: BarChart3, label: "Dashboard", href: "/admin" },
-  { icon: Package, label: "Products", href: "/admin/products" },
-  { icon: LayoutGrid, label: "Categories", href: "/admin/categories" },
-  { icon: ShoppingCart, label: "Orders", href: "/admin/orders" },
-  { icon: Image, label: "Banners", href: "/admin/banners" },
-  { icon: Megaphone, label: "Category Ads", href: "/admin/category-ads" },
-  { icon: Settings, label: "Services", href: "/admin/services" },
-  { icon: Users, label: "Vendors", href: "/admin/vendors" },
-  { icon: MessageCircle, label: "Support", href: "/admin/support" },
-  { icon: ShoppingBag, label: "E-Com Dashboard", href: "/admin/ecom" },
-  { icon: LayoutGrid, label: "E-Com Categories", href: "/admin/ecom/categories" },
-  { icon: Package, label: "E-Com Products", href: "/admin/ecom/products" },
-  { icon: ShoppingCart, label: "E-Com Orders", href: "/admin/ecom/orders" },
-  { icon: Store, label: "E-Com Sellers", href: "/admin/ecom/sellers" },
+const adminMenuSections = [
+  {
+    title: "General",
+    items: [
+      { icon: BarChart3, label: "Dashboard", href: "/admin" },
+      { icon: Settings, label: "Services", href: "/admin/services" },
+      { icon: Users, label: "Vendors", href: "/admin/vendors" },
+      { icon: MessageCircle, label: "Support", href: "/admin/support" },
+    ],
+  },
+  {
+    title: "Grocery",
+    items: [
+      { icon: Package, label: "Products", href: "/admin/products" },
+      { icon: LayoutGrid, label: "Categories", href: "/admin/categories" },
+      { icon: ShoppingCart, label: "Orders", href: "/admin/orders" },
+      { icon: Image, label: "Banners", href: "/admin/banners" },
+      { icon: Megaphone, label: "Category Ads", href: "/admin/category-ads" },
+    ],
+  },
+  {
+    title: "E-Commerce",
+    items: [
+      { icon: ShoppingBag, label: "E-Com Dashboard", href: "/admin/ecom" },
+      { icon: LayoutGrid, label: "E-Com Categories", href: "/admin/ecom/categories" },
+      { icon: Package, label: "E-Com Products", href: "/admin/ecom/products" },
+      { icon: ShoppingCart, label: "E-Com Orders", href: "/admin/ecom/orders" },
+      { icon: Store, label: "E-Com Sellers", href: "/admin/ecom/sellers" },
+    ],
+  },
+  {
+    title: "Food Delivery",
+    items: [
+      { icon: UtensilsCrossed, label: "Food Management", href: "/admin/food" },
+    ],
+  },
+  {
+    title: "City Moving",
+    items: [
+      { icon: Truck, label: "Moving Management", href: "/admin/moving" },
+    ],
+  },
+  {
+    title: "Hotels",
+    items: [
+      { icon: Building2, label: "Hotel Management", href: "/admin/hotels" },
+    ],
+  },
+  {
+    title: "Taxi",
+    items: [
+      { icon: Car, label: "Taxi Management", href: "/admin/taxi" },
+    ],
+  },
+  {
+    title: "City Services",
+    items: [
+      { icon: Wrench, label: "Services Management", href: "/admin/city-services" },
+    ],
+  },
 ];
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -61,29 +111,36 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
         </Link>
       </div>
       
-      <nav className="flex-1 p-4">
-        <div className="space-y-1">
-          {adminMenuItems.map((item) => {
-            const isActive = item.href === "/admin" 
-              ? location === "/admin" 
-              : location.startsWith(item.href);
-            return (
-              <Link key={item.href} href={item.href}>
-                <div 
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-                    isActive 
-                      ? 'bg-primary text-white' 
-                      : 'text-gray-700 hover-elevate'
-                  }`}
-                  onClick={() => setSidebarOpen(false)}
-                  data-testid={`admin-nav-${item.label.toLowerCase()}`}
-                >
-                  <item.icon className="h-5 w-5" />
-                  <span className="font-medium">{item.label}</span>
-                </div>
-              </Link>
-            );
-          })}
+      <nav className="flex-1 p-4 overflow-y-auto">
+        <div className="space-y-4">
+          {adminMenuSections.map((section) => (
+            <div key={section.title}>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-3 mb-1">{section.title}</p>
+              <div className="space-y-0.5">
+                {section.items.map((item) => {
+                  const isActive = item.href === "/admin" 
+                    ? location === "/admin" 
+                    : location.startsWith(item.href);
+                  return (
+                    <Link key={item.href} href={item.href}>
+                      <div 
+                        className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm ${
+                          isActive 
+                            ? 'bg-primary text-white' 
+                            : 'text-gray-700 hover-elevate'
+                        }`}
+                        onClick={() => setSidebarOpen(false)}
+                        data-testid={`admin-nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+                      >
+                        <item.icon className="h-4 w-4" />
+                        <span className="font-medium">{item.label}</span>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       </nav>
       

@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { users, categories, products, banners, services, cartItems, wishlistItems, ecomCategories, ecomProducts, sellerProfiles } from "@shared/schema";
+import { users, categories, products, banners, services, cartItems, wishlistItems, ecomCategories, ecomProducts, sellerProfiles, foodRestaurants, foodMenuItems, movingVehicleTypes, hotels, hotelRooms, taxiVehicleTypes, cityServiceCategories, cityServices } from "@shared/schema";
 import { hashPassword } from "./auth";
 import { eq } from "drizzle-orm";
 
@@ -297,10 +297,221 @@ async function seedEcommerce() {
   console.log("E-commerce seeding complete!");
 }
 
-// Export for use in server startup
+async function seedNewServices() {
+  const existingRestaurants = await db.select().from(foodRestaurants);
+  if (existingRestaurants.length > 0) {
+    console.log("New services already seeded, skipping");
+    return;
+  }
+
+  console.log("Seeding new services data...");
+
+  const restaurantData = [
+    { name: "Spice Garden", image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600", cuisine: ["North Indian", "Mughlai"], rating: "4.3", deliveryTime: "30-40 min", minOrder: "149", address: "123 MG Road, Bangalore", description: "Authentic North Indian cuisine with rich flavors" },
+    { name: "Dragon Wok", image: "https://images.unsplash.com/photo-1552566626-52f8b828add9?w=600", cuisine: ["Chinese", "Thai"], rating: "4.1", deliveryTime: "25-35 min", minOrder: "199", address: "45 Brigade Road, Bangalore", description: "Pan-Asian delights with fresh ingredients" },
+    { name: "Pizza Paradise", image: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600", cuisine: ["Italian", "Fast Food"], rating: "4.5", deliveryTime: "20-30 min", minOrder: "249", address: "78 Church Street, Bangalore", description: "Wood-fired pizzas and Italian favorites" },
+    { name: "Dosa Corner", image: "https://images.unsplash.com/photo-1630383249896-424e482df921?w=600", cuisine: ["South Indian"], rating: "4.4", deliveryTime: "15-25 min", minOrder: "99", address: "22 Jayanagar, Bangalore", description: "Crispy dosas and authentic South Indian meals" },
+    { name: "Biryani House", image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600", cuisine: ["Biryani", "Mughlai"], rating: "4.6", deliveryTime: "35-45 min", minOrder: "199", address: "56 Koramangala, Bangalore", description: "Hyderabadi dum biryani cooked to perfection" },
+    { name: "Burger Junction", image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600", cuisine: ["Fast Food", "American"], rating: "4.2", deliveryTime: "15-25 min", minOrder: "149", address: "89 Indiranagar, Bangalore", description: "Juicy burgers and crispy fries" },
+    { name: "Sushi Zen", image: "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=600", cuisine: ["Japanese", "Sushi"], rating: "4.7", deliveryTime: "40-50 min", minOrder: "499", address: "12 Whitefield, Bangalore", description: "Premium Japanese sushi and ramen" },
+    { name: "Tandoori Nights", image: "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=600", cuisine: ["North Indian", "Tandoor"], rating: "4.3", deliveryTime: "30-40 min", minOrder: "199", address: "34 HSR Layout, Bangalore", description: "Smoky tandoori grills and kebabs" },
+    { name: "Green Bowl", image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600", cuisine: ["Healthy", "Salads"], rating: "4.4", deliveryTime: "20-30 min", minOrder: "199", address: "67 Marathahalli, Bangalore", description: "Healthy bowls and fresh salads" },
+    { name: "Sweet Tooth Bakery", image: "https://images.unsplash.com/photo-1486427944544-d2c246c4d318?w=600", cuisine: ["Desserts", "Bakery"], rating: "4.5", deliveryTime: "25-35 min", minOrder: "149", address: "90 JP Nagar, Bangalore", description: "Freshly baked cakes and desserts" },
+  ];
+  const insertedRestaurants = await db.insert(foodRestaurants).values(restaurantData).returning();
+
+  const menuData: any[] = [];
+  for (const restaurant of insertedRestaurants) {
+    const isIndian = restaurant.cuisine?.includes("North Indian") || restaurant.cuisine?.includes("South Indian");
+    const isChinese = restaurant.cuisine?.includes("Chinese");
+    const isPizza = restaurant.cuisine?.includes("Italian");
+    const isBurger = restaurant.cuisine?.includes("Fast Food") && restaurant.name.includes("Burger");
+    const isDessert = restaurant.cuisine?.includes("Desserts");
+
+    if (isIndian) {
+      menuData.push(
+        { restaurantId: restaurant.id, name: "Butter Chicken", description: "Tender chicken in creamy tomato gravy", price: "320", category: "Main Course", isVeg: false },
+        { restaurantId: restaurant.id, name: "Paneer Butter Masala", description: "Cottage cheese in rich butter gravy", price: "280", category: "Main Course", isVeg: true },
+        { restaurantId: restaurant.id, name: "Dal Makhani", description: "Slow cooked black lentils", price: "220", category: "Main Course", isVeg: true },
+        { restaurantId: restaurant.id, name: "Garlic Naan", description: "Fresh baked garlic bread", price: "60", category: "Breads", isVeg: true },
+        { restaurantId: restaurant.id, name: "Gulab Jamun", description: "Sweet milk dumplings", price: "120", category: "Desserts", isVeg: true },
+        { restaurantId: restaurant.id, name: "Chicken Biryani", description: "Fragrant basmati rice with chicken", price: "350", category: "Rice", isVeg: false },
+      );
+    } else if (isChinese) {
+      menuData.push(
+        { restaurantId: restaurant.id, name: "Veg Manchurian", description: "Crispy veggie balls in tangy sauce", price: "220", category: "Starters", isVeg: true },
+        { restaurantId: restaurant.id, name: "Chicken Fried Rice", description: "Wok-tossed rice with chicken", price: "280", category: "Main Course", isVeg: false },
+        { restaurantId: restaurant.id, name: "Spring Rolls", description: "Crispy rolls with veggie filling", price: "180", category: "Starters", isVeg: true },
+        { restaurantId: restaurant.id, name: "Hakka Noodles", description: "Stir-fried noodles with vegetables", price: "240", category: "Main Course", isVeg: true },
+        { restaurantId: restaurant.id, name: "Chilli Paneer", description: "Spicy paneer in Indo-Chinese style", price: "260", category: "Starters", isVeg: true },
+      );
+    } else if (isPizza) {
+      menuData.push(
+        { restaurantId: restaurant.id, name: "Margherita Pizza", description: "Classic tomato and mozzarella", price: "299", category: "Pizzas", isVeg: true },
+        { restaurantId: restaurant.id, name: "Pepperoni Pizza", description: "Loaded with pepperoni slices", price: "449", category: "Pizzas", isVeg: false },
+        { restaurantId: restaurant.id, name: "Garlic Bread", description: "Cheesy garlic bread sticks", price: "149", category: "Sides", isVeg: true },
+        { restaurantId: restaurant.id, name: "Pasta Alfredo", description: "Creamy white sauce pasta", price: "329", category: "Pasta", isVeg: true },
+        { restaurantId: restaurant.id, name: "Tiramisu", description: "Classic Italian coffee dessert", price: "249", category: "Desserts", isVeg: true },
+      );
+    } else if (isBurger) {
+      menuData.push(
+        { restaurantId: restaurant.id, name: "Classic Burger", description: "Beef patty with cheese and lettuce", price: "199", category: "Burgers", isVeg: false },
+        { restaurantId: restaurant.id, name: "Veggie Burger", description: "Crispy veggie patty burger", price: "179", category: "Burgers", isVeg: true },
+        { restaurantId: restaurant.id, name: "French Fries", description: "Crispy golden fries", price: "129", category: "Sides", isVeg: true },
+        { restaurantId: restaurant.id, name: "Chicken Nuggets", description: "6 piece crispy nuggets", price: "199", category: "Sides", isVeg: false },
+        { restaurantId: restaurant.id, name: "Milkshake", description: "Thick chocolate milkshake", price: "149", category: "Drinks", isVeg: true },
+      );
+    } else if (isDessert) {
+      menuData.push(
+        { restaurantId: restaurant.id, name: "Chocolate Cake", description: "Rich dark chocolate layer cake", price: "350", category: "Cakes", isVeg: true },
+        { restaurantId: restaurant.id, name: "Red Velvet Cupcake", description: "Cream cheese frosted cupcake", price: "120", category: "Cupcakes", isVeg: true },
+        { restaurantId: restaurant.id, name: "Brownie Sundae", description: "Warm brownie with ice cream", price: "280", category: "Desserts", isVeg: true },
+        { restaurantId: restaurant.id, name: "Fruit Tart", description: "Fresh fruit on vanilla custard", price: "220", category: "Pastries", isVeg: true },
+      );
+    } else {
+      menuData.push(
+        { restaurantId: restaurant.id, name: "Special Combo Meal", description: "Chef's special combination", price: "350", category: "Main Course", isVeg: false },
+        { restaurantId: restaurant.id, name: "Garden Salad", description: "Fresh seasonal vegetables", price: "180", category: "Starters", isVeg: true },
+        { restaurantId: restaurant.id, name: "Grilled Chicken", description: "Herb marinated grilled chicken", price: "320", category: "Main Course", isVeg: false },
+        { restaurantId: restaurant.id, name: "Fresh Juice", description: "Seasonal fresh pressed juice", price: "120", category: "Drinks", isVeg: true },
+      );
+    }
+  }
+  await db.insert(foodMenuItems).values(menuData);
+  console.log(`${menuData.length} food menu items created for ${insertedRestaurants.length} restaurants`);
+
+  const vehicleData = [
+    { name: "Two Wheeler", description: "Perfect for small packages and documents", basePrice: "50", pricePerKm: "8", capacity: "Up to 20 kg", icon: "bike" },
+    { name: "Auto Rickshaw", description: "Good for medium packages", basePrice: "100", pricePerKm: "12", capacity: "Up to 50 kg", icon: "auto" },
+    { name: "Mini Truck", description: "Ideal for furniture and appliances", basePrice: "300", pricePerKm: "18", capacity: "Up to 500 kg", icon: "truck" },
+    { name: "Large Truck", description: "For full house shifting", basePrice: "800", pricePerKm: "25", capacity: "Up to 2000 kg", icon: "truck-large" },
+    { name: "Packers & Movers", description: "Complete packing, loading, and moving", basePrice: "2000", pricePerKm: "30", capacity: "Full house", icon: "package" },
+  ];
+  await db.insert(movingVehicleTypes).values(vehicleData);
+  console.log("5 moving vehicle types created");
+
+  const hotelData = [
+    { name: "Grand Palace Hotel", description: "Luxury 5-star hotel in the heart of the city", images: ["https://images.unsplash.com/photo-1566073771259-6a8506099945?w=600"], city: "Bangalore", address: "MG Road, Bangalore", rating: "4.7", amenities: ["WiFi", "Pool", "Spa", "Gym", "Restaurant", "Bar"], starRating: 5 },
+    { name: "Comfort Inn Express", description: "Budget-friendly hotel with all essentials", images: ["https://images.unsplash.com/photo-1564501049412-61c2a3083791?w=600"], city: "Bangalore", address: "Koramangala, Bangalore", rating: "4.0", amenities: ["WiFi", "AC", "TV", "Parking"], starRating: 3 },
+    { name: "Seaside Resort", description: "Beautiful beachfront resort", images: ["https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=600"], city: "Goa", address: "Calangute Beach, Goa", rating: "4.5", amenities: ["WiFi", "Pool", "Beach Access", "Restaurant", "Bar", "Water Sports"], starRating: 4 },
+    { name: "Mountain View Lodge", description: "Scenic mountain retreat", images: ["https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=600"], city: "Mumbai", address: "Juhu, Mumbai", rating: "4.3", amenities: ["WiFi", "Restaurant", "Gym", "Spa", "Parking"], starRating: 4 },
+    { name: "Royal Heritage Hotel", description: "Heritage property with modern amenities", images: ["https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=600"], city: "Jaipur", address: "MI Road, Jaipur", rating: "4.6", amenities: ["WiFi", "Pool", "Spa", "Heritage Walk", "Restaurant"], starRating: 5 },
+    { name: "Business Suites", description: "Perfect for business travelers", images: ["https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=600"], city: "Delhi", address: "Connaught Place, Delhi", rating: "4.2", amenities: ["WiFi", "Business Center", "Gym", "Restaurant", "Laundry"], starRating: 4 },
+    { name: "Backpacker Hostel", description: "Social hostel for budget travelers", images: ["https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=600"], city: "Bangalore", address: "Indiranagar, Bangalore", rating: "4.1", amenities: ["WiFi", "Kitchen", "Lounge", "Laundry"], starRating: 2 },
+    { name: "Lake View Resort", description: "Peaceful lakeside retreat", images: ["https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=600"], city: "Chennai", address: "ECR Road, Chennai", rating: "4.4", amenities: ["WiFi", "Pool", "Lake View", "Restaurant", "Boating"], starRating: 4 },
+    { name: "The Taj Garden", description: "Premium luxury experience", images: ["https://images.unsplash.com/photo-1582719508461-905c673771fd?w=600"], city: "Mumbai", address: "Colaba, Mumbai", rating: "4.8", amenities: ["WiFi", "Pool", "Spa", "Gym", "Restaurant", "Bar", "Concierge"], starRating: 5 },
+    { name: "Hill Station Retreat", description: "Cool mountain getaway", images: ["https://images.unsplash.com/photo-1445019980597-93fa8acb246c?w=600"], city: "Ooty", address: "Elk Hill, Ooty", rating: "4.5", amenities: ["WiFi", "Fireplace", "Garden", "Restaurant", "Trek Guide"], starRating: 3 },
+  ];
+  const insertedHotels = await db.insert(hotels).values(hotelData).returning();
+
+  const roomData: any[] = [];
+  for (const hotel of insertedHotels) {
+    roomData.push(
+      { hotelId: hotel.id, type: "standard", name: "Standard Room", price: hotel.starRating === 5 ? "5000" : hotel.starRating === 4 ? "3000" : "1500", maxGuests: 2, amenities: ["WiFi", "AC", "TV"], totalRooms: 20, availableRooms: 15 },
+      { hotelId: hotel.id, type: "deluxe", name: "Deluxe Room", price: hotel.starRating === 5 ? "8000" : hotel.starRating === 4 ? "5000" : "2500", maxGuests: 3, amenities: ["WiFi", "AC", "TV", "Mini Bar", "City View"], totalRooms: 10, availableRooms: 8 },
+    );
+    if (hotel.starRating && hotel.starRating >= 4) {
+      roomData.push(
+        { hotelId: hotel.id, type: "suite", name: "Premium Suite", price: hotel.starRating === 5 ? "15000" : "8000", maxGuests: 4, amenities: ["WiFi", "AC", "TV", "Mini Bar", "Living Room", "Jacuzzi"], totalRooms: 5, availableRooms: 3 },
+      );
+    }
+  }
+  await db.insert(hotelRooms).values(roomData);
+  console.log(`${insertedHotels.length} hotels with ${roomData.length} rooms created`);
+
+  const taxiData = [
+    { name: "Auto", description: "Affordable 3-wheeler rides", baseFare: "25", perKmRate: "12", perMinRate: "1", capacity: 3, icon: "auto" },
+    { name: "Mini", description: "Compact car for city rides", baseFare: "40", perKmRate: "14", perMinRate: "1.5", capacity: 4, icon: "car-mini" },
+    { name: "Sedan", description: "Comfortable sedan rides", baseFare: "60", perKmRate: "18", perMinRate: "2", capacity: 4, icon: "car-sedan" },
+    { name: "SUV", description: "Spacious SUV for groups", baseFare: "80", perKmRate: "22", perMinRate: "2.5", capacity: 6, icon: "car-suv" },
+  ];
+  await db.insert(taxiVehicleTypes).values(taxiData);
+  console.log("4 taxi vehicle types created");
+
+  const serviceCatData = [
+    { name: "Cleaning", description: "Home and office cleaning services", image: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=400", icon: "sparkles" },
+    { name: "Plumbing", description: "Plumbing repair and installation", image: "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=400", icon: "wrench" },
+    { name: "Electrician", description: "Electrical repair and wiring", image: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=400", icon: "zap" },
+    { name: "Painting", description: "Home and wall painting", image: "https://images.unsplash.com/photo-1562259929-b4e1fd3aef09?w=400", icon: "paintbrush" },
+    { name: "Pest Control", description: "Pest removal and prevention", image: "https://images.unsplash.com/photo-1632935190508-1cbc0a1e02cd?w=400", icon: "bug" },
+    { name: "Appliance Repair", description: "AC, washing machine, fridge repair", image: "https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=400", icon: "settings" },
+    { name: "Salon at Home", description: "Beauty and grooming at your doorstep", image: "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=400", icon: "scissors" },
+    { name: "Carpentry", description: "Furniture repair and assembly", image: "https://images.unsplash.com/photo-1504148455328-c376907d081c?w=400", icon: "hammer" },
+  ];
+  const insertedServiceCats = await db.insert(cityServiceCategories).values(serviceCatData).returning();
+
+  const cityServiceData: any[] = [];
+  const serviceItems: Record<string, Array<{name: string, price: string, duration: string, rating: string}>> = {
+    "Cleaning": [
+      { name: "Full Home Deep Cleaning", price: "2499", duration: "4-5 hours", rating: "4.5" },
+      { name: "Bathroom Cleaning", price: "499", duration: "1 hour", rating: "4.3" },
+      { name: "Kitchen Deep Clean", price: "799", duration: "2 hours", rating: "4.4" },
+      { name: "Sofa Cleaning", price: "699", duration: "1-2 hours", rating: "4.2" },
+    ],
+    "Plumbing": [
+      { name: "Tap Repair/Replacement", price: "299", duration: "30-45 min", rating: "4.3" },
+      { name: "Toilet Repair", price: "499", duration: "1 hour", rating: "4.1" },
+      { name: "Pipeline Repair", price: "799", duration: "1-2 hours", rating: "4.2" },
+      { name: "Water Tank Cleaning", price: "1499", duration: "2-3 hours", rating: "4.4" },
+    ],
+    "Electrician": [
+      { name: "Fan Installation", price: "299", duration: "30-45 min", rating: "4.4" },
+      { name: "Switchboard Repair", price: "199", duration: "30 min", rating: "4.2" },
+      { name: "Wiring Work", price: "599", duration: "1-2 hours", rating: "4.3" },
+      { name: "Inverter Installation", price: "499", duration: "1 hour", rating: "4.5" },
+    ],
+    "Painting": [
+      { name: "1 Room Painting", price: "4999", duration: "1-2 days", rating: "4.5" },
+      { name: "Full Home Painting", price: "14999", duration: "3-5 days", rating: "4.6" },
+      { name: "Wall Texture", price: "2999", duration: "1 day", rating: "4.3" },
+    ],
+    "Pest Control": [
+      { name: "General Pest Control", price: "999", duration: "1-2 hours", rating: "4.4" },
+      { name: "Cockroach Treatment", price: "799", duration: "1 hour", rating: "4.3" },
+      { name: "Termite Treatment", price: "2499", duration: "2-3 hours", rating: "4.5" },
+    ],
+    "Appliance Repair": [
+      { name: "AC Service & Repair", price: "499", duration: "1 hour", rating: "4.3" },
+      { name: "Washing Machine Repair", price: "399", duration: "1 hour", rating: "4.2" },
+      { name: "Refrigerator Repair", price: "449", duration: "1 hour", rating: "4.1" },
+      { name: "Geyser Repair", price: "349", duration: "45 min", rating: "4.3" },
+    ],
+    "Salon at Home": [
+      { name: "Haircut (Men)", price: "249", duration: "30 min", rating: "4.4" },
+      { name: "Facial (Women)", price: "699", duration: "1 hour", rating: "4.5" },
+      { name: "Full Body Massage", price: "1299", duration: "1.5 hours", rating: "4.6" },
+      { name: "Manicure & Pedicure", price: "799", duration: "1 hour", rating: "4.4" },
+    ],
+    "Carpentry": [
+      { name: "Furniture Assembly", price: "399", duration: "1-2 hours", rating: "4.3" },
+      { name: "Door Repair", price: "499", duration: "1 hour", rating: "4.2" },
+      { name: "Shelf Installation", price: "349", duration: "45 min", rating: "4.4" },
+    ],
+  };
+
+  for (const cat of insertedServiceCats) {
+    const items = serviceItems[cat.name] || [];
+    for (const item of items) {
+      cityServiceData.push({
+        categoryId: cat.id,
+        name: item.name,
+        price: item.price,
+        duration: item.duration,
+        rating: item.rating,
+        description: `Professional ${cat.name.toLowerCase()} service`,
+      });
+    }
+  }
+  await db.insert(cityServices).values(cityServiceData);
+  console.log(`${insertedServiceCats.length} service categories with ${cityServiceData.length} services created`);
+
+  console.log("All new services seeded successfully!");
+}
+
 export async function runSeed() {
   try {
     await seed();
+    await seedNewServices();
   } catch (err) {
     console.error("Seed error:", err);
   }

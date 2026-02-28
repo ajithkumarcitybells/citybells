@@ -1,12 +1,12 @@
-# City Bell - Super App
+# City Bell - Multi-Service Super App
 
 ## Overview
-City Bell is a Progressive Web App (PWA) for a multi-service super app featuring Grocery (active), E-Commerce (active), Food, Taxi, Hotel, City Move, and City Serve services (coming soon). The app includes comprehensive user authentication with username/password, mobile-first responsive design with City Bell branding, a full admin panel, vendor/seller ecosystem, and Zepto/Blinkit-style location detection and address management.
+City Bell is a Progressive Web App (PWA) for a multi-service super app featuring 7 services: Grocery, E-Commerce, Food Delivery, City Moving, Hotel Booking, Taxi, and City Services. The app includes comprehensive user authentication, partner/vendor dashboards, a full admin panel with central control, mobile-first responsive design, and location-based services.
 
 ## Current State
 - **Phase**: Production-ready MVP
 - **Last Updated**: February 2026
-- **Status**: Fully functional with seeded data (Grocery + E-Commerce)
+- **Status**: All 7 services operational with seed data
 
 ## Project Architecture
 
@@ -23,143 +23,160 @@ City Bell is a Progressive Web App (PWA) for a multi-service super app featuring
 
 ### File Structure
 ```
-├── client/                 # Frontend React application
-│   ├── src/
-│   │   ├── components/     # Reusable UI components
-│   │   ├── hooks/          # Custom React hooks (use-auth, use-toast)
-│   │   ├── lib/            # Utilities (queryClient, protected-route)
-│   │   ├── pages/          # Page components
-│   │   │   ├── admin/      # Admin panel pages (grocery + e-commerce)
-│   │   │   ├── ecom/       # E-Commerce storefront pages
-│   │   │   ├── seller/     # Seller dashboard pages
-│   │   │   └── *.tsx       # User-facing pages
-│   │   └── App.tsx         # Main app with routing
-│   └── public/             # Static assets (manifest.json)
-├── server/                 # Backend Express server
-│   ├── auth.ts             # Authentication setup (Passport)
-│   ├── routes.ts           # API routes (grocery + e-commerce)
-│   ├── storage.ts          # Database storage layer
-│   ├── seed.ts             # Database seed script
-│   └── db.ts               # Drizzle database connection
-├── shared/                 # Shared types and schemas
-│   └── schema.ts           # Drizzle schema + Zod validation
-└── attached_assets/        # User-uploaded assets (logo)
+├── client/src/
+│   ├── components/          # Reusable UI components (Shadcn)
+│   ├── hooks/               # Custom hooks (use-auth, use-toast, use-location)
+│   ├── lib/                 # Utilities (queryClient, protected-route)
+│   ├── pages/
+│   │   ├── admin/           # Admin panel pages (all services)
+│   │   ├── ecom/            # E-Commerce storefront pages
+│   │   ├── food/            # Food delivery pages + restaurant dashboard
+│   │   ├── hotel/           # Hotel booking pages + manager dashboard
+│   │   ├── moving/          # City moving pages + driver dashboard
+│   │   ├── taxi/            # Taxi pages + driver dashboard
+│   │   ├── services/        # City services pages + provider dashboard
+│   │   ├── seller/          # E-com seller dashboard
+│   │   └── *.tsx            # Core pages (home, auth, profile, etc.)
+│   └── App.tsx              # Main router
+├── server/
+│   ├── auth.ts              # Authentication (Passport, requireAuth, requireAdmin, requirePartner)
+│   ├── routes.ts            # Core API routes (grocery, e-commerce, auth, admin stats)
+│   ├── food-routes.ts       # Food delivery API routes
+│   ├── food-storage.ts      # Food delivery storage layer
+│   ├── moving-routes.ts     # City moving API routes
+│   ├── moving-storage.ts    # City moving storage layer
+│   ├── hotel-routes.ts      # Hotel booking API routes
+│   ├── hotel-storage.ts     # Hotel booking storage layer
+│   ├── taxi-routes.ts       # Taxi API routes
+│   ├── taxi-storage.ts      # Taxi storage layer
+│   ├── city-services-routes.ts  # City services API routes
+│   ├── city-services-storage.ts # City services storage layer
+│   ├── storage.ts           # Core storage layer (grocery, e-com, users)
+│   ├── seed.ts              # Database seed script (all services)
+│   └── db.ts                # Drizzle database connection
+├── shared/
+│   └── schema.ts            # All Drizzle schemas + Zod validation
+└── attached_assets/         # Logo and assets
 ```
 
 ### Database Schema
 
-#### Grocery Tables
-- **users**: User accounts with auth (username/password, isAdmin, isVendor roles)
-- **products**: Grocery products with pricing, categories
-- **categories**: Grocery product categories
-- **cart_items**: Grocery shopping cart
-- **wishlist_items**: Grocery wishlist
-- **orders**: Grocery order history with status tracking
-- **banners**: Promotional banners for homepage
+#### Core Tables
+- **users**: Accounts with auth (username/password, isAdmin, isVendor, partnerType)
+- **addresses**: User delivery addresses
+- **support_tickets** + **ticket_messages**: Support system
+- **vendor_applications**: Partner onboarding (all service types)
 - **services**: Super app service toggles
-- **addresses**: User delivery addresses with labels
-- **support_tickets**: User support/complaint tickets
-- **ticket_messages**: Conversation messages within support tickets
-- **vendor_applications**: Vendor onboarding applications
+- **banners**: Promotional banners
+
+#### Grocery Tables
+- **products**, **categories**, **cart_items**, **wishlist_items**, **orders**
 
 #### E-Commerce Tables
-- **ecom_categories**: E-commerce product categories (Electronics, Fashion, Home, etc.)
-- **ecom_products**: E-commerce products with multi-image, variants, specifications, brand, SKU, vendorId
-- **ecom_reviews**: Product reviews & ratings with user info
-- **seller_profiles**: Seller store info (storeName, logo, commission, wallet)
-- **ecom_cart_items**: E-commerce shopping cart
-- **ecom_wishlist_items**: E-commerce wishlist
-- **ecom_orders**: E-commerce orders with vendorId for seller tracking
+- **ecom_categories**, **ecom_products**, **ecom_reviews**, **seller_profiles**
+- **ecom_cart_items**, **ecom_wishlist_items**, **ecom_orders**
 
-## Key Features
+#### Food Delivery Tables
+- **food_restaurants**: Restaurants with cuisine, rating, delivery time, owner
+- **food_menu_items**: Menu items per restaurant
+- **food_orders**: Food orders with item JSON, status tracking
 
-### Grocery Service
-- Product browsing by category with search and filter
-- Shopping cart with weight variants
-- Wishlist functionality
-- Order placement with delivery slots
-- Order history tracking
+#### City Moving Tables
+- **moving_vehicle_types**: Vehicle types (bike, auto, truck, packers)
+- **moving_drivers**: Drivers with vehicle info
+- **moving_bookings**: Moving bookings with pickup/drop, scheduling
 
-### E-Commerce Service (Amazon-like)
-- Home page with hero banners, category grid, deals, featured/trending products
-- Product listing with sidebar filters (category, price range, rating, brand)
-- Sort options (price, rating, newest, discount)
-- Product detail page with image gallery, variant selection, specifications
-- Reviews & ratings system
-- Separate e-commerce cart, checkout, and order tracking
-- Seller store pages
+#### Hotel Booking Tables
+- **hotels**: Hotels with city, amenities, star rating, manager
+- **hotel_rooms**: Room types per hotel with pricing
+- **hotel_bookings**: Hotel reservations with check-in/out
 
-### Seller Dashboard
-- Dashboard overview with sales stats and recent orders
-- Product management (add/edit/delete with variants, multi-image, brand, SKU)
-- Order management with status updates (processing/shipped/delivered)
-- Inventory management with low stock alerts
-- Earnings/wallet overview with commission breakdown
-- Store profile management (name, description, logo)
+#### Taxi Tables
+- **taxi_vehicle_types**: Vehicle types (auto, mini, sedan, SUV)
+- **taxi_drivers**: Drivers with location tracking
+- **taxi_rides**: Ride bookings with fare, status, rating
 
-### Vendor Onboarding
-- Vendor registration form (business details, documents, credentials)
-- Admin approval workflow (approve/reject/request modifications)
-- Auto-creation of vendor account on approval
-- Seller profile setup after approval
+#### City Services Tables
+- **city_service_categories**: Service categories (cleaning, plumbing, etc.)
+- **city_services**: Individual services with pricing
+- **city_service_providers**: Service professionals
+- **city_service_bookings**: Service bookings with scheduling
 
-### Admin Features
-- Full grocery admin panel (products, categories, orders, banners, services)
-- E-Commerce admin panel:
-  - E-com category management
-  - Product moderation (approve/reject vendor products)
-  - Seller management with commission rates
-  - E-com order monitoring
-  - E-com analytics dashboard
-- Vendor application management
-- Support ticket management
-- User management
-
-### Common Features
-- Username/password authentication (3 roles: user, vendor, admin)
-- Auto-location detection with GPS + OpenStreetMap
-- Address management (save/edit/delete multiple addresses)
-- Razorpay payment integration (UPI, Cards, Net Banking)
-- Support ticket system
-- Direct file upload via `/api/uploads/direct` (base64 JSON, files stored in `uploads/` directory, served via `/uploads/:filename`)
-
-## API Endpoints
-
-### Public Routes
-- `GET /api/categories` - Grocery categories
-- `GET /api/products` - Grocery products
-- `GET /api/banners` - Promotional banners
-- `GET /api/services` - Available services
-- `GET /api/ecom/categories` - E-com categories
-- `GET /api/ecom/products` - E-com products (search, filter, sort)
-- `GET /api/ecom/products/:id` - E-com product detail
-- `GET /api/ecom/products/:id/reviews` - Product reviews
-- `GET /api/ecom/seller/:userId` - Seller store page
-
-### Auth Routes
-- `POST /api/register` / `POST /api/login` / `POST /api/logout` / `GET /api/user`
-
-### Protected Routes
-- Grocery: cart, wishlist, orders, addresses, payment
-- E-com: `/api/ecom/cart`, `/api/ecom/wishlist`, `/api/ecom/orders`, `/api/ecom/reviews`
-
-### Vendor Routes (E-Commerce)
-- `GET/POST/PATCH/DELETE /api/ecom/vendor/products`
-- `GET /api/ecom/vendor/orders`
-- `PATCH /api/ecom/vendor/orders/:id/status`
-- `GET /api/ecom/vendor/stats`
-- `GET/POST /api/ecom/vendor/profile`
-
-### Admin Routes (E-Commerce)
-- `GET/POST/PATCH/DELETE /api/admin/ecom/categories`
-- `GET/PATCH/DELETE /api/admin/ecom/products`
-- `GET /api/admin/ecom/orders` + status updates
-- `GET /api/admin/ecom/sellers` + commission updates
-- `GET /api/admin/ecom/stats`
+## Partner Role System
+- `users.partnerType` determines partner dashboard: `"seller"` | `"restaurant"` | `"driver"` | `"hotel"` | `"service_provider"`
+- `isVendor: true` + `partnerType` → routed to correct dashboard from profile page
+- Partners register via vendor application → admin approves → sets partnerType
+- `requirePartner(type)` middleware enforces partner-specific routes
 
 ## Default Accounts
 - **Admin**: username: `admin`, password: `admin123`
 - **Seller**: username: `seller1`, password: `seller123`
+- Seed data includes 10 restaurants, 5 vehicle types, 10 hotels, 4 taxi types, 8 service categories with 29+ services
+
+## Key Features
+
+### Grocery Service
+- Product browsing by category, search, filters
+- Shopping cart with weight variants, wishlist, order tracking
+
+### E-Commerce Service (Amazon-like)
+- Category-based browsing, search, filters (price, rating, brand)
+- Product detail with gallery, variants, reviews
+- Seller store pages, separate cart/checkout/orders
+
+### Food Delivery (Swiggy/Zomato-like)
+- Restaurant browsing with cuisine filters, search
+- Restaurant menu with veg/non-veg toggle, cart system
+- Order placement with delivery address, status tracking
+- **Restaurant Dashboard**: Menu CRUD, order management, profile
+
+### City Moving (Porter-like)
+- Vehicle type selection with capacity/pricing
+- Booking with pickup/drop, scheduling, helpers count
+- Price estimation, booking history
+- **Driver Dashboard**: Assigned bookings, status updates, earnings
+
+### Hotel Booking (MakeMyTrip-like)
+- Hotel search by city, dates, guests
+- Hotel detail with room types, amenities, photos
+- Booking with guest info, special requests
+- **Hotel Manager Dashboard**: Room CRUD, booking management, profile
+
+### Taxi (Ola/Uber-like)
+- Pickup/drop selection with fare estimation
+- Vehicle type selection, ride booking
+- Ride status tracking, rate completed rides
+- **Taxi Driver Dashboard**: Online/offline toggle, ride management, earnings
+
+### City Services (UrbanCompany-like)
+- Category browsing (cleaning, plumbing, electrician, etc.)
+- Service selection with price/duration/rating
+- Booking with date/time/address
+- **Service Provider Dashboard**: Booking management, availability, specializations
+
+### Admin Panel (Central Control)
+- Dashboard with cross-service stats
+- Grocery management (products, categories, orders, banners)
+- E-Commerce management (products, categories, orders, sellers)
+- Food management (restaurants, menus, orders)
+- Moving management (vehicle types, bookings, drivers)
+- Hotel management (hotels, rooms, bookings)
+- Taxi management (vehicle types, rides, drivers)
+- City Services management (categories, services, bookings, providers)
+- Vendor/partner application approval
+- Support ticket management
+
+## API Endpoints Summary
+
+### Auth: POST /api/register, /api/login, /api/logout, GET /api/user
+### Grocery: /api/products, /api/categories, /api/cart, /api/orders
+### E-Commerce: /api/ecom/products, /api/ecom/categories, /api/ecom/cart, /api/ecom/orders
+### Food: /api/food/restaurants, /api/food/orders, /api/food/my-restaurant/*
+### Moving: /api/moving/vehicle-types, /api/moving/bookings, /api/moving/driver/*
+### Hotels: /api/hotels, /api/hotel-bookings, /api/hotel-manager/*
+### Taxi: /api/taxi/vehicle-types, /api/taxi/rides, /api/taxi/driver/*
+### City Services: /api/city-services/categories, /api/city-services/services, /api/city-services/bookings, /api/city-services/provider/*
+### Admin: /api/admin/* (stats, food, moving, hotels, taxi, city-services, ecom, vendors, support)
 
 ## Design System
 - **Primary Color**: Green (#22C543 / HSL 142 76% 36%)

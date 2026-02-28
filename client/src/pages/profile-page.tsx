@@ -113,7 +113,13 @@ export default function ProfilePage() {
 
         {user.isVendor && (
           <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-            <Link href="/seller/dashboard">
+            <Link href={
+              user.partnerType === "restaurant" ? "/food/restaurant-dashboard" :
+              user.partnerType === "driver" ? "/moving/driver" :
+              user.partnerType === "hotel" ? "/hotels/manager" :
+              user.partnerType === "service_provider" ? "/services/provider" :
+              "/seller/dashboard"
+            }>
               <div 
                 className="flex items-center gap-4 p-4 hover-elevate bg-orange-50 border border-orange-200"
                 data-testid="link-seller-dashboard"
@@ -122,8 +128,20 @@ export default function ProfilePage() {
                   <Store className="h-5 w-5 text-orange-600" />
                 </div>
                 <div className="flex-1">
-                  <span className="font-semibold text-orange-700">Seller Dashboard</span>
-                  <p className="text-xs text-orange-500">Manage products, orders & earnings</p>
+                  <span className="font-semibold text-orange-700">
+                    {user.partnerType === "restaurant" ? "Restaurant Dashboard" :
+                     user.partnerType === "driver" ? "Driver Dashboard" :
+                     user.partnerType === "hotel" ? "Hotel Dashboard" :
+                     user.partnerType === "service_provider" ? "Service Provider Dashboard" :
+                     "Seller Dashboard"}
+                  </span>
+                  <p className="text-xs text-orange-500">
+                    {user.partnerType === "restaurant" ? "Manage menu, orders & restaurant" :
+                     user.partnerType === "driver" ? "Manage rides & bookings" :
+                     user.partnerType === "hotel" ? "Manage rooms & bookings" :
+                     user.partnerType === "service_provider" ? "Manage services & bookings" :
+                     "Manage products, orders & earnings"}
+                  </p>
                 </div>
                 <ChevronRight className="h-5 w-5 text-orange-400" />
               </div>

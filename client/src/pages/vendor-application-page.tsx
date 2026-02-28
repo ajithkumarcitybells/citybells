@@ -357,8 +357,12 @@ export default function VendorApplicationPage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="E-commerce">E-commerce</SelectItem>
-                          <SelectItem value="Food">Food</SelectItem>
+                          <SelectItem value="E-commerce">E-Commerce Seller</SelectItem>
+                          <SelectItem value="Food">Food / Restaurant</SelectItem>
+                          <SelectItem value="City Moving">City Moving / Driver</SelectItem>
+                          <SelectItem value="Hotel">Hotel Management</SelectItem>
+                          <SelectItem value="Taxi">Taxi Driver</SelectItem>
+                          <SelectItem value="City Services">City Services Provider</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
