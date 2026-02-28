@@ -147,9 +147,11 @@ City Bell is a Progressive Web App (PWA) for a multi-service super app featuring
 - Price estimation, booking history
 - **Driver Dashboard**: Assigned bookings, status updates, earnings
 
-### Hotel Booking (MakeMyTrip-like)
-- Hotel search by city, dates, guests
-- Hotel detail with room types, amenities, photos
+### Hotel Booking (Booking.com style)
+- Dark blue (#003580) header theme across all hotel pages
+- Home page: search card (destination, dates, guests), offers section, popular destinations grid, featured hotels
+- Search results: Booking.com-style cards with rating badges (colored squares), strikethrough pricing, "Only X rooms left" urgency, amenity pills, breakfast included tags
+- Hotel detail: room listings with amenity pills, policy info (free cancellation, no prepayment), Reserve buttons, urgency text
 - Booking with guest info, special requests
 - **Hotel Manager Dashboard**: Room CRUD, booking management, profile
 
