@@ -131,7 +131,8 @@ City Bell is a Progressive Web App (PWA) for a multi-service super app featuring
 - Product detail with gallery, variants, reviews
 - Seller store pages, separate cart/checkout/orders
 
-### Food Delivery (Swiggy/Zomato-like)
+### Food Delivery (Swiggy-like)
+- Swiggy-inspired home page: quick-action icon strip, hero carousel, offers row, spotlight restaurants, "Restaurants You Love" horizontal scroll, coupons section, popular cuisines, cuisine filter pills
 - Restaurant browsing with cuisine filters, search
 - Restaurant menu with veg/non-veg toggle, cart system
 - Order placement with delivery address, status tracking
