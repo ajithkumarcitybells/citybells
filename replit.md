@@ -184,7 +184,7 @@ City Bell is a Progressive Web App (PWA) for a multi-service super app featuring
 
 ## API Endpoints Summary
 
-### Auth: POST /api/register, /api/login, /api/logout, /api/check-phone, /api/login-phone, /api/register-phone, GET /api/user
+### Auth: POST /api/register, /api/login, /api/logout, /api/check-phone, /api/login-phone, /api/register-phone, /api/set-pin, GET /api/user
 ### Grocery: /api/products, /api/categories, /api/cart, /api/orders
 ### E-Commerce: /api/ecom/products, /api/ecom/categories, /api/ecom/cart, /api/ecom/orders
 ### Food: /api/food/restaurants, /api/food/orders, /api/food/my-restaurant/*

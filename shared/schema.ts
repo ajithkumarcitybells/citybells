@@ -11,6 +11,7 @@ export const users = pgTable("users", {
   name: text("name"),
   email: text("email"),
   phone: text("phone"),
+  loginPin: text("login_pin"),
   address: text("address"),
   isAdmin: boolean("is_admin").default(false),
   isVendor: boolean("is_vendor").default(false),

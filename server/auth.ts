@@ -136,7 +136,7 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ message: "Please enter a valid 10-digit phone number" });
       }
       const user = await storage.getUserByPhone(phone);
-      res.json({ exists: !!user, name: user?.name || null });
+      res.json({ exists: !!user, name: user?.name || null, hasPinSet: !!user?.loginPin });
     } catch (err) {
       console.error("Phone check error:", err);
       res.status(500).json({ message: "Something went wrong. Please try again." });
@@ -170,12 +170,14 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ message: "Phone number already registered. Please login instead." });
       }
 
+      const hashedPin = await hashPassword(pin);
       const user = await storage.createUser({
         username: phone,
-        password: await hashPassword(pin),
+        password: hashedPin,
         name,
         phone,
       });
+      await storage.updateUserLoginPin(user.id, hashedPin);
 
       req.login(user, (err) => {
         if (err) return next(err);
@@ -204,7 +206,11 @@ export function setupAuth(app: Express) {
         return res.status(401).json({ message: "No account found with this phone number" });
       }
 
-      const isValid = await comparePasswords(pin, user.password);
+      if (!user.loginPin) {
+        return res.status(400).json({ message: "You haven't set a login PIN yet. Please set one first." });
+      }
+
+      const isValid = await comparePasswords(pin, user.loginPin);
       if (!isValid) {
         return res.status(401).json({ message: "Incorrect PIN. Please try again." });
       }
@@ -217,6 +223,51 @@ export function setupAuth(app: Express) {
     } catch (err) {
       console.error("Phone login error:", err);
       res.status(500).json({ message: "Login failed. Please try again." });
+    }
+  });
+
+  app.post("/api/set-pin", async (req, res, next) => {
+    try {
+      const { phone, pin, currentPassword } = req.body;
+
+      if (!phone || phone.length !== 10) {
+        return res.status(400).json({ message: "Please enter a valid 10-digit phone number" });
+      }
+      if (!pin || pin.length < 4 || pin.length > 6) {
+        return res.status(400).json({ message: "PIN must be 4-6 digits" });
+      }
+      if (!/^\d+$/.test(pin)) {
+        return res.status(400).json({ message: "PIN must contain only digits" });
+      }
+      if (!currentPassword) {
+        return res.status(400).json({ message: "Please enter your current password to verify your identity" });
+      }
+
+      const user = await storage.getUserByPhone(phone);
+      if (!user) {
+        return res.status(404).json({ message: "No account found with this phone number" });
+      }
+
+      if (user.loginPin) {
+        return res.status(400).json({ message: "PIN already set. Please login with your PIN." });
+      }
+
+      const isPasswordValid = await comparePasswords(currentPassword, user.password);
+      if (!isPasswordValid) {
+        return res.status(401).json({ message: "Incorrect password. Please try again." });
+      }
+
+      const hashedPin = await hashPassword(pin);
+      await storage.updateUserLoginPin(user.id, hashedPin);
+
+      req.login(user, (err) => {
+        if (err) return next(err);
+        const { password: _, ...userWithoutPassword } = user;
+        res.status(200).json(userWithoutPassword);
+      });
+    } catch (err) {
+      console.error("Set PIN error:", err);
+      res.status(500).json({ message: "Failed to set PIN. Please try again." });
     }
   });
 

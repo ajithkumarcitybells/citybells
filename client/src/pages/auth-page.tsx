@@ -46,7 +46,7 @@ const registerSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>;
 type RegisterFormData = z.infer<typeof registerSchema>;
 
-type PhoneStep = "phone" | "pin-login" | "pin-register";
+type PhoneStep = "phone" | "pin-login" | "pin-setup" | "pin-register";
 
 function PhonePinDialog({
   open,
@@ -66,6 +66,8 @@ function PhonePinDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPin, setShowPin] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const { toast } = useToast();
 
   const resetState = () => {
@@ -75,6 +77,8 @@ function PhonePinDialog({
     setPin("");
     setConfirmPin("");
     setNewName("");
+    setCurrentPassword("");
+    setShowCurrentPassword(false);
     setError("");
     setShowPin(false);
   };
@@ -89,9 +93,12 @@ function PhonePinDialog({
     try {
       const res = await apiRequest("POST", "/api/check-phone", { phone: phoneNumber });
       const data = await res.json();
-      if (data.exists) {
+      if (data.exists && data.hasPinSet) {
         setUserName(data.name || "");
         setStep("pin-login");
+      } else if (data.exists && !data.hasPinSet) {
+        setUserName(data.name || "");
+        setStep("pin-setup");
       } else {
         setStep("pin-register");
       }
@@ -120,6 +127,41 @@ function PhonePinDialog({
       resetState();
     } catch (err: any) {
       setError(err.message || "Login failed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePinSetup = async () => {
+    if (!currentPassword) {
+      setError("Please enter your current password");
+      return;
+    }
+    if (pin.length < 4) {
+      setError("PIN must be at least 4 digits");
+      return;
+    }
+    if (pin !== confirmPin) {
+      setError("PINs don't match");
+      return;
+    }
+    setIsLoading(true);
+    setError("");
+    try {
+      const res = await apiRequest("POST", "/api/set-pin", {
+        phone: phoneNumber,
+        pin,
+        currentPassword,
+      });
+      const user = await res.json();
+      queryClient.setQueryData(["/api/user"], user);
+      await queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      toast({ title: "PIN set successfully!", description: `Welcome, ${user.name || phoneNumber}!` });
+      onSuccess(user);
+      onOpenChange(false);
+      resetState();
+    } catch (err: any) {
+      setError(err.message || "Failed to set PIN");
     } finally {
       setIsLoading(false);
     }
@@ -295,6 +337,109 @@ function PhonePinDialog({
                   <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Logging in...</>
                 ) : (
                   "Login"
+                )}
+              </Button>
+            </div>
+          </>
+        )}
+
+        {step === "pin-setup" && (
+          <>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Lock className="h-5 w-5 text-primary" />
+                Set Your Login PIN
+              </DialogTitle>
+              <DialogDescription>
+                {userName ? `Hi ${userName}! ` : ""}Verify your password and set a quick login PIN.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 pt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground -ml-2"
+                onClick={() => { setStep("phone"); setPin(""); setConfirmPin(""); setCurrentPassword(""); setError(""); }}
+                data-testid="button-change-phone-setup"
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                +91 {phoneNumber}  · Change
+              </Button>
+
+              <div>
+                <label className="text-sm font-medium text-foreground">Current Password</label>
+                <div className="relative mt-1.5">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type={showCurrentPassword ? "text" : "password"}
+                    placeholder="Enter your account password"
+                    value={currentPassword}
+                    onChange={(e) => { setCurrentPassword(e.target.value); setError(""); }}
+                    className="pl-10 pr-10 h-12"
+                    data-testid="input-current-password"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-gray-400"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  >
+                    {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex flex-col items-center gap-2">
+                <label className="text-sm font-medium text-foreground self-start">Set a Login PIN (4-6 digits)</label>
+                <InputOTP
+                  maxLength={6}
+                  value={pin}
+                  onChange={(val) => { setPin(val); setError(""); }}
+                  data-testid="input-setup-pin"
+                >
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    <InputOTPSlot index={4} />
+                    <InputOTPSlot index={5} />
+                  </InputOTPGroup>
+                </InputOTP>
+              </div>
+
+              <div className="flex flex-col items-center gap-2">
+                <label className="text-sm font-medium text-foreground self-start">Confirm PIN</label>
+                <InputOTP
+                  maxLength={6}
+                  value={confirmPin}
+                  onChange={(val) => { setConfirmPin(val); setError(""); }}
+                  data-testid="input-setup-confirm-pin"
+                >
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    <InputOTPSlot index={4} />
+                    <InputOTPSlot index={5} />
+                  </InputOTPGroup>
+                </InputOTP>
+              </div>
+
+              {error && <p className="text-sm text-destructive text-center" data-testid="text-setup-error">{error}</p>}
+
+              <Button
+                className="w-full h-12"
+                onClick={handlePinSetup}
+                disabled={!currentPassword || pin.length < 4 || confirmPin.length < 4 || isLoading}
+                data-testid="button-pin-setup"
+              >
+                {isLoading ? (
+                  <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Setting PIN...</>
+                ) : (
+                  "Set PIN & Login"
                 )}
               </Button>
             </div>
