@@ -228,7 +228,7 @@ export function setupAuth(app: Express) {
 
   app.post("/api/set-pin", async (req, res, next) => {
     try {
-      const { phone, pin, currentPassword } = req.body;
+      const { phone, pin } = req.body;
 
       if (!phone || phone.length !== 10) {
         return res.status(400).json({ message: "Please enter a valid 10-digit phone number" });
@@ -239,9 +239,6 @@ export function setupAuth(app: Express) {
       if (!/^\d+$/.test(pin)) {
         return res.status(400).json({ message: "PIN must contain only digits" });
       }
-      if (!currentPassword) {
-        return res.status(400).json({ message: "Please enter your current password to verify your identity" });
-      }
 
       const user = await storage.getUserByPhone(phone);
       if (!user) {
@@ -250,11 +247,6 @@ export function setupAuth(app: Express) {
 
       if (user.loginPin) {
         return res.status(400).json({ message: "PIN already set. Please login with your PIN." });
-      }
-
-      const isPasswordValid = await comparePasswords(currentPassword, user.password);
-      if (!isPasswordValid) {
-        return res.status(401).json({ message: "Incorrect password. Please try again." });
       }
 
       const hashedPin = await hashPassword(pin);

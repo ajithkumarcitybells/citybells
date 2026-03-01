@@ -66,8 +66,6 @@ function PhonePinDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPin, setShowPin] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const { toast } = useToast();
 
   const resetState = () => {
@@ -77,8 +75,6 @@ function PhonePinDialog({
     setPin("");
     setConfirmPin("");
     setNewName("");
-    setCurrentPassword("");
-    setShowCurrentPassword(false);
     setError("");
     setShowPin(false);
   };
@@ -133,10 +129,6 @@ function PhonePinDialog({
   };
 
   const handlePinSetup = async () => {
-    if (!currentPassword) {
-      setError("Please enter your current password");
-      return;
-    }
     if (pin.length < 4) {
       setError("PIN must be at least 4 digits");
       return;
@@ -151,7 +143,6 @@ function PhonePinDialog({
       const res = await apiRequest("POST", "/api/set-pin", {
         phone: phoneNumber,
         pin,
-        currentPassword,
       });
       const user = await res.json();
       queryClient.setQueryData(["/api/user"], user);
@@ -351,7 +342,7 @@ function PhonePinDialog({
                 Set Your Login PIN
               </DialogTitle>
               <DialogDescription>
-                {userName ? `Hi ${userName}! ` : ""}Verify your password and set a quick login PIN.
+                {userName ? `Hi ${userName}! ` : ""}Set a 4-6 digit PIN for quick phone login.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 pt-2">
@@ -359,36 +350,12 @@ function PhonePinDialog({
                 variant="ghost"
                 size="sm"
                 className="text-muted-foreground -ml-2"
-                onClick={() => { setStep("phone"); setPin(""); setConfirmPin(""); setCurrentPassword(""); setError(""); }}
+                onClick={() => { setStep("phone"); setPin(""); setConfirmPin(""); setError(""); }}
                 data-testid="button-change-phone-setup"
               >
                 <ChevronLeft className="h-4 w-4 mr-1" />
                 +91 {phoneNumber}  · Change
               </Button>
-
-              <div>
-                <label className="text-sm font-medium text-foreground">Current Password</label>
-                <div className="relative mt-1.5">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type={showCurrentPassword ? "text" : "password"}
-                    placeholder="Enter your account password"
-                    value={currentPassword}
-                    onChange={(e) => { setCurrentPassword(e.target.value); setError(""); }}
-                    className="pl-10 pr-10 h-12"
-                    data-testid="input-current-password"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-gray-400"
-                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                  >
-                    {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </div>
 
               <div className="flex flex-col items-center gap-2">
                 <label className="text-sm font-medium text-foreground self-start">Set a Login PIN (4-6 digits)</label>
@@ -433,7 +400,7 @@ function PhonePinDialog({
               <Button
                 className="w-full h-12"
                 onClick={handlePinSetup}
-                disabled={!currentPassword || pin.length < 4 || confirmPin.length < 4 || isLoading}
+                disabled={pin.length < 4 || confirmPin.length < 4 || isLoading}
                 data-testid="button-pin-setup"
               >
                 {isLoading ? (
