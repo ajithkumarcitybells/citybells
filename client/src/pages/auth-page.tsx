@@ -402,7 +402,7 @@ function PhonePinDialog({
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
-  const [showPhoneDialog, setShowPhoneDialog] = useState(false);
+  const [showPhoneDialog, setShowPhoneDialog] = useState(true);
   const { user, loginMutation, registerMutation } = useAuth();
   const [, setLocation] = useLocation();
 
