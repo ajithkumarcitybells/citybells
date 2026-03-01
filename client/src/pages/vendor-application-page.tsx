@@ -189,8 +189,9 @@ export default function VendorApplicationPage() {
               className="text-gray-500 text-sm"
               data-testid="text-success-message"
             >
-              Application submitted successfully! You will be notified once your
-              application is reviewed.
+              Your application has been submitted and is pending admin approval.
+              You will be able to log in with your seller credentials only after
+              the admin approves your application.
             </p>
             <Link href="/">
               <Button className="w-full mt-4" data-testid="link-back-home-success">
