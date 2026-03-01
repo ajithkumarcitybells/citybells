@@ -2,15 +2,31 @@ import { Home, LayoutGrid, ShoppingCart, Heart, User, ChevronLeft, Store } from 
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
-import { CartItemWithProduct, WishlistItemWithProduct } from "@shared/schema";
+import { CartItemWithProduct, EcomCartItemWithProduct, WishlistItemWithProduct } from "@shared/schema";
+
+function useCartContext(location: string) {
+  if (location.startsWith("/ecommerce")) {
+    return { queryKey: "/api/ecom/cart" as const, cartPath: "/ecommerce/cart" };
+  }
+  if (location.startsWith("/food")) {
+    return { queryKey: null, cartPath: "/food/cart" };
+  }
+  return { queryKey: "/api/cart" as const, cartPath: "/cart" };
+}
 
 export function BottomNav() {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
+  const { queryKey, cartPath } = useCartContext(location);
 
-  const { data: cartItems = [] } = useQuery<CartItemWithProduct[]>({
+  const { data: groceryCart = [] } = useQuery<CartItemWithProduct[]>({
     queryKey: ["/api/cart"],
-    enabled: !!user,
+    enabled: !!user && queryKey === "/api/cart",
+  });
+
+  const { data: ecomCart = [] } = useQuery<EcomCartItemWithProduct[]>({
+    queryKey: ["/api/ecom/cart"],
+    enabled: !!user && queryKey === "/api/ecom/cart",
   });
 
   const { data: wishlistItems = [] } = useQuery<WishlistItemWithProduct[]>({
@@ -18,7 +34,12 @@ export function BottomNav() {
     enabled: !!user,
   });
 
-  const cartCount = cartItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
+  const cartCount = queryKey === "/api/ecom/cart"
+    ? ecomCart.reduce((sum, item) => sum + (item.quantity || 0), 0)
+    : queryKey === "/api/cart"
+      ? groceryCart.reduce((sum, item) => sum + (item.quantity || 0), 0)
+      : 0;
+
   const wishlistCount = wishlistItems.length;
 
   const navItems = [
@@ -46,7 +67,7 @@ export function BottomNav() {
     }] : [{
       icon: ShoppingCart,
       label: "Cart",
-      path: "/cart",
+      path: cartPath,
       showBadge: cartCount > 0,
       badge: cartCount
     }]),

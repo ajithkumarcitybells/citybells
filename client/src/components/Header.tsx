@@ -1,20 +1,42 @@
 import { ShoppingCart } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { AddressPicker } from "./AddressPicker";
-import { CartItemWithProduct } from "@shared/schema";
+import { CartItemWithProduct, EcomCartItemWithProduct } from "@shared/schema";
 import cityBellLogo from "@assets/citybells-logo_1769903304782.png";
+
+function useCartContext() {
+  const [location] = useLocation();
+
+  if (location.startsWith("/ecommerce")) {
+    return { queryKey: "/api/ecom/cart" as const, cartPath: "/ecommerce/cart" };
+  }
+  if (location.startsWith("/food")) {
+    return { queryKey: null, cartPath: "/food/cart" };
+  }
+  return { queryKey: "/api/cart" as const, cartPath: "/cart" };
+}
 
 export function Header() {
   const { user } = useAuth();
+  const { queryKey, cartPath } = useCartContext();
 
-  const { data: cartItems = [] } = useQuery<CartItemWithProduct[]>({
+  const { data: groceryCart = [] } = useQuery<CartItemWithProduct[]>({
     queryKey: ["/api/cart"],
-    enabled: !!user,
+    enabled: !!user && queryKey === "/api/cart",
   });
 
-  const cartCount = cartItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
+  const { data: ecomCart = [] } = useQuery<EcomCartItemWithProduct[]>({
+    queryKey: ["/api/ecom/cart"],
+    enabled: !!user && queryKey === "/api/ecom/cart",
+  });
+
+  const cartCount = queryKey === "/api/ecom/cart"
+    ? ecomCart.reduce((sum, item) => sum + (item.quantity || 0), 0)
+    : queryKey === "/api/cart"
+      ? groceryCart.reduce((sum, item) => sum + (item.quantity || 0), 0)
+      : 0;
 
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm safe-area-pt">
@@ -33,7 +55,7 @@ export function Header() {
         
         <AddressPicker />
 
-        <Link href="/cart" data-testid="link-cart">
+        <Link href={cartPath} data-testid="link-cart">
           <div className="relative p-2">
             <ShoppingCart className="h-6 w-6 text-gray-700" />
             {cartCount > 0 && (
