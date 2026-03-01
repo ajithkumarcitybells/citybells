@@ -129,6 +129,97 @@ export function setupAuth(app: Express) {
     })(req, res, next);
   });
 
+  app.post("/api/check-phone", async (req, res) => {
+    try {
+      const { phone } = req.body;
+      if (!phone || phone.length !== 10) {
+        return res.status(400).json({ message: "Please enter a valid 10-digit phone number" });
+      }
+      const user = await storage.getUserByPhone(phone);
+      res.json({ exists: !!user, name: user?.name || null });
+    } catch (err) {
+      console.error("Phone check error:", err);
+      res.status(500).json({ message: "Something went wrong. Please try again." });
+    }
+  });
+
+  app.post("/api/register-phone", async (req, res, next) => {
+    try {
+      const { phone, pin, name } = req.body;
+
+      if (!phone || phone.length !== 10) {
+        return res.status(400).json({ message: "Please enter a valid 10-digit phone number" });
+      }
+      if (!pin || pin.length < 4 || pin.length > 6) {
+        return res.status(400).json({ message: "PIN must be 4-6 digits" });
+      }
+      if (!/^\d+$/.test(pin)) {
+        return res.status(400).json({ message: "PIN must contain only digits" });
+      }
+      if (!name || name.length < 2) {
+        return res.status(400).json({ message: "Name is required" });
+      }
+
+      const existingUser = await storage.getUserByPhone(phone);
+      if (existingUser) {
+        return res.status(400).json({ message: "Phone number already registered. Please login instead." });
+      }
+
+      const existingUsername = await storage.getUserByUsername(phone);
+      if (existingUsername) {
+        return res.status(400).json({ message: "Phone number already registered. Please login instead." });
+      }
+
+      const user = await storage.createUser({
+        username: phone,
+        password: await hashPassword(pin),
+        name,
+        phone,
+      });
+
+      req.login(user, (err) => {
+        if (err) return next(err);
+        const { password: _, ...userWithoutPassword } = user;
+        res.status(201).json(userWithoutPassword);
+      });
+    } catch (err) {
+      console.error("Phone registration error:", err);
+      res.status(500).json({ message: "Registration failed. Please try again." });
+    }
+  });
+
+  app.post("/api/login-phone", async (req, res, next) => {
+    try {
+      const { phone, pin } = req.body;
+
+      if (!phone || phone.length !== 10) {
+        return res.status(400).json({ message: "Please enter a valid 10-digit phone number" });
+      }
+      if (!pin) {
+        return res.status(400).json({ message: "Please enter your PIN" });
+      }
+
+      const user = await storage.getUserByPhone(phone);
+      if (!user) {
+        return res.status(401).json({ message: "No account found with this phone number" });
+      }
+
+      const isValid = await comparePasswords(pin, user.password);
+      if (!isValid) {
+        return res.status(401).json({ message: "Incorrect PIN. Please try again." });
+      }
+
+      req.login(user, (err) => {
+        if (err) return next(err);
+        const { password: _, ...userWithoutPassword } = user;
+        res.status(200).json(userWithoutPassword);
+      });
+    } catch (err) {
+      console.error("Phone login error:", err);
+      res.status(500).json({ message: "Login failed. Please try again." });
+    }
+  });
+
   app.post("/api/logout", (req, res, next) => {
     req.logout((err) => {
       if (err) return next(err);
