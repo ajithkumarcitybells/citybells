@@ -6,8 +6,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/use-auth";
 import { LocationProvider } from "@/hooks/use-location";
-import { ProtectedRoute, AdminRoute, VendorRoute } from "@/lib/protected-route";
+import { ProtectedRoute, AdminRoute, VendorRoute, DriverRoute } from "@/lib/protected-route";
 import SplashScreen from "@/components/SplashScreen";
+import OfflineBanner from "@/components/pwa/OfflineBanner";
+import PWAInstallPrompt from "@/components/pwa/PWAInstallPrompt";
 import NotFound from "@/pages/not-found";
 import HomePage from "@/pages/home-page";
 import GroceryPage from "@/pages/grocery-page";
@@ -26,6 +28,7 @@ import AdminBannersPage from "@/pages/admin/banners-page";
 import AdminCategoryAdsPage from "@/pages/admin/category-ads-page";
 import AdminServicesPage from "@/pages/admin/services-page";
 import ProductDetailPage from "@/pages/product-detail-page";
+import ComparePage from "@/pages/compare-page";
 import AddressesPage from "@/pages/addresses-page";
 import SettingsPage from "@/pages/settings-page";
 import SupportPage from "@/pages/support-page";
@@ -39,9 +42,15 @@ import AdminEcomProductsPage from "@/pages/admin/ecom-products-page";
 import AdminEcomOrdersPage from "@/pages/admin/ecom-orders-page";
 import AdminEcomSellersPage from "@/pages/admin/ecom-sellers-page";
 import AdminFoodPage from "@/pages/admin/admin-food-page";
+import AdminFoodMealPlansPage from "@/pages/admin/admin-food-meal-plans-page";
+import AdminFoodSubscriptionsPage from "@/pages/admin/admin-food-subscriptions-page";
+import AdminCombosPage from "@/pages/admin/combos-page";
 import AdminMovingPage from "@/pages/admin/admin-moving-page";
 import AdminHotelsPage from "@/pages/admin/admin-hotels-page";
+import AdminHotelPricingPage from "@/pages/admin/admin-hotel-pricing";
 import AdminTaxiPage from "@/pages/admin/admin-taxi-page";
+import AdminTaxiPricingPage from "@/pages/admin/admin-taxi-pricing";
+import AdminTaxiSurgePage from "@/pages/admin/admin-taxi-surge";
 import AdminCityServicesPage from "@/pages/admin/admin-city-services-page";
 import EcomHomePage from "@/pages/ecom/ecom-home-page";
 import EcomProductsPage from "@/pages/ecom/ecom-products-page";
@@ -59,6 +68,13 @@ import TaxiHomePage from "@/pages/taxi/taxi-home-page";
 import TaxiBookingPage from "@/pages/taxi/taxi-booking-page";
 import TaxiRidesPage from "@/pages/taxi/taxi-rides-page";
 import TaxiDriverDashboard from "@/pages/taxi/taxi-driver-dashboard";
+import RideMapPage from "@/pages/ride-map-page";
+import DriverDashboardUber from "@/pages/driver/driver-dashboard";
+import DriverAuthPage from "@/pages/driver/driver-auth-page";
+import RidesManagement from "@/pages/admin/rides-management";
+import DriversManagement from "@/pages/admin/drivers-management";
+import AdminDriverManagement from "@/pages/admin/driver-management";
+import Analytics from "@/pages/admin/analytics";
 import MovingHomePage from "@/pages/moving/moving-home-page";
 import MovingVehiclesPage from "@/pages/moving/moving-vehicles-page";
 import MovingBookingsPage from "@/pages/moving/moving-bookings-page";
@@ -67,6 +83,8 @@ import FoodHomePage from "@/pages/food/food-home-page";
 import FoodRestaurantPage from "@/pages/food/food-restaurant-page";
 import FoodCartPage from "@/pages/food/food-cart-page";
 import FoodOrdersPage from "@/pages/food/food-orders-page";
+import MealSubscriptionPage from "@/pages/food/meal-subscription-page";
+import FoodSubscriptionsPage from "@/pages/food/food-subscriptions-page";
 import RestaurantDashboard from "@/pages/food/restaurant-dashboard";
 import HotelHomePage from "@/pages/hotel/hotel-home-page";
 import HotelSearchPage from "@/pages/hotel/hotel-search-page";
@@ -80,6 +98,7 @@ function AppRouter() {
       <Route path="/" component={HomePage} />
       <Route path="/grocery" component={GroceryPage} />
       <Route path="/product/:id" component={ProductDetailPage} />
+      <Route path="/compare" component={ComparePage} />
       <Route path="/cart" component={CartPage} />
       <Route path="/wishlist" component={WishlistPage} />
       <Route path="/profile" component={ProfilePage} />
@@ -109,9 +128,15 @@ function AppRouter() {
       <AdminRoute path="/admin/ecom/orders" component={AdminEcomOrdersPage} />
       <AdminRoute path="/admin/ecom/sellers" component={AdminEcomSellersPage} />
       <AdminRoute path="/admin/food" component={AdminFoodPage} />
+      <AdminRoute path="/admin/food/meal-plans" component={AdminFoodMealPlansPage} />
+      <AdminRoute path="/admin/food/subscriptions" component={AdminFoodSubscriptionsPage} />
+      <AdminRoute path="/admin/combos" component={AdminCombosPage} />
       <AdminRoute path="/admin/moving" component={AdminMovingPage} />
       <AdminRoute path="/admin/hotels" component={AdminHotelsPage} />
+      <AdminRoute path="/admin/hotels/pricing" component={AdminHotelPricingPage} />
       <AdminRoute path="/admin/taxi" component={AdminTaxiPage} />
+      <AdminRoute path="/admin/taxi/pricing" component={AdminTaxiPricingPage} />
+      <AdminRoute path="/admin/taxi/surge" component={AdminTaxiSurgePage} />
       <AdminRoute path="/admin/city-services" component={AdminCityServicesPage} />
       <VendorRoute path="/vendor/dashboard" component={VendorDashboardPage} />
       <VendorRoute path="/seller/dashboard" component={SellerDashboard} />
@@ -126,15 +151,24 @@ function AppRouter() {
       <ProtectedRoute path="/moving/bookings" component={MovingBookingsPage} />
       <VendorRoute path="/moving/driver" component={DriverDashboard} />
       <Route path="/taxi" component={TaxiHomePage} />
+      <Route path="/map" component={RideMapPage} />
       <ProtectedRoute path="/taxi/booking/:id" component={TaxiBookingPage} />
       <ProtectedRoute path="/taxi/rides" component={TaxiRidesPage} />
-      <VendorRoute path="/taxi/driver" component={TaxiDriverDashboard} />
+      <DriverRoute path="/taxi/driver" component={TaxiDriverDashboard} />
+      <ProtectedRoute path="/driver/dashboard" component={DriverDashboardUber} />
+      <Route path="/driver/login" component={DriverAuthPage} />
+      <AdminRoute path="/admin/uber/rides" component={RidesManagement} />
+      <AdminRoute path="/admin/uber/drivers" component={DriversManagement} />
+      <AdminRoute path="/admin/uber/driver-management" component={AdminDriverManagement} />
+      <AdminRoute path="/admin/uber/analytics" component={Analytics} />
       <Route path="/services" component={ServicesHomePage} />
       <Route path="/services/category/:id" component={ServicesCategoryPage} />
       <Route path="/services/book/:id" component={ServiceBookingPage} />
       <ProtectedRoute path="/services/bookings" component={ServicesBookingsPage} />
       <VendorRoute path="/services/provider" component={ProviderDashboard} />
       <Route path="/food" component={FoodHomePage} />
+      <Route path="/food/meal-plans" component={MealSubscriptionPage} />
+      <ProtectedRoute path="/food/subscriptions" component={FoodSubscriptionsPage} />
       <Route path="/food/restaurant/:id" component={FoodRestaurantPage} />
       <Route path="/food/cart" component={FoodCartPage} />
       <ProtectedRoute path="/food/orders" component={FoodOrdersPage} />
@@ -160,6 +194,8 @@ function App() {
             {showSplash && (
               <SplashScreen onComplete={() => setShowSplash(false)} duration={2500} />
             )}
+            <OfflineBanner />
+            <PWAInstallPrompt />
             <Toaster />
             <AppRouter />
           </TooltipProvider>

@@ -17,6 +17,10 @@ import { Header } from "@/components/Header";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
+import { useState } from "react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import ProfileEditor from "@/components/ProfileEditor";
 
 export default function ProfilePage() {
   const { user, logoutMutation } = useAuth();
@@ -59,8 +63,13 @@ export default function ProfilePage() {
       <main className="px-4 py-4 max-w-lg mx-auto space-y-4">
         <div className="bg-white rounded-xl p-6 shadow-sm">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-              <User className="h-8 w-8 text-primary" />
+            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center overflow-hidden">
+              {(user as any).avatar ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={(user as any).avatar} alt="avatar" className="w-full h-full object-cover" />
+              ) : (
+                <User className="h-8 w-8 text-primary" />
+              )}
             </div>
             <div className="flex-1">
               <h2 className="text-xl font-bold text-gray-800">
@@ -91,6 +100,9 @@ export default function ProfilePage() {
             )}
           </div>
         </div>
+
+        {/* Profile editor */}
+        <ProfileEditor user={user} />
 
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           {menuItems.map((item, index) => (

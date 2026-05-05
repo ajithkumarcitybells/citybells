@@ -5,6 +5,7 @@ import { AdminLayout } from "./index";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -46,6 +47,19 @@ export default function AdminEcomProductsPage() {
     queryKey: ["/api/admin/ecom/categories"],
   });
 
+  const [addOpen, setAddOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+  const [newImageUrl, setNewImageUrl] = useState("");
+  const [newImages, setNewImages] = useState<string[]>([]);
+  const [newCategory, setNewCategory] = useState<string | null>(categories?.[0]?.id || null);
+  const [newOriginalPrice, setNewOriginalPrice] = useState("");
+  const [newDiscountPercent, setNewDiscountPercent] = useState("");
+  const [newPrice, setNewPrice] = useState("");
+  const [newStock, setNewStock] = useState("");
+  const [newUnit, setNewUnit] = useState("");
+  const [newRating, setNewRating] = useState("");
+
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<EcomProduct> }) => {
       const res = await apiRequest("PATCH", `/api/admin/ecom/products/${id}`, data);
@@ -71,6 +85,24 @@ export default function AdminEcomProductsPage() {
     },
     onError: (error: Error) => {
       toast({ title: "Failed to delete product", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", "/api/admin/ecom/products", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/ecom/products"] });
+      setAddOpen(false);
+      // reset form
+      setNewName(""); setNewDescription(""); setNewImageUrl(""); setNewImages([]);
+      setNewCategory(categories?.[0]?.id || null); setNewOriginalPrice(""); setNewDiscountPercent(""); setNewPrice(""); setNewStock(""); setNewUnit(""); setNewRating("");
+      toast({ title: "Product created" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to create product", description: err.message, variant: "destructive" });
     },
   });
 
@@ -104,9 +136,14 @@ export default function AdminEcomProductsPage() {
 
   return (
     <AdminLayout>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800" data-testid="text-ecom-products-title">E-Commerce Products</h1>
-        <p className="text-gray-500">Moderate and manage vendor products</p>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800" data-testid="text-ecom-products-title">E-Commerce Products</h1>
+          <p className="text-gray-500">Moderate and manage vendor products</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => setAddOpen(true)} data-testid="button-add-ecom-product">Add Product</Button>
+        </div>
       </div>
 
       <div className="flex gap-2 mb-4 flex-wrap">
@@ -246,6 +283,20 @@ export default function AdminEcomProductsPage() {
                     Unapprove
                   </Button>
                 )}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 hidden sm:inline">Trending</span>
+                  <Switch
+                    checked={!!product.isTrending}
+                    onCheckedChange={(checked) => {
+                      updateMutation.mutate({ id: product.id, data: { isTrending: checked } });
+                      queryClient.setQueryData(["/api/admin/ecom/products"], (old: any) =>
+                        old ? (old as EcomProduct[]).map((p) => p.id === product.id ? { ...p, isTrending: checked } : p) : old
+                      );
+                    }}
+                    disabled={updateMutation.isPending}
+                    data-testid={`switch-trending-card-${product.id}`}
+                  />
+                </div>
                 <Button
                   size="sm"
                   variant="ghost"
@@ -262,6 +313,79 @@ export default function AdminEcomProductsPage() {
         </div>
       )}
 
+      <Dialog open={addOpen} onOpenChange={(open) => setAddOpen(open)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Add E-Commerce Product</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <Input placeholder="Name" value={newName} onChange={(e) => setNewName(e.target.value)} data-testid="input-new-name" />
+              <Select value={newCategory ?? "uncategorized"} onValueChange={(v) => setNewCategory(v === "uncategorized" ? null : v)}>
+                <SelectTrigger className="w-full"><SelectValue placeholder="Category" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="uncategorized">Uncategorized</SelectItem>
+                  {categories.map((c) => (<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Textarea placeholder="Description" value={newDescription} onChange={(e) => setNewDescription(e.target.value)} data-testid="input-new-description" />
+
+            <div className="grid grid-cols-2 gap-3">
+              <Input placeholder="Image URL" value={newImageUrl} onChange={(e) => setNewImageUrl(e.target.value)} data-testid="input-new-image-url" />
+              <div>
+                <label className="text-xs text-gray-500">Or upload photo</label>
+                <input type="file" accept="image/*" className="w-full mt-1" onChange={async (e) => {
+                  const f = e.target.files?.[0];
+                  if (!f) return;
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    const data = String(reader.result || "");
+                    setNewImages((cur) => [...cur, data]);
+                  };
+                  reader.readAsDataURL(f);
+                }} data-testid="input-new-image-file" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <Input placeholder="Original Price" value={newOriginalPrice} onChange={(e) => setNewOriginalPrice(e.target.value)} data-testid="input-new-original-price" />
+              <Input placeholder="Discount %" value={newDiscountPercent} onChange={(e) => setNewDiscountPercent(e.target.value)} data-testid="input-new-discount" />
+              <Input placeholder="Selling Price" value={newPrice} onChange={(e) => setNewPrice(e.target.value)} data-testid="input-new-price" />
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <Input placeholder="Stock" value={newStock} onChange={(e) => setNewStock(e.target.value)} data-testid="input-new-stock" />
+              <Input placeholder="Unit (e.g. kg, pcs)" value={newUnit} onChange={(e) => setNewUnit(e.target.value)} data-testid="input-new-unit" />
+              <Input placeholder="Rating" value={newRating} onChange={(e) => setNewRating(e.target.value)} data-testid="input-new-rating" />
+            </div>
+
+            <div className="flex items-center justify-end gap-2">
+              <Button variant="ghost" onClick={() => setAddOpen(false)}>Cancel</Button>
+              <Button onClick={() => {
+                // prepare images array
+                const images = [...newImages];
+                if (newImageUrl) images.unshift(newImageUrl);
+                const payload = {
+                  name: newName,
+                  description: newDescription,
+                  images,
+                  categoryId: newCategory,
+                  originalPrice: newOriginalPrice,
+                  discountPercent: newDiscountPercent ? parseFloat(newDiscountPercent) : 0,
+                  price: newPrice,
+                  stock: newStock ? parseInt(newStock + "", 10) : 0,
+                  unit: newUnit,
+                  rating: newRating ? parseFloat(newRating) : 0,
+                  isActive: true,
+                };
+                createMutation.mutate(payload);
+              }} disabled={createMutation.isPending}>Save</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       <Dialog open={!!selectedProduct} onOpenChange={(open) => !open && setSelectedProduct(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -339,6 +463,21 @@ export default function AdminEcomProductsPage() {
                   }}
                   disabled={updateMutation.isPending}
                   data-testid="switch-featured"
+                />
+              </div>
+              <div className="flex items-center justify-between py-3 border-b">
+                <div className="flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-red-500" />
+                  <span className="text-sm font-medium">Trending</span>
+                </div>
+                <Switch
+                  checked={!!selectedProduct.isTrending}
+                  onCheckedChange={(checked) => {
+                    updateMutation.mutate({ id: selectedProduct.id, data: { isTrending: checked } });
+                    setSelectedProduct({ ...selectedProduct, isTrending: checked });
+                  }}
+                  disabled={updateMutation.isPending}
+                  data-testid="switch-trending"
                 />
               </div>
               <div className="flex gap-2 pt-2">

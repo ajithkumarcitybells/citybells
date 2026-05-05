@@ -1,296 +1,325 @@
-import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, decimal, timestamp, jsonb } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Users table
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-  name: text("name"),
-  email: text("email"),
-  phone: text("phone"),
-  loginPin: text("login_pin"),
-  address: text("address"),
-  isAdmin: boolean("is_admin").default(false),
-  isVendor: boolean("is_vendor").default(false),
-  partnerType: text("partner_type"),
-});
+// ==================== USERS ====================
+export interface User {
+  id: string;
+  username: string;
+  password: string;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  loginPin: string | null;
+  address: string | null;
+  isAdmin: boolean | null;
+  isVendor: boolean | null;
+  partnerType: string | null;
+  role?: 'customer' | 'driver' | string | null;
+  notificationPreferences?: {
+    inApp?: boolean;
+    push?: boolean;
+    sms?: boolean;
+  } | null;
+  pushTokens?: string[] | null;
+}
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
-  name: true,
-  email: true,
-  phone: true,
-  address: true,
+export const insertUserSchema = z.object({
+  username: z.string(),
+  password: z.string(),
+  name: z.string().optional(),
+  email: z.string().optional(),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+  role: z.string().optional(),
 });
-
 export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
 
-// Addresses table for saved delivery addresses
-export const addresses = pgTable("addresses", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  label: text("label").notNull(), // "Home", "Work", "Other"
-  fullAddress: text("full_address").notNull(),
-  addressLine1: text("address_line_1"),
-  addressLine2: text("address_line_2"),
-  city: text("city"),
-  state: text("state"),
-  country: text("country"),
-  pincode: text("pincode"),
-  flatHouseNo: text("flat_house_no"),
-  landmark: text("landmark"),
-  latitude: decimal("latitude", { precision: 10, scale: 7 }),
-  longitude: decimal("longitude", { precision: 10, scale: 7 }),
-  isDefault: boolean("is_default").default(false),
-  createdAt: timestamp("created_at").defaultNow(),
+// ==================== ADDRESSES ====================
+export interface Address {
+  id: string;
+  userId: string;
+  label: string;
+  fullAddress: string;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  pincode: string | null;
+  flatHouseNo: string | null;
+  landmark: string | null;
+  latitude: string | null;
+  longitude: string | null;
+  isDefault: boolean | null;
+  createdAt: Date | null;
+}
+
+export const insertAddressSchema = z.object({
+  userId: z.string(),
+  label: z.string(),
+  fullAddress: z.string(),
+  addressLine1: z.string().optional().nullable(),
+  addressLine2: z.string().optional().nullable(),
+  city: z.string().optional().nullable(),
+  state: z.string().optional().nullable(),
+  country: z.string().optional().nullable(),
+  pincode: z.string().optional().nullable(),
+  flatHouseNo: z.string().optional().nullable(),
+  landmark: z.string().optional().nullable(),
+  latitude: z.string().optional().nullable(),
+  longitude: z.string().optional().nullable(),
+  isDefault: z.boolean().optional().nullable(),
 });
-
-export const insertAddressSchema = createInsertSchema(addresses).omit({ id: true, createdAt: true });
 export type InsertAddress = z.infer<typeof insertAddressSchema>;
-export type Address = typeof addresses.$inferSelect;
 
-// Address relations
-export const addressRelations = relations(addresses, ({ one }) => ({
-  user: one(users, {
-    fields: [addresses.userId],
-    references: [users.id],
-  }),
-}));
+// ==================== CATEGORIES ====================
+export interface Category {
+  id: string;
+  name: string;
+  image: string | null;
+  isActive: boolean | null;
+  sortOrder: number | null;
+}
 
-// Categories table
-export const categories = pgTable("categories", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
-  image: text("image"),
-  isActive: boolean("is_active").default(true),
-  sortOrder: integer("sort_order").default(0),
+export const insertCategorySchema = z.object({
+  name: z.string(),
+  image: z.string().optional().nullable(),
+  isActive: z.boolean().optional().nullable(),
+  sortOrder: z.number().optional().nullable(),
 });
-
-export const insertCategorySchema = createInsertSchema(categories).omit({ id: true });
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
-export type Category = typeof categories.$inferSelect;
 
-// Products table
-export const products = pgTable("products", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
-  description: text("description"),
-  image: text("image"),
-  categoryId: varchar("category_id").references(() => categories.id),
-  originalPrice: decimal("original_price", { precision: 10, scale: 2 }).notNull(),
-  discountPercent: integer("discount_percent").default(0),
-  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
-  rating: decimal("rating", { precision: 2, scale: 1 }).default("4.0"),
-  stock: integer("stock").default(100),
-  unit: text("unit").default("1 pc"),
-  isActive: boolean("is_active").default(true),
-  vendorId: varchar("vendor_id").references(() => users.id),
+// ==================== PRODUCTS ====================
+export interface Product {
+  id: string;
+  name: string;
+  description: string | null;
+  image: string | null;
+  categoryId: string | null;
+  originalPrice: string;
+  discountPercent: number | null;
+  price: string;
+  rating: string | null;
+  stock: number | null;
+  unit: string | null;
+  isActive: boolean | null;
+  vendorId: string | null;
+  isTrending?: boolean | null;
+  fastDelivery?: boolean | null;
+}
+
+export const insertProductSchema = z.object({
+  name: z.string(),
+  description: z.string().optional().nullable(),
+  image: z.string().optional().nullable(),
+  categoryId: z.string().optional().nullable(),
+  originalPrice: z.string(),
+  discountPercent: z.number().optional().nullable(),
+  price: z.string(),
+  rating: z.string().optional().nullable(),
+  stock: z.number().optional().nullable(),
+  unit: z.string().optional().nullable(),
+  isActive: z.boolean().optional().nullable(),
+  isTrending: z.boolean().optional().nullable(),
+  fastDelivery: z.boolean().optional().nullable(),
+  vendorId: z.string().optional().nullable(),
 });
-
-export const insertProductSchema = createInsertSchema(products).omit({ id: true });
 export type InsertProduct = z.infer<typeof insertProductSchema>;
-export type Product = typeof products.$inferSelect;
 
-// Product relations
-export const productRelations = relations(products, ({ one }) => ({
-  category: one(categories, {
-    fields: [products.categoryId],
-    references: [categories.id],
-  }),
-}));
+// ==================== CART ITEMS ====================
+export interface CartItem {
+  id: string;
+  userId: string;
+  productId: string;
+  quantity: number | null;
+  variant: string | null;
+}
 
-// Cart items table
-export const cartItems = pgTable("cart_items", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  productId: varchar("product_id").references(() => products.id).notNull(),
-  quantity: integer("quantity").default(1),
-  variant: text("variant"),
+export const insertCartItemSchema = z.object({
+  userId: z.string(),
+  productId: z.string(),
+  quantity: z.number().optional().nullable(),
+  variant: z.string().optional().nullable(),
 });
-
-export const insertCartItemSchema = createInsertSchema(cartItems).omit({ id: true });
 export type InsertCartItem = z.infer<typeof insertCartItemSchema>;
-export type CartItem = typeof cartItems.$inferSelect;
 
-// Cart item relations
-export const cartItemRelations = relations(cartItems, ({ one }) => ({
-  product: one(products, {
-    fields: [cartItems.productId],
-    references: [products.id],
-  }),
-  user: one(users, {
-    fields: [cartItems.userId],
-    references: [users.id],
-  }),
-}));
+// ==================== WISHLIST ITEMS ====================
+export interface WishlistItem {
+  id: string;
+  userId: string;
+  productId: string;
+}
 
-// Wishlist items table
-export const wishlistItems = pgTable("wishlist_items", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  productId: varchar("product_id").references(() => products.id).notNull(),
+export const insertWishlistItemSchema = z.object({
+  userId: z.string(),
+  productId: z.string(),
 });
-
-export const insertWishlistItemSchema = createInsertSchema(wishlistItems).omit({ id: true });
 export type InsertWishlistItem = z.infer<typeof insertWishlistItemSchema>;
-export type WishlistItem = typeof wishlistItems.$inferSelect;
 
-// Wishlist item relations
-export const wishlistItemRelations = relations(wishlistItems, ({ one }) => ({
-  product: one(products, {
-    fields: [wishlistItems.productId],
-    references: [products.id],
-  }),
-  user: one(users, {
-    fields: [wishlistItems.userId],
-    references: [users.id],
-  }),
-}));
+// ==================== ORDERS ====================
+export interface Order {
+  id: string;
+  orderNumber: string | null;
+  userId: string;
+  items: any;
+  totalAmount: string;
+  status: string | null;
+  deliveryAddress: string;
+  deliverySlot: string | null;
+  paymentMethod: string | null;
+  paymentId: string | null;
+  createdAt: Date | null;
+}
 
-// Orders table
-export const orders = pgTable("orders", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  orderNumber: varchar("order_number").unique(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  items: jsonb("items").notNull(),
-  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
-  status: text("status").default("pending"),
-  deliveryAddress: text("delivery_address").notNull(),
-  deliverySlot: text("delivery_slot"),
-  paymentMethod: text("payment_method").default("cod"),
-  paymentId: text("payment_id"),
-  createdAt: timestamp("created_at").defaultNow(),
+export const insertOrderSchema = z.object({
+  userId: z.string(),
+  items: z.any(),
+  totalAmount: z.string(),
+  status: z.string().optional().nullable(),
+  deliveryAddress: z.string(),
+  deliverySlot: z.string().optional().nullable(),
+  paymentMethod: z.string().optional().nullable(),
+  paymentId: z.string().optional().nullable(),
+  orderNumber: z.string().optional().nullable(),
 });
-
-export const insertOrderSchema = createInsertSchema(orders).omit({ id: true, createdAt: true });
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
-export type Order = typeof orders.$inferSelect;
 
-// Order relations
-export const orderRelations = relations(orders, ({ one }) => ({
-  user: one(users, {
-    fields: [orders.userId],
-    references: [users.id],
-  }),
-}));
+// ==================== BANNERS ====================
+export interface Banner {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  image: string | null;
+  isActive: boolean | null;
+  sortOrder: number | null;
+}
 
-// Banners table
-export const banners = pgTable("banners", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  title: text("title").notNull(),
-  subtitle: text("subtitle"),
-  image: text("image"),
-  isActive: boolean("is_active").default(true),
-  sortOrder: integer("sort_order").default(0),
+export const insertBannerSchema = z.object({
+  title: z.string(),
+  subtitle: z.string().optional().nullable(),
+  image: z.string().optional().nullable(),
+  isActive: z.boolean().optional().nullable(),
+  sortOrder: z.number().optional().nullable(),
 });
-
-export const insertBannerSchema = createInsertSchema(banners).omit({ id: true });
 export type InsertBanner = z.infer<typeof insertBannerSchema>;
-export type Banner = typeof banners.$inferSelect;
 
-// Services table (for super app services like Grocery, Food, Taxi, etc.)
-export const services = pgTable("services", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
-  description: text("description"),
-  image: text("image"),
-  isActive: boolean("is_active").default(false),
-  sortOrder: integer("sort_order").default(0),
+// ==================== SERVICES ====================
+export interface Service {
+  id: string;
+  name: string;
+  description: string | null;
+  image: string | null;
+  isActive: boolean | null;
+  sortOrder: number | null;
+}
+
+export const insertServiceSchema = z.object({
+  name: z.string(),
+  description: z.string().optional().nullable(),
+  image: z.string().optional().nullable(),
+  isActive: z.boolean().optional().nullable(),
+  sortOrder: z.number().optional().nullable(),
 });
-
-export const insertServiceSchema = createInsertSchema(services).omit({ id: true });
 export type InsertService = z.infer<typeof insertServiceSchema>;
-export type Service = typeof services.$inferSelect;
 
-// Support Tickets
-export const supportTickets = pgTable("support_tickets", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull(),
-  subject: text("subject").notNull(),
-  status: text("status").notNull().default("open"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+// ==================== SUPPORT TICKETS ====================
+export interface SupportTicket {
+  id: string;
+  userId: string;
+  subject: string;
+  status: string;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}
+
+export const insertSupportTicketSchema = z.object({
+  userId: z.string(),
+  subject: z.string(),
+  status: z.string().optional(),
 });
-
-export const insertSupportTicketSchema = createInsertSchema(supportTickets).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertSupportTicket = z.infer<typeof insertSupportTicketSchema>;
-export type SupportTicket = typeof supportTickets.$inferSelect;
 
-// Ticket Messages (for conversation thread)
-export const ticketMessages = pgTable("ticket_messages", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  ticketId: varchar("ticket_id").notNull(),
-  senderId: varchar("sender_id").notNull(),
-  message: text("message").notNull(),
-  image: text("image"),
-  isAdmin: boolean("is_admin").default(false),
-  createdAt: timestamp("created_at").defaultNow(),
+export interface TicketMessage {
+  id: string;
+  ticketId: string;
+  senderId: string;
+  message: string;
+  image: string | null;
+  isAdmin: boolean | null;
+  createdAt: Date | null;
+}
+
+export const insertTicketMessageSchema = z.object({
+  ticketId: z.string(),
+  senderId: z.string(),
+  message: z.string(),
+  image: z.string().optional().nullable(),
+  isAdmin: z.boolean().optional().nullable(),
 });
-
-export const insertTicketMessageSchema = createInsertSchema(ticketMessages).omit({ id: true, createdAt: true });
 export type InsertTicketMessage = z.infer<typeof insertTicketMessageSchema>;
-export type TicketMessage = typeof ticketMessages.$inferSelect;
 
-export type SupportTicketWithMessages = SupportTicket & { 
+export type SupportTicketWithMessages = SupportTicket & {
   messages: TicketMessage[];
   username?: string;
   userName?: string;
 };
 
-// Category Ads table (small promotional ads per category)
-export const categoryAds = pgTable("category_ads", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  title: text("title").notNull(),
-  image: text("image"),
-  categoryId: varchar("category_id").references(() => categories.id),
-  linkUrl: text("link_url"),
-  isActive: boolean("is_active").default(true),
-  sortOrder: integer("sort_order").default(0),
-});
+// ==================== CATEGORY ADS ====================
+export interface CategoryAd {
+  id: string;
+  title: string;
+  image: string | null;
+  categoryId: string | null;
+  linkUrl: string | null;
+  isActive: boolean | null;
+  sortOrder: number | null;
+}
 
-export const insertCategoryAdSchema = createInsertSchema(categoryAds).omit({ id: true });
+export const insertCategoryAdSchema = z.object({
+  title: z.string(),
+  image: z.string().optional().nullable(),
+  categoryId: z.string().optional().nullable(),
+  linkUrl: z.string().optional().nullable(),
+  isActive: z.boolean().optional().nullable(),
+  sortOrder: z.number().optional().nullable(),
+});
 export type InsertCategoryAd = z.infer<typeof insertCategoryAdSchema>;
-export type CategoryAd = typeof categoryAds.$inferSelect;
 
-export const categoryAdRelations = relations(categoryAds, ({ one }) => ({
-  category: one(categories, {
-    fields: [categoryAds.categoryId],
-    references: [categories.id],
-  }),
-}));
+// ==================== VENDOR APPLICATIONS ====================
+export interface VendorApplication {
+  id: string;
+  businessName: string;
+  ownerName: string;
+  email: string;
+  phone: string;
+  serviceType: string;
+  description: string | null;
+  address: string | null;
+  username: string;
+  password: string;
+  certificates: string[];
+  status: string;
+  adminNote: string | null;
+  createdAt: Date | null;
+}
 
-// Vendor Applications table
-export const vendorApplications = pgTable("vendor_applications", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  businessName: text("business_name").notNull(),
-  ownerName: text("owner_name").notNull(),
-  email: text("email").notNull(),
-  phone: text("phone").notNull(),
-  serviceType: text("service_type").notNull(),
-  description: text("description"),
-  address: text("address"),
-  username: text("username").notNull(),
-  password: text("password").notNull(),
-  certificates: text("certificates").array().notNull(),
-  status: text("status").notNull().default("pending"),
-  adminNote: text("admin_note"),
-  createdAt: timestamp("created_at").defaultNow(),
+export const insertVendorApplicationSchema = z.object({
+  businessName: z.string(),
+  ownerName: z.string(),
+  email: z.string(),
+  phone: z.string(),
+  serviceType: z.string(),
+  description: z.string().optional().nullable(),
+  address: z.string().optional().nullable(),
+  username: z.string(),
+  password: z.string(),
+  certificates: z.array(z.string()),
 });
-
-export const insertVendorApplicationSchema = createInsertSchema(vendorApplications).omit({ id: true, status: true, adminNote: true, createdAt: true });
 export type InsertVendorApplication = z.infer<typeof insertVendorApplicationSchema>;
-export type VendorApplication = typeof vendorApplications.$inferSelect;
 
-// Type for cart item with product details
+// Composite types
 export type CartItemWithProduct = CartItem & { product: Product };
 export type WishlistItemWithProduct = WishlistItem & { product: Product };
 
-// Order item type for storing in orders.items jsonb
 export interface OrderItem {
   productId: string;
   name: string;
@@ -299,154 +328,185 @@ export interface OrderItem {
   image?: string;
 }
 
-// ==================== E-COMMERCE TABLES ====================
+// ==================== E-COMMERCE ====================
+export interface EcomCategory {
+  id: string;
+  name: string;
+  image: string | null;
+  parentId: string | null;
+  isActive: boolean | null;
+  sortOrder: number | null;
+}
 
-export const ecomCategories = pgTable("ecom_categories", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
-  image: text("image"),
-  parentId: varchar("parent_id"),
-  isActive: boolean("is_active").default(true),
-  sortOrder: integer("sort_order").default(0),
+export const insertEcomCategorySchema = z.object({
+  name: z.string(),
+  image: z.string().optional().nullable(),
+  parentId: z.string().optional().nullable(),
+  isActive: z.boolean().optional().nullable(),
+  sortOrder: z.number().optional().nullable(),
 });
-
-export const insertEcomCategorySchema = createInsertSchema(ecomCategories).omit({ id: true });
 export type InsertEcomCategory = z.infer<typeof insertEcomCategorySchema>;
-export type EcomCategory = typeof ecomCategories.$inferSelect;
 
-export const ecomProducts = pgTable("ecom_products", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
-  description: text("description"),
-  images: text("images").array().default([]),
-  categoryId: varchar("category_id").references(() => ecomCategories.id),
-  vendorId: varchar("vendor_id").references(() => users.id),
-  brand: text("brand"),
-  sku: text("sku"),
-  originalPrice: decimal("original_price", { precision: 10, scale: 2 }).notNull(),
-  discountPercent: integer("discount_percent").default(0),
-  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
-  variants: jsonb("variants").default([]),
-  specifications: jsonb("specifications").default({}),
-  stock: integer("stock").default(100),
-  rating: decimal("rating", { precision: 2, scale: 1 }).default("0"),
-  reviewCount: integer("review_count").default(0),
-  isActive: boolean("is_active").default(true),
-  isApproved: boolean("is_approved").default(false),
-  isFeatured: boolean("is_featured").default(false),
-  isInstantDelivery: boolean("is_instant_delivery").default(false),
-  createdAt: timestamp("created_at").defaultNow(),
+export interface EcomProduct {
+  id: string;
+  name: string;
+  description: string | null;
+  images: string[] | null;
+  categoryId: string | null;
+  vendorId: string | null;
+  brand: string | null;
+  sku: string | null;
+  originalPrice: string;
+  discountPercent: number | null;
+  price: string;
+  variants: any;
+  specifications: any;
+  stock: number | null;
+  rating: string | null;
+  reviewCount: number | null;
+  isActive: boolean | null;
+  isApproved: boolean | null;
+  isFeatured: boolean | null;
+  isInstantDelivery: boolean | null;
+  createdAt: Date | null;
+  isTrending?: boolean | null;
+}
+
+export const insertEcomProductSchema = z.object({
+  name: z.string(),
+  description: z.string().optional().nullable(),
+  images: z.array(z.string()).optional().nullable(),
+  categoryId: z.string().optional().nullable(),
+  vendorId: z.string().optional().nullable(),
+  brand: z.string().optional().nullable(),
+  sku: z.string().optional().nullable(),
+  originalPrice: z.string(),
+  discountPercent: z.number().optional().nullable(),
+  price: z.string(),
+  variants: z.any().optional(),
+  specifications: z.any().optional(),
+  stock: z.number().optional().nullable(),
+  isTrending: z.boolean().optional().nullable(),
+  isActive: z.boolean().optional().nullable(),
+  isApproved: z.boolean().optional().nullable(),
+  isFeatured: z.boolean().optional().nullable(),
+  isInstantDelivery: z.boolean().optional().nullable(),
 });
-
-export const insertEcomProductSchema = createInsertSchema(ecomProducts).omit({ id: true, rating: true, reviewCount: true, createdAt: true });
 export type InsertEcomProduct = z.infer<typeof insertEcomProductSchema>;
-export type EcomProduct = typeof ecomProducts.$inferSelect;
 
-export const ecomProductRelations = relations(ecomProducts, ({ one }) => ({
-  category: one(ecomCategories, {
-    fields: [ecomProducts.categoryId],
-    references: [ecomCategories.id],
-  }),
-  vendor: one(users, {
-    fields: [ecomProducts.vendorId],
-    references: [users.id],
-  }),
-}));
+export interface EcomReview {
+  id: string;
+  productId: string;
+  userId: string;
+  rating: number;
+  title: string | null;
+  comment: string | null;
+  createdAt: Date | null;
+}
 
-export const ecomReviews = pgTable("ecom_reviews", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  productId: varchar("product_id").references(() => ecomProducts.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  rating: integer("rating").notNull(),
-  title: text("title"),
-  comment: text("comment"),
-  createdAt: timestamp("created_at").defaultNow(),
+export const insertEcomReviewSchema = z.object({
+  productId: z.string(),
+  userId: z.string(),
+  rating: z.number(),
+  title: z.string().optional().nullable(),
+  comment: z.string().optional().nullable(),
 });
-
-export const insertEcomReviewSchema = createInsertSchema(ecomReviews).omit({ id: true, createdAt: true });
 export type InsertEcomReview = z.infer<typeof insertEcomReviewSchema>;
-export type EcomReview = typeof ecomReviews.$inferSelect;
 
-export const ecomReviewRelations = relations(ecomReviews, ({ one }) => ({
-  product: one(ecomProducts, {
-    fields: [ecomReviews.productId],
-    references: [ecomProducts.id],
-  }),
-  user: one(users, {
-    fields: [ecomReviews.userId],
-    references: [users.id],
-  }),
-}));
+// ==================== USER PROFILE ====================
+export interface UserProfile {
+  userId: string;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  avatar: string | null;
+  addresses: Address[];
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}
 
-export const sellerProfiles = pgTable("seller_profiles", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull().unique(),
-  storeName: text("store_name").notNull(),
-  storeDescription: text("store_description"),
-  logo: text("logo"),
-  banner: text("banner"),
-  commissionRate: decimal("commission_rate", { precision: 5, scale: 2 }).default("10.00"),
-  walletBalance: decimal("wallet_balance", { precision: 10, scale: 2 }).default("0.00"),
-  bankDetails: jsonb("bank_details").default({}),
-  isActive: boolean("is_active").default(true),
-  createdAt: timestamp("created_at").defaultNow(),
+export interface SellerProfile {
+  id: string;
+  userId: string;
+  storeName: string;
+  storeDescription: string | null;
+  logo: string | null;
+  banner: string | null;
+  commissionRate: string | null;
+  walletBalance: string | null;
+  bankDetails: any;
+  isActive: boolean | null;
+  createdAt: Date | null;
+}
+
+export const insertSellerProfileSchema = z.object({
+  userId: z.string(),
+  storeName: z.string(),
+  storeDescription: z.string().optional().nullable(),
+  logo: z.string().optional().nullable(),
+  banner: z.string().optional().nullable(),
+  commissionRate: z.string().optional().nullable(),
+  bankDetails: z.any().optional(),
+  isActive: z.boolean().optional().nullable(),
 });
-
-export const insertSellerProfileSchema = createInsertSchema(sellerProfiles).omit({ id: true, walletBalance: true, createdAt: true });
 export type InsertSellerProfile = z.infer<typeof insertSellerProfileSchema>;
-export type SellerProfile = typeof sellerProfiles.$inferSelect;
 
-export const ecomCartItems = pgTable("ecom_cart_items", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  productId: varchar("product_id").references(() => ecomProducts.id).notNull(),
-  quantity: integer("quantity").default(1),
-  variant: text("variant"),
+export interface EcomCartItem {
+  id: string;
+  userId: string;
+  productId: string;
+  quantity: number | null;
+  variant: string | null;
+}
+
+export const insertEcomCartItemSchema = z.object({
+  userId: z.string(),
+  productId: z.string(),
+  quantity: z.number().optional().nullable(),
+  variant: z.string().optional().nullable(),
 });
-
-export const insertEcomCartItemSchema = createInsertSchema(ecomCartItems).omit({ id: true });
 export type InsertEcomCartItem = z.infer<typeof insertEcomCartItemSchema>;
-export type EcomCartItem = typeof ecomCartItems.$inferSelect;
 
-export const ecomCartItemRelations = relations(ecomCartItems, ({ one }) => ({
-  product: one(ecomProducts, {
-    fields: [ecomCartItems.productId],
-    references: [ecomProducts.id],
-  }),
-  user: one(users, {
-    fields: [ecomCartItems.userId],
-    references: [users.id],
-  }),
-}));
+export interface EcomWishlistItem {
+  id: string;
+  userId: string;
+  productId: string;
+}
 
-export const ecomWishlistItems = pgTable("ecom_wishlist_items", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  productId: varchar("product_id").references(() => ecomProducts.id).notNull(),
+export const insertEcomWishlistItemSchema = z.object({
+  userId: z.string(),
+  productId: z.string(),
 });
-
-export const insertEcomWishlistItemSchema = createInsertSchema(ecomWishlistItems).omit({ id: true });
 export type InsertEcomWishlistItem = z.infer<typeof insertEcomWishlistItemSchema>;
-export type EcomWishlistItem = typeof ecomWishlistItems.$inferSelect;
 
-export const ecomOrders = pgTable("ecom_orders", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  orderNumber: varchar("order_number").unique(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  vendorId: varchar("vendor_id").references(() => users.id),
-  items: jsonb("items").notNull(),
-  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
-  status: text("status").default("pending"),
-  deliveryAddress: text("delivery_address").notNull(),
-  paymentMethod: text("payment_method").default("cod"),
-  paymentId: text("payment_id"),
-  trackingNumber: text("tracking_number"),
-  createdAt: timestamp("created_at").defaultNow(),
+export interface EcomOrder {
+  id: string;
+  orderNumber: string | null;
+  userId: string;
+  vendorId: string | null;
+  items: any;
+  totalAmount: string;
+  status: string | null;
+  deliveryAddress: string;
+  paymentMethod: string | null;
+  paymentId: string | null;
+  trackingNumber: string | null;
+  createdAt: Date | null;
+}
+
+export const insertEcomOrderSchema = z.object({
+  userId: z.string(),
+  vendorId: z.string().optional().nullable(),
+  items: z.any(),
+  totalAmount: z.string(),
+  status: z.string().optional().nullable(),
+  deliveryAddress: z.string(),
+  paymentMethod: z.string().optional().nullable(),
+  paymentId: z.string().optional().nullable(),
+  trackingNumber: z.string().optional().nullable(),
+  orderNumber: z.string().optional().nullable(),
 });
-
-export const insertEcomOrderSchema = createInsertSchema(ecomOrders).omit({ id: true, createdAt: true });
 export type InsertEcomOrder = z.infer<typeof insertEcomOrderSchema>;
-export type EcomOrder = typeof ecomOrders.$inferSelect;
 
 export type EcomCartItemWithProduct = EcomCartItem & { product: EcomProduct };
 export type EcomWishlistItemWithProduct = EcomWishlistItem & { product: EcomProduct };
@@ -462,59 +522,154 @@ export interface EcomOrderItem {
   vendorId?: string;
 }
 
-// ==================== FOOD DELIVERY TABLES ====================
+// ==================== FOOD DELIVERY ====================
+export interface FoodRestaurant {
+  id: string;
+  name: string;
+  image: string | null;
+  cuisine: string[] | null;
+  rating: string | null;
+  deliveryTime: string | null;
+  minOrder: string | null;
+  isActive: boolean | null;
+  address: string | null;
+  ownerId: string | null;
+  description: string | null;
+  openingTime: string | null;
+  closingTime: string | null;
+}
 
-export const foodRestaurants = pgTable("food_restaurants", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
-  image: text("image"),
-  cuisine: text("cuisine").array().default([]),
-  rating: decimal("rating", { precision: 2, scale: 1 }).default("4.0"),
-  deliveryTime: text("delivery_time").default("30-40 min"),
-  minOrder: decimal("min_order", { precision: 10, scale: 2 }).default("99"),
-  isActive: boolean("is_active").default(true),
-  address: text("address"),
-  ownerId: varchar("owner_id").references(() => users.id),
-  description: text("description"),
-  openingTime: text("opening_time").default("09:00"),
-  closingTime: text("closing_time").default("22:00"),
+export const insertFoodRestaurantSchema = z.object({
+  name: z.string(),
+  image: z.string().optional().nullable(),
+  cuisine: z.array(z.string()).optional().nullable(),
+  rating: z.string().optional().nullable(),
+  deliveryTime: z.string().optional().nullable(),
+  minOrder: z.string().optional().nullable(),
+  isActive: z.boolean().optional().nullable(),
+  address: z.string().optional().nullable(),
+  ownerId: z.string().optional().nullable(),
+  description: z.string().optional().nullable(),
+  openingTime: z.string().optional().nullable(),
+  closingTime: z.string().optional().nullable(),
 });
-
-export const insertFoodRestaurantSchema = createInsertSchema(foodRestaurants).omit({ id: true });
 export type InsertFoodRestaurant = z.infer<typeof insertFoodRestaurantSchema>;
-export type FoodRestaurant = typeof foodRestaurants.$inferSelect;
 
-export const foodMenuItems = pgTable("food_menu_items", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  restaurantId: varchar("restaurant_id").references(() => foodRestaurants.id).notNull(),
-  name: text("name").notNull(),
-  description: text("description"),
-  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
-  image: text("image"),
-  category: text("category").default("Main Course"),
-  isVeg: boolean("is_veg").default(false),
-  isAvailable: boolean("is_available").default(true),
+export interface FoodMenuItem {
+  id: string;
+  restaurantId: string;
+  name: string;
+  description: string | null;
+  price: string;
+  image: string | null;
+  category: string | null;
+  isVeg: boolean | null;
+  isAvailable: boolean | null;
+}
+
+export const insertFoodMenuItemSchema = z.object({
+  restaurantId: z.string(),
+  name: z.string(),
+  description: z.string().optional().nullable(),
+  price: z.string(),
+  image: z.string().optional().nullable(),
+  category: z.string().optional().nullable(),
+  isVeg: z.boolean().optional().nullable(),
+  isAvailable: z.boolean().optional().nullable(),
 });
-
-export const insertFoodMenuItemSchema = createInsertSchema(foodMenuItems).omit({ id: true });
 export type InsertFoodMenuItem = z.infer<typeof insertFoodMenuItemSchema>;
-export type FoodMenuItem = typeof foodMenuItems.$inferSelect;
 
-export const foodOrders = pgTable("food_orders", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  restaurantId: varchar("restaurant_id").references(() => foodRestaurants.id).notNull(),
-  items: jsonb("items").notNull(),
-  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
-  deliveryFee: decimal("delivery_fee", { precision: 10, scale: 2 }).default("30"),
-  status: text("status").default("placed"),
-  deliveryAddress: text("delivery_address").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
+export interface FoodOrder {
+  id: string;
+  userId: string;
+  restaurantId: string;
+  items: any;
+  totalAmount: string;
+  deliveryFee: string | null;
+  status: string | null;
+  deliveryAddress: string;
+  createdAt: Date | null;
+}
+
+export const insertFoodOrderSchema = z.object({
+  userId: z.string(),
+  restaurantId: z.string(),
+  items: z.any(),
+  totalAmount: z.string(),
+  deliveryFee: z.string().optional().nullable(),
+  status: z.string().optional().nullable(),
+  deliveryAddress: z.string(),
 });
-
-export const insertFoodOrderSchema = createInsertSchema(foodOrders).omit({ id: true, createdAt: true });
 export type InsertFoodOrder = z.infer<typeof insertFoodOrderSchema>;
-export type FoodOrder = typeof foodOrders.$inferSelect;
+
+// ==================== FOOD MEAL SUBSCRIPTIONS ====================
+export type MealPlanMealType = "breakfast" | "lunch" | "dinner" | "full_day" | "weekly" | "monthly";
+export type MealPlanDietType = "veg" | "non_veg" | "egg";
+export type FoodSubscriptionStatus = "active" | "paused" | "cancelled" | "expired";
+export type FoodSubscriptionPaymentStatus = "pending" | "paid" | "failed" | "refunded";
+
+export interface FoodMealPlan {
+  id: string;
+  name: string;
+  title?: string | null;
+  description?: string | null;
+  image?: string | null;
+  mealType: MealPlanMealType;
+  cuisine: string;
+  calories?: number | null;
+  dietType: MealPlanDietType;
+  pricePerDay: number;
+  pricePerWeek: number;
+  pricePerMonth: number;
+  rating?: number | null;
+  includedMeals: string[];
+  duration: "daily" | "weekly" | "monthly";
+  menuCalendar?: Record<string, any> | null;
+  dietaryTags?: string[] | null;
+  isActive: boolean;
+  createdAt?: Date | null;
+  updatedAt?: Date | null;
+}
+
+export interface FoodSubscription {
+  id: string;
+  userId: string;
+  planId: string;
+  planSnapshot: Partial<FoodMealPlan>;
+  preferences: {
+    dietType: MealPlanDietType;
+    spiceLevel: string;
+    allergies: string[];
+    dislikedIngredients: string[];
+    calorieTarget?: number | null;
+    cuisinePreference?: string | null;
+    deliveryInstructions?: string | null;
+  };
+  schedule: {
+    startDate: string;
+    endDate: string;
+    daysOfWeek: string[];
+    mealSlots: string[];
+    deliveryWindow: string;
+    addressId?: string | null;
+    addressText: string;
+  };
+  status: FoodSubscriptionStatus;
+  paymentStatus: FoodSubscriptionPaymentStatus;
+  amount: number;
+  paymentCycle?: "weekly" | "monthly";
+  remainingDays: number;
+  nextDeliveryDate?: string | null;
+  customerName?: string | null;
+  phone?: string | null;
+  pause?: { startDate: string; endDate: string; reason?: string | null } | null;
+  cancellationReason?: string | null;
+  refundNote?: string | null;
+  razorpayOrderId?: string | null;
+  razorpayPaymentId?: string | null;
+  createdAt?: Date | null;
+  updatedAt?: Date | null;
+}
 
 export interface FoodOrderItem {
   menuItemId: string;
@@ -524,252 +679,543 @@ export interface FoodOrderItem {
   isVeg?: boolean;
 }
 
-// ==================== CITY MOVING TABLES ====================
+// ==================== CITY MOVING ====================
+export interface MovingVehicleType {
+  id: string;
+  name: string;
+  description: string | null;
+  image: string | null;
+  basePrice: string;
+  pricePerKm: string;
+  capacity: string | null;
+  icon: string | null;
+}
 
-export const movingVehicleTypes = pgTable("moving_vehicle_types", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
-  description: text("description"),
-  image: text("image"),
-  basePrice: decimal("base_price", { precision: 10, scale: 2 }).notNull(),
-  pricePerKm: decimal("price_per_km", { precision: 10, scale: 2 }).notNull(),
-  capacity: text("capacity"),
-  icon: text("icon"),
+export const insertMovingVehicleTypeSchema = z.object({
+  name: z.string(),
+  description: z.string().optional().nullable(),
+  image: z.string().optional().nullable(),
+  basePrice: z.string(),
+  pricePerKm: z.string(),
+  capacity: z.string().optional().nullable(),
+  icon: z.string().optional().nullable(),
 });
-
-export const insertMovingVehicleTypeSchema = createInsertSchema(movingVehicleTypes).omit({ id: true });
 export type InsertMovingVehicleType = z.infer<typeof insertMovingVehicleTypeSchema>;
-export type MovingVehicleType = typeof movingVehicleTypes.$inferSelect;
 
-export const movingDrivers = pgTable("moving_drivers", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  name: text("name").notNull(),
-  phone: text("phone"),
-  vehicleTypeId: varchar("vehicle_type_id").references(() => movingVehicleTypes.id),
-  vehicleNumber: text("vehicle_number"),
-  isAvailable: boolean("is_available").default(true),
-  rating: decimal("rating", { precision: 2, scale: 1 }).default("4.5"),
+export interface MovingDriver {
+  id: string;
+  userId: string;
+  name: string;
+  phone: string | null;
+  vehicleTypeId: string | null;
+  vehicleNumber: string | null;
+  isAvailable: boolean | null;
+  rating: string | null;
+}
+
+export const insertMovingDriverSchema = z.object({
+  userId: z.string(),
+  name: z.string(),
+  phone: z.string().optional().nullable(),
+  vehicleTypeId: z.string().optional().nullable(),
+  vehicleNumber: z.string().optional().nullable(),
+  isAvailable: z.boolean().optional().nullable(),
+  rating: z.string().optional().nullable(),
 });
-
-export const insertMovingDriverSchema = createInsertSchema(movingDrivers).omit({ id: true });
 export type InsertMovingDriver = z.infer<typeof insertMovingDriverSchema>;
-export type MovingDriver = typeof movingDrivers.$inferSelect;
 
-export const movingBookings = pgTable("moving_bookings", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  vehicleTypeId: varchar("vehicle_type_id").references(() => movingVehicleTypes.id).notNull(),
-  driverId: varchar("driver_id").references(() => movingDrivers.id),
-  pickupAddress: text("pickup_address").notNull(),
-  dropAddress: text("drop_address").notNull(),
-  pickupLat: decimal("pickup_lat", { precision: 10, scale: 7 }),
-  pickupLng: decimal("pickup_lng", { precision: 10, scale: 7 }),
-  dropLat: decimal("drop_lat", { precision: 10, scale: 7 }),
-  dropLng: decimal("drop_lng", { precision: 10, scale: 7 }),
-  scheduledDate: text("scheduled_date"),
-  scheduledTime: text("scheduled_time"),
-  estimatedPrice: decimal("estimated_price", { precision: 10, scale: 2 }),
-  actualPrice: decimal("actual_price", { precision: 10, scale: 2 }),
-  status: text("status").default("pending"),
-  helpersCount: integer("helpers_count").default(0),
-  description: text("description"),
-  trackingNumber: text("tracking_number"),
-  createdAt: timestamp("created_at").defaultNow(),
+export interface MovingBooking {
+  id: string;
+  userId: string;
+  vehicleTypeId: string;
+  driverId: string | null;
+  pickupAddress: string;
+  dropAddress: string;
+  pickupLat: string | null;
+  pickupLng: string | null;
+  dropLat: string | null;
+  dropLng: string | null;
+  scheduledDate: string | null;
+  scheduledTime: string | null;
+  estimatedPrice: string | null;
+  actualPrice: string | null;
+  status: string | null;
+  helpersCount: number | null;
+  description: string | null;
+  trackingNumber: string | null;
+  createdAt: Date | null;
+}
+
+export const insertMovingBookingSchema = z.object({
+  userId: z.string(),
+  vehicleTypeId: z.string(),
+  driverId: z.string().optional().nullable(),
+  pickupAddress: z.string(),
+  dropAddress: z.string(),
+  pickupLat: z.string().optional().nullable(),
+  pickupLng: z.string().optional().nullable(),
+  dropLat: z.string().optional().nullable(),
+  dropLng: z.string().optional().nullable(),
+  scheduledDate: z.string().optional().nullable(),
+  scheduledTime: z.string().optional().nullable(),
+  estimatedPrice: z.string().optional().nullable(),
+  actualPrice: z.string().optional().nullable(),
+  status: z.string().optional().nullable(),
+  helpersCount: z.number().optional().nullable(),
+  description: z.string().optional().nullable(),
+  trackingNumber: z.string().optional().nullable(),
 });
-
-export const insertMovingBookingSchema = createInsertSchema(movingBookings).omit({ id: true, createdAt: true });
 export type InsertMovingBooking = z.infer<typeof insertMovingBookingSchema>;
-export type MovingBooking = typeof movingBookings.$inferSelect;
 
-// ==================== HOTEL BOOKING TABLES ====================
+// ==================== HOTEL ====================
+export interface Hotel {
+  id: string;
+  name: string;
+  description: string | null;
+  images: string[] | null;
+  city: string;
+  address: string | null;
+  rating: string | null;
+  amenities: string[] | null;
+  starRating: number | null;
+  checkInTime: string | null;
+  checkOutTime: string | null;
+  isActive: boolean | null;
+  managerId: string | null;
+}
 
-export const hotels = pgTable("hotels", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
-  description: text("description"),
-  images: text("images").array().default([]),
-  city: text("city").notNull(),
-  address: text("address"),
-  rating: decimal("rating", { precision: 2, scale: 1 }).default("4.0"),
-  amenities: text("amenities").array().default([]),
-  starRating: integer("star_rating").default(3),
-  checkInTime: text("check_in_time").default("14:00"),
-  checkOutTime: text("check_out_time").default("12:00"),
-  isActive: boolean("is_active").default(true),
-  managerId: varchar("manager_id").references(() => users.id),
+export const insertHotelSchema = z.object({
+  name: z.string(),
+  description: z.string().optional().nullable(),
+  images: z.array(z.string()).optional().nullable(),
+  city: z.string(),
+  address: z.string().optional().nullable(),
+  rating: z.string().optional().nullable(),
+  amenities: z.array(z.string()).optional().nullable(),
+  starRating: z.number().optional().nullable(),
+  checkInTime: z.string().optional().nullable(),
+  checkOutTime: z.string().optional().nullable(),
+  isActive: z.boolean().optional().nullable(),
+  managerId: z.string().optional().nullable(),
 });
-
-export const insertHotelSchema = createInsertSchema(hotels).omit({ id: true });
 export type InsertHotel = z.infer<typeof insertHotelSchema>;
-export type Hotel = typeof hotels.$inferSelect;
 
-export const hotelRooms = pgTable("hotel_rooms", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  hotelId: varchar("hotel_id").references(() => hotels.id).notNull(),
-  type: text("type").notNull(),
-  name: text("name").notNull(),
-  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
-  maxGuests: integer("max_guests").default(2),
-  amenities: text("amenities").array().default([]),
-  images: text("images").array().default([]),
-  isAvailable: boolean("is_available").default(true),
-  totalRooms: integer("total_rooms").default(10),
-  availableRooms: integer("available_rooms").default(10),
+export interface HotelRoom {
+  id: string;
+  hotelId: string;
+  type: string;
+  name: string;
+  price: string;
+  dynamicPrice?: number | null;
+  priceBadge?: string | null;
+  priceChanged?: boolean | null;
+  pricingBreakdown?: HotelPriceCalculation | null;
+  maxGuests: number | null;
+  amenities: string[] | null;
+  images: string[] | null;
+  isAvailable: boolean | null;
+  totalRooms: number | null;
+  availableRooms: number | null;
+}
+
+export const insertHotelRoomSchema = z.object({
+  hotelId: z.string(),
+  type: z.string(),
+  name: z.string(),
+  price: z.string(),
+  maxGuests: z.number().optional().nullable(),
+  amenities: z.array(z.string()).optional().nullable(),
+  images: z.array(z.string()).optional().nullable(),
+  isAvailable: z.boolean().optional().nullable(),
+  totalRooms: z.number().optional().nullable(),
+  availableRooms: z.number().optional().nullable(),
 });
-
-export const insertHotelRoomSchema = createInsertSchema(hotelRooms).omit({ id: true });
 export type InsertHotelRoom = z.infer<typeof insertHotelRoomSchema>;
-export type HotelRoom = typeof hotelRooms.$inferSelect;
 
-export const hotelBookings = pgTable("hotel_bookings", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  hotelId: varchar("hotel_id").references(() => hotels.id).notNull(),
-  roomId: varchar("room_id").references(() => hotelRooms.id).notNull(),
-  checkIn: text("check_in").notNull(),
-  checkOut: text("check_out").notNull(),
-  guests: integer("guests").default(1),
-  totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
-  status: text("status").default("pending"),
-  guestName: text("guest_name"),
-  guestPhone: text("guest_phone"),
-  specialRequests: text("special_requests"),
-  createdAt: timestamp("created_at").defaultNow(),
+export interface HotelBooking {
+  id: string;
+  userId: string;
+  hotelId: string;
+  roomId: string;
+  checkIn: string;
+  checkOut: string;
+  guests: number | null;
+  basePrice?: string | null;
+  dynamicPrice?: string | null;
+  appliedRules?: HotelAppliedPricingRule[] | null;
+  nights?: number | null;
+  totalPrice: string;
+  status: string | null;
+  guestName: string | null;
+  guestPhone: string | null;
+  specialRequests: string | null;
+  createdAt: Date | null;
+}
+
+export const insertHotelBookingSchema = z.object({
+  userId: z.string(),
+  hotelId: z.string(),
+  roomId: z.string(),
+  checkIn: z.string(),
+  checkOut: z.string(),
+  guests: z.number().optional().nullable(),
+  basePrice: z.string().optional().nullable(),
+  dynamicPrice: z.string().optional().nullable(),
+  appliedRules: z.array(z.any()).optional().nullable(),
+  nights: z.number().optional().nullable(),
+  totalPrice: z.string(),
+  status: z.string().optional().nullable(),
+  guestName: z.string().optional().nullable(),
+  guestPhone: z.string().optional().nullable(),
+  specialRequests: z.string().optional().nullable(),
 });
-
-export const insertHotelBookingSchema = createInsertSchema(hotelBookings).omit({ id: true, createdAt: true });
 export type InsertHotelBooking = z.infer<typeof insertHotelBookingSchema>;
-export type HotelBooking = typeof hotelBookings.$inferSelect;
 
-// ==================== TAXI TABLES ====================
+export type HotelPricingRuleType = "weekend" | "holiday" | "demand" | "season" | "availability" | "manual_override";
 
-export const taxiVehicleTypes = pgTable("taxi_vehicle_types", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
-  description: text("description"),
-  image: text("image"),
-  baseFare: decimal("base_fare", { precision: 10, scale: 2 }).notNull(),
-  perKmRate: decimal("per_km_rate", { precision: 10, scale: 2 }).notNull(),
-  perMinRate: decimal("per_min_rate", { precision: 10, scale: 2 }).notNull(),
-  capacity: integer("capacity").default(4),
-  icon: text("icon"),
+export interface HotelPricingRule {
+  id: string;
+  name: string;
+  type: HotelPricingRuleType;
+  multiplier: number | null;
+  fixedPrice: number | null;
+  minPrice: number | null;
+  maxPrice: number | null;
+  startDate: string | null;
+  endDate: string | null;
+  hotelId: string | null;
+  roomId: string | null;
+  enabled: boolean;
+  priority: number | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}
+
+export const hotelPricingRuleSchema = z.object({
+  name: z.string().min(1),
+  type: z.enum(["weekend", "holiday", "demand", "season", "availability", "manual_override"]),
+  multiplier: z.coerce.number().min(0.01).max(10).optional().nullable(),
+  fixedPrice: z.coerce.number().min(0).optional().nullable(),
+  minPrice: z.coerce.number().min(0).optional().nullable(),
+  maxPrice: z.coerce.number().min(0).optional().nullable(),
+  startDate: z.string().optional().nullable(),
+  endDate: z.string().optional().nullable(),
+  hotelId: z.string().optional().nullable(),
+  roomId: z.string().optional().nullable(),
+  enabled: z.boolean().default(true),
+  priority: z.coerce.number().int().default(100),
+}).refine((value) => {
+  if (value.type !== "manual_override") return value.multiplier != null || value.minPrice != null || value.maxPrice != null;
+  return value.fixedPrice != null;
+}, { message: "Multiplier or fixed price is required" }).refine((value) => {
+  if (!value.startDate || !value.endDate) return true;
+  return new Date(value.endDate) >= new Date(value.startDate);
+}, { message: "End date must be on or after start date" });
+
+export type InsertHotelPricingRule = z.infer<typeof hotelPricingRuleSchema>;
+
+export interface HotelAppliedPricingRule {
+  id: string;
+  name: string;
+  type: HotelPricingRuleType;
+  multiplier?: number | null;
+  fixedPrice?: number | null;
+  amountBefore: number;
+  amountAfter: number;
+}
+
+export interface HotelPriceCalculation {
+  enabled: boolean;
+  hotelId: string;
+  roomId: string;
+  checkIn: string;
+  checkOut: string;
+  nights: number;
+  basePrice: number;
+  dynamicPrice: number;
+  totalPrice: number;
+  availableRooms: number;
+  totalRooms: number;
+  bookedRooms: number;
+  appliedRules: HotelAppliedPricingRule[];
+  badge: string | null;
+  fixedOverride: boolean;
+}
+
+// ==================== TAXI ====================
+export interface TaxiVehicleType {
+  id: string;
+  name: string;
+  description: string | null;
+  image: string | null;
+  baseFare: string;
+  perKmRate: string;
+  perMinRate: string;
+  capacity: number | null;
+  icon: string | null;
+}
+
+export const insertTaxiVehicleTypeSchema = z.object({
+  name: z.string(),
+  description: z.string().optional().nullable(),
+  image: z.string().optional().nullable(),
+  baseFare: z.string(),
+  perKmRate: z.string(),
+  perMinRate: z.string(),
+  capacity: z.number().optional().nullable(),
+  icon: z.string().optional().nullable(),
 });
-
-export const insertTaxiVehicleTypeSchema = createInsertSchema(taxiVehicleTypes).omit({ id: true });
 export type InsertTaxiVehicleType = z.infer<typeof insertTaxiVehicleTypeSchema>;
-export type TaxiVehicleType = typeof taxiVehicleTypes.$inferSelect;
 
-export const taxiDrivers = pgTable("taxi_drivers", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  name: text("name").notNull(),
-  phone: text("phone"),
-  vehicleTypeId: varchar("vehicle_type_id").references(() => taxiVehicleTypes.id),
-  vehicleNumber: text("vehicle_number"),
-  licenseNumber: text("license_number"),
-  isOnline: boolean("is_online").default(false),
-  rating: decimal("rating", { precision: 2, scale: 1 }).default("4.5"),
-  currentLat: decimal("current_lat", { precision: 10, scale: 7 }),
-  currentLng: decimal("current_lng", { precision: 10, scale: 7 }),
+export interface TaxiDriver {
+  id: string;
+  userId: string;
+  name: string;
+  phone: string | null;
+  vehicleTypeId: string | null;
+  vehicleType?: string | null;
+  vehicleNumber: string | null;
+  licenseNumber: string | null;
+  profilePhoto?: string | null;
+  licenseFrontPhoto?: string | null;
+  licenseBackPhoto?: string | null;
+  rcBookNumber?: string | null;
+  rcBookFrontPhoto?: string | null;
+  rcBookBackPhoto?: string | null;
+  isOnline: boolean | null;
+  rating: string | null;
+  currentLat: string | null;
+  currentLng: string | null;
+}
+
+export interface TaxiDocument {
+  id: string;
+  documentType: string;
+  objectPath: string;
+  verificationStatus?: "pending" | "verified" | "rejected";
+  uploadedAt?: Date;
+  verifiedAt?: Date | null;
+  reviewer?: string | null;
+}
+
+// extend TaxiDriver with optional documents and verification metadata
+export interface TaxiDriverWithDocs extends TaxiDriver {
+  documents?: TaxiDocument[];
+  verification?: any;
+}
+
+export interface AdminSettings {
+  baseFare: number;
+  perKmRate: number;
+  perMinRate: number;
+  surgeFactor: number;
+  commissionPercentage: number;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+// ==================== TAXI PRICING ====================
+export interface TaxiPricing {
+  id: string;
+  name?: string;
+  timeSlot?: string; // e.g., "Night"
+  startTime: string; // "00:00"
+  endTime: string; // "06:00"
+  baseFare: number;
+  perKmRate: number;
+  perMinuteRate: number;
+  surgeMultiplier?: number;
+  minimumFare?: number;
+  bookingFee?: number;
+  isActive?: boolean;
+  isHolidayOverride?: boolean;
+  createdAt?: Date | null;
+  updatedAt?: Date | null;
+}
+
+export const insertTaxiPricingSchema = z.object({
+  name: z.string().optional(),
+  timeSlot: z.string().optional(),
+  startTime: z.string(),
+  endTime: z.string(),
+  baseFare: z.number(),
+  perKmRate: z.number(),
+  perMinuteRate: z.number(),
+  surgeMultiplier: z.number().optional(),
+  minimumFare: z.number().optional(),
+  bookingFee: z.number().optional(),
+  isActive: z.boolean().optional(),
 });
+export type InsertTaxiPricing = z.infer<typeof insertTaxiPricingSchema>;
 
-export const insertTaxiDriverSchema = createInsertSchema(taxiDrivers).omit({ id: true });
+export const insertTaxiDriverSchema = z.object({
+  userId: z.string(),
+  name: z.string(),
+  phone: z.string().optional().nullable(),
+  vehicleTypeId: z.string().optional().nullable(),
+  vehicleType: z.string().optional().nullable(),
+  vehicleNumber: z.string().optional().nullable(),
+  licenseNumber: z.string().optional().nullable(),
+  profilePhoto: z.string().optional().nullable(),
+  licenseFrontPhoto: z.string().optional().nullable(),
+  licenseBackPhoto: z.string().optional().nullable(),
+  rcBookNumber: z.string().optional().nullable(),
+  rcBookFrontPhoto: z.string().optional().nullable(),
+  rcBookBackPhoto: z.string().optional().nullable(),
+  isOnline: z.boolean().optional().nullable(),
+  rating: z.string().optional().nullable(),
+  currentLat: z.string().optional().nullable(),
+  currentLng: z.string().optional().nullable(),
+});
 export type InsertTaxiDriver = z.infer<typeof insertTaxiDriverSchema>;
-export type TaxiDriver = typeof taxiDrivers.$inferSelect;
 
-export const taxiRides = pgTable("taxi_rides", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  driverId: varchar("driver_id").references(() => taxiDrivers.id),
-  vehicleTypeId: varchar("vehicle_type_id").references(() => taxiVehicleTypes.id).notNull(),
-  pickupAddress: text("pickup_address").notNull(),
-  dropAddress: text("drop_address").notNull(),
-  pickupLat: decimal("pickup_lat", { precision: 10, scale: 7 }),
-  pickupLng: decimal("pickup_lng", { precision: 10, scale: 7 }),
-  dropLat: decimal("drop_lat", { precision: 10, scale: 7 }),
-  dropLng: decimal("drop_lng", { precision: 10, scale: 7 }),
-  estimatedFare: decimal("estimated_fare", { precision: 10, scale: 2 }),
-  actualFare: decimal("actual_fare", { precision: 10, scale: 2 }),
-  distance: decimal("distance", { precision: 10, scale: 2 }),
-  duration: integer("duration"),
-  status: text("status").default("searching"),
-  driverName: text("driver_name"),
-  driverPhone: text("driver_phone"),
-  vehicleNumber: text("vehicle_number"),
-  rating: integer("rating"),
-  createdAt: timestamp("created_at").defaultNow(),
+export interface TaxiRide {
+  id: string;
+  userId: string;
+  driverId: string | null;
+  vehicleTypeId: string;
+  pickupAddress: string;
+  dropAddress: string;
+  pickupLat: string | null;
+  pickupLng: string | null;
+  dropLat: string | null;
+  dropLng: string | null;
+  estimatedFare: string | null;
+  actualFare: string | null;
+  distance: string | null;
+  duration: number | null;
+  status: string | null;
+  driverName: string | null;
+  driverPhone: string | null;
+  vehicleNumber: string | null;
+  assignedByAdmin?: boolean | null;
+  assignmentHistory?: { previousDriver?: string | null; reassignedDriver: string; timestamp: Date; assignedByAdmin?: boolean }[] | null;
+  rating: number | null;
+  createdAt: Date | null;
+}
+
+export const insertTaxiRideSchema = z.object({
+  userId: z.string(),
+  driverId: z.string().optional().nullable(),
+  vehicleTypeId: z.string(),
+  pickupAddress: z.string(),
+  dropAddress: z.string(),
+  pickupLat: z.string().optional().nullable(),
+  pickupLng: z.string().optional().nullable(),
+  dropLat: z.string().optional().nullable(),
+  dropLng: z.string().optional().nullable(),
+  estimatedFare: z.string().optional().nullable(),
+  actualFare: z.string().optional().nullable(),
+  distance: z.string().optional().nullable(),
+  duration: z.number().optional().nullable(),
+  status: z.string().optional().nullable(),
+  driverName: z.string().optional().nullable(),
+  driverPhone: z.string().optional().nullable(),
+  assignedByAdmin: z.boolean().optional().nullable(),
+  assignmentHistory: z.array(z.object({ previousDriver: z.string().optional().nullable(), reassignedDriver: z.string(), timestamp: z.any(), assignedByAdmin: z.boolean().optional() })).optional().nullable(),
+  vehicleNumber: z.string().optional().nullable(),
+  rating: z.number().optional().nullable(),
 });
-
-export const insertTaxiRideSchema = createInsertSchema(taxiRides).omit({ id: true, createdAt: true });
 export type InsertTaxiRide = z.infer<typeof insertTaxiRideSchema>;
-export type TaxiRide = typeof taxiRides.$inferSelect;
 
-// ==================== CITY SERVICES TABLES ====================
+// ==================== CITY SERVICES ====================
+export interface CityServiceCategory {
+  id: string;
+  name: string;
+  description: string | null;
+  image: string | null;
+  icon: string | null;
+}
 
-export const cityServiceCategories = pgTable("city_service_categories", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: text("name").notNull(),
-  description: text("description"),
-  image: text("image"),
-  icon: text("icon"),
+export const insertCityServiceCategorySchema = z.object({
+  name: z.string(),
+  description: z.string().optional().nullable(),
+  image: z.string().optional().nullable(),
+  icon: z.string().optional().nullable(),
 });
-
-export const insertCityServiceCategorySchema = createInsertSchema(cityServiceCategories).omit({ id: true });
 export type InsertCityServiceCategory = z.infer<typeof insertCityServiceCategorySchema>;
-export type CityServiceCategory = typeof cityServiceCategories.$inferSelect;
 
-export const cityServices = pgTable("city_services", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  categoryId: varchar("category_id").references(() => cityServiceCategories.id).notNull(),
-  name: text("name").notNull(),
-  description: text("description"),
-  image: text("image"),
-  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
-  duration: text("duration").default("1 hour"),
-  rating: decimal("rating", { precision: 2, scale: 1 }).default("4.0"),
-  reviewCount: integer("review_count").default(0),
-  isActive: boolean("is_active").default(true),
+export interface CityService {
+  id: string;
+  categoryId: string;
+  name: string;
+  description: string | null;
+  image: string | null;
+  price: string;
+  duration: string | null;
+  rating: string | null;
+  reviewCount: number | null;
+  isActive: boolean | null;
+}
+
+export const insertCityServiceSchema = z.object({
+  categoryId: z.string(),
+  name: z.string(),
+  description: z.string().optional().nullable(),
+  image: z.string().optional().nullable(),
+  price: z.string(),
+  duration: z.string().optional().nullable(),
+  rating: z.string().optional().nullable(),
+  reviewCount: z.number().optional().nullable(),
+  isActive: z.boolean().optional().nullable(),
 });
-
-export const insertCityServiceSchema = createInsertSchema(cityServices).omit({ id: true });
 export type InsertCityService = z.infer<typeof insertCityServiceSchema>;
-export type CityService = typeof cityServices.$inferSelect;
 
-export const cityServiceProviders = pgTable("city_service_providers", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  name: text("name").notNull(),
-  phone: text("phone"),
-  specializations: text("specializations").array().default([]),
-  experience: text("experience"),
-  rating: decimal("rating", { precision: 2, scale: 1 }).default("4.5"),
-  isAvailable: boolean("is_available").default(true),
-  isAgency: boolean("is_agency").default(false),
-  agencyName: text("agency_name"),
+export interface CityServiceProvider {
+  id: string;
+  userId: string;
+  name: string;
+  phone: string | null;
+  specializations: string[] | null;
+  experience: string | null;
+  rating: string | null;
+  isAvailable: boolean | null;
+  isAgency: boolean | null;
+  agencyName: string | null;
+}
+
+export const insertCityServiceProviderSchema = z.object({
+  userId: z.string(),
+  name: z.string(),
+  phone: z.string().optional().nullable(),
+  specializations: z.array(z.string()).optional().nullable(),
+  experience: z.string().optional().nullable(),
+  rating: z.string().optional().nullable(),
+  isAvailable: z.boolean().optional().nullable(),
+  isAgency: z.boolean().optional().nullable(),
+  agencyName: z.string().optional().nullable(),
 });
-
-export const insertCityServiceProviderSchema = createInsertSchema(cityServiceProviders).omit({ id: true });
 export type InsertCityServiceProvider = z.infer<typeof insertCityServiceProviderSchema>;
-export type CityServiceProvider = typeof cityServiceProviders.$inferSelect;
 
-export const cityServiceBookings = pgTable("city_service_bookings", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id).notNull(),
-  serviceId: varchar("service_id").references(() => cityServices.id).notNull(),
-  providerId: varchar("provider_id").references(() => cityServiceProviders.id),
-  scheduledDate: text("scheduled_date").notNull(),
-  scheduledTime: text("scheduled_time").notNull(),
-  address: text("address").notNull(),
-  status: text("status").default("pending"),
-  totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
-  rating: integer("rating"),
-  notes: text("notes"),
-  professionalName: text("professional_name"),
-  professionalPhone: text("professional_phone"),
-  createdAt: timestamp("created_at").defaultNow(),
+export interface CityServiceBooking {
+  id: string;
+  userId: string;
+  serviceId: string;
+  providerId: string | null;
+  scheduledDate: string;
+  scheduledTime: string;
+  address: string;
+  status: string | null;
+  totalPrice: string;
+  rating: number | null;
+  notes: string | null;
+  professionalName: string | null;
+  professionalPhone: string | null;
+  createdAt: Date | null;
+}
+
+export const insertCityServiceBookingSchema = z.object({
+  userId: z.string(),
+  serviceId: z.string(),
+  providerId: z.string().optional().nullable(),
+  scheduledDate: z.string(),
+  scheduledTime: z.string(),
+  address: z.string(),
+  status: z.string().optional().nullable(),
+  totalPrice: z.string(),
+  rating: z.number().optional().nullable(),
+  notes: z.string().optional().nullable(),
+  professionalName: z.string().optional().nullable(),
+  professionalPhone: z.string().optional().nullable(),
 });
-
-export const insertCityServiceBookingSchema = createInsertSchema(cityServiceBookings).omit({ id: true, createdAt: true });
 export type InsertCityServiceBooking = z.infer<typeof insertCityServiceBookingSchema>;
-export type CityServiceBooking = typeof cityServiceBookings.$inferSelect;

@@ -1,18 +1,37 @@
-import type { Express, Request, Response, NextFunction } from "express";
+import express, { type Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
+declare const require: any;
 import { z } from "zod";
 import crypto from "crypto";
 import path from "path";
 import fs from "fs";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+import multer from "multer";
 import Razorpay from "razorpay";
 import { storage } from "./storage";
+import { getDb, newId } from "./db";
 import { setupAuth, requireAuth, requireAdmin, requireVendor } from "./auth";
+import getRedis from "./redis";
+import { createAndDispatchNotification } from './notifications';
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { registerTaxiRoutes } from "./taxi-routes";
+import { registerTaxiPricingRoutes } from "./api/taxi-pricing-routes";
+import { registerSurgeRoutes } from "./api/surge-routes";
+import { registerEtaRoutes } from "./api/eta-routes";
 import { registerHotelRoutes } from "./hotel-routes";
 import { registerMovingRoutes } from "./moving-routes";
 import { registerFoodRoutes } from "./food-routes";
 import { registerCityServicesRoutes } from "./city-services-routes";
+import { registerMapRoutes } from "./map-routes";
+import { registerRideRoutes } from "./api/ride-routes";
+import { registerDriverRoutes } from "./api/driver-routes";
+import { registerAdminRoutes } from "./api/admin-routes";
+import { registerPaymentRoutes } from "./api/payment-routes";
+import { registerDriverAuthRoutes } from "./api/driver-auth-routes";
+import { getRecommendationsForUser, getTrendingItems, getTrendingFood, getPopularFoodInLocation, sseSubscribe } from './recommendations';
 
 // Initialize Razorpay
 const razorpay = new Razorpay({
@@ -28,7 +47,6 @@ import {
   insertSupportTicketSchema,
   insertCategoryAdSchema,
   insertVendorApplicationSchema,
-  users,
 } from "@shared/schema";
 
 // Validation schemas for API endpoints
@@ -65,17 +83,18 @@ const updateOrderStatusSchema = z.object({
   status: z.enum(["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"]),
 });
 
-const productFormSchema = insertProductSchema.omit({ id: true }).extend({
+const productFormSchema = insertProductSchema.extend({
   name: z.string().min(1, "Name is required"),
   originalPrice: z.string().min(1, "Original price is required"),
   price: z.string().min(1, "Price is required"),
+  isTrending: z.boolean().optional().nullable(),
 });
 
-const categoryFormSchema = insertCategorySchema.omit({ id: true }).extend({
+const categoryFormSchema = insertCategorySchema.extend({
   name: z.string().min(1, "Name is required"),
 });
 
-const bannerFormSchema = insertBannerSchema.omit({ id: true }).extend({
+const bannerFormSchema = insertBannerSchema.extend({
   title: z.string().min(1, "Title is required"),
 });
 
@@ -105,6 +124,17 @@ export async function registerRoutes(
   registerCityServicesRoutes(app);
   registerHotelRoutes(app);
   registerTaxiRoutes(app);
+  registerTaxiPricingRoutes(app as any);
+  registerSurgeRoutes(app as any);
+  registerEtaRoutes(app as any);
+  registerMapRoutes(app);
+  
+  // Register Uber/Taxi app routes
+  registerRideRoutes(app);
+  registerDriverRoutes(app);
+  registerAdminRoutes(app);
+  registerPaymentRoutes(app);
+  registerDriverAuthRoutes(app);
 
   // ==================== PUBLIC ROUTES ====================
 
@@ -116,6 +146,118 @@ export async function registerRoutes(
     } catch (err) {
       console.error("Error fetching categories:", err);
       res.status(500).json({ message: "Failed to fetch categories" });
+    }
+  });
+
+  // Recommendations endpoints
+  app.get('/api/recommendations/personalized', async (req, res) => {
+    try {
+      const city = typeof req.query.city === 'string' ? req.query.city : undefined;
+      if (req.isAuthenticated && req.isAuthenticated()) {
+        const data = await getRecommendationsForUser(req.user!.id, city ? { city } : undefined as any);
+        const popularNearby = city ? await getPopularFoodInLocation(city, 12) : await getTrendingItems(12);
+        res.json({ ...data, popularNearby });
+      } else {
+        // anonymous user: try location-based fallback then trending
+        if (city) {
+          const popular = await getPopularFoodInLocation(city, 12);
+          if (popular && popular.length) return res.json({ recommended: [], frequentlyBoughtTogether: [], similar: [], trending: await getTrendingItems(12), popularNearby: popular });
+        }
+        const trending = await getTrendingItems(12);
+        res.json({ recommended: [], frequentlyBoughtTogether: [], similar: [], trending, popularNearby: trending });
+      }
+    } catch (err) {
+      console.error('Error fetching recommendations:', err);
+      res.status(500).json({ message: 'Failed to fetch recommendations' });
+    }
+  });
+
+  app.get('/api/recommendations/food/trending', async (req, res) => {
+    try {
+      const limit = Math.min(50, parseInt((req.query.limit as string) || '12', 10) || 12);
+      const data = await getTrendingFood(limit);
+      res.json(data);
+    } catch (err) {
+      console.error('Failed to fetch food trending', err);
+      res.status(500).json({ message: 'Failed to fetch trending' });
+    }
+  });
+
+  app.get('/api/recommendations/food/popular', async (req, res) => {
+    try {
+      const city = typeof req.query.city === 'string' ? req.query.city : undefined;
+      const limit = Math.min(50, parseInt((req.query.limit as string) || '12', 10) || 12);
+      if (!city) return res.status(400).json({ message: 'city query param required' });
+      const data = await getPopularFoodInLocation(city, limit);
+      res.json(data);
+    } catch (err) {
+      console.error('Failed to fetch food popular by city', err);
+      res.status(500).json({ message: 'Failed to fetch popular items' });
+    }
+  });
+
+  app.get('/api/recommendations/stream', requireAuth, async (req, res) => {
+    try {
+      sseSubscribe(req.user!.id, res as any);
+    } catch (err) {
+      console.error('Failed to subscribe to recommendations stream', err);
+      res.status(500).end();
+    }
+  });
+
+  app.post('/api/recommendations/events', async (req, res) => {
+    try {
+      const { type, productId } = req.body || {};
+      const db = getDb();
+      await db.collection('recommendation_events').insertOne({ _id: newId() as any, userId: req.isAuthenticated && req.isAuthenticated() ? req.user!.id : null, type, productId, createdAt: new Date() });
+      res.status(201).json({ success: true });
+    } catch (err) {
+      console.error('Failed to record recommendation event', err);
+      res.status(500).json({ message: 'Failed to record event' });
+    }
+  });
+
+  // Combos API
+  const comboSchema = z.object({ name: z.string().min(1), items: z.array(z.object({ productId: z.string(), quantity: z.number().int().positive().default(1) })), totalPrice: z.string(), discount: z.number().min(0).max(100).optional() });
+
+  app.get('/api/combos', async (req, res) => {
+    try {
+      const combos = await getDb().collection('combos').find().toArray();
+      res.json(combos.map((c: any) => ({ id: (c._id as any).toString(), ...c })));
+    } catch (err) {
+      console.error('Failed to fetch combos', err);
+      res.status(500).json({ message: 'Failed to fetch combos' });
+    }
+  });
+
+  app.post('/api/combos', requireAdmin, async (req, res) => {
+    try {
+      const parsed = comboSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || 'Invalid combo' });
+      const doc = { _id: newId() as any, ...parsed.data, createdAt: new Date() };
+      await getDb().collection('combos').insertOne(doc);
+      res.status(201).json({ id: doc._id, ...doc });
+    } catch (err) {
+      console.error('Failed to create combo', err);
+      res.status(500).json({ message: 'Failed to create combo' });
+    }
+  });
+
+  app.post('/api/combos/:id/add-to-cart', requireAuth, async (req, res) => {
+    try {
+      const id = req.params.id;
+      const combo = await getDb().collection('combos').findOne({ _id: id as any });
+      if (!combo) return res.status(404).json({ message: 'Combo not found' });
+      const items = combo.items || [];
+      const added: any[] = [];
+      for (const it of items) {
+        const item = await storage.addToCart({ userId: req.user!.id, productId: it.productId, quantity: it.quantity || 1 });
+        added.push(item);
+      }
+      res.json({ success: true, items: added });
+    } catch (err) {
+      console.error('Failed to add combo to cart', err);
+      res.status(500).json({ message: 'Failed to add combo to cart' });
     }
   });
 
@@ -133,6 +275,106 @@ export async function registerRoutes(
     } catch (err) {
       console.error("Error fetching products:", err);
       res.status(500).json({ message: "Failed to fetch products" });
+    }
+  });
+
+  // Public: products marked as trending
+  app.get('/api/products/trending', async (req, res) => {
+    try {
+      const page = parseInt((req.query.page as string) || '1', 10) || 1;
+      const limit = Math.min(100, parseInt((req.query.limit as string) || '24', 10) || 24);
+      const service = typeof req.query.service === 'string' ? req.query.service : undefined;
+      const products = await storage.getTrendingProducts(page, limit, service);
+      res.json(products);
+    } catch (err) {
+      console.error('Error fetching products trending:', err);
+      res.status(500).json({ message: 'Failed to fetch trending products' });
+    }
+  });
+
+  // Simple search endpoint for food items
+  app.get('/api/search', async (req, res) => {
+    try {
+      const q = (req.query.q as string || '').trim();
+      const limit = Math.min(20, Math.max(1, parseInt((req.query.limit as string) || '8', 10)));
+      if (!q) return res.json([]);
+      // escape regex
+      const esc = q.replace(/[.*+?^${}()|[\\]\\]/g, '\\\\$&');
+      const regex = new RegExp(esc, 'i');
+      const db = getDb();
+
+      // search restaurants and menu items, prefer restaurants first
+      const restColl = db.collection('food_restaurants');
+      const itemColl = db.collection('food_menu_items');
+
+      const [rests, items] = await Promise.all([
+        restColl.find({ name: { $regex: regex } }).limit(limit).toArray(),
+        itemColl.find({ $or: [{ name: { $regex: regex } }, { category: { $regex: regex } }] }).limit(limit).toArray(),
+      ]);
+
+      const restResults = (rests || []).map((r: any) => ({ id: String(r._id), name: r.name, image: r.image || null, type: 'restaurant' }));
+      const itemResults = (items || []).map((d: any) => ({ id: String(d._id), name: d.name, price: d.price, image: d.image || null, category: d.category, restaurantId: d.restaurantId ? String(d.restaurantId) : null, type: 'item' }));
+
+      // merge, restaurants first, cap to limit
+      const results = [...restResults, ...itemResults].slice(0, limit);
+      res.json(results);
+    } catch (err) {
+      console.error('Search endpoint error', err);
+      res.status(500).json({ message: 'Search failed' });
+    }
+  });
+
+  // Reviews API
+  app.post('/api/reviews', requireAuth, async (req, res) => {
+    try {
+      const { productId, rating, comment } = req.body || {};
+      if (!productId || typeof productId !== 'string') return res.status(400).json({ message: 'productId required' });
+      const r = Number(rating);
+      if (!r || r < 1 || r > 5) return res.status(400).json({ message: 'rating must be 1-5' });
+      const db = getDb();
+      const existing = await db.collection('reviews').findOne({ productId, userId: req.user!.id });
+      if (existing) {
+        await db.collection('reviews').updateOne({ _id: existing._id }, { $set: { rating: r, comment: comment || '', updatedAt: new Date() } });
+      } else {
+        await db.collection('reviews').insertOne({ _id: newId() as any, productId, userId: req.user!.id, rating: r, comment: comment || '', createdAt: new Date() });
+      }
+      // return updated summary
+      const agg = await db.collection('reviews').aggregate([
+        { $match: { productId } },
+        { $group: { _id: null, avg: { $avg: '$rating' }, count: { $sum: 1 } } }
+      ]).toArray();
+      const summary = agg && agg[0] ? { averageRating: Number((agg[0].avg || 0).toFixed(2)), totalReviews: agg[0].count || 0 } : { averageRating: 0, totalReviews: 0 };
+      res.json({ success: true, ...summary });
+    } catch (err) {
+      console.error('Failed to submit review', err);
+      res.status(500).json({ message: 'Failed to submit review' });
+    }
+  });
+
+  app.get('/api/reviews/:productId', async (req, res) => {
+    try {
+      const productId = req.params.productId;
+      const page = Math.max(1, parseInt((req.query.page as string) || '1', 10));
+      const limit = Math.min(50, parseInt((req.query.limit as string) || '5', 10));
+      const sort = (req.query.sort as string) || 'latest';
+      const db = getDb();
+      const agg = await db.collection('reviews').aggregate([
+        { $match: { productId } },
+        { $group: { _id: null, avg: { $avg: '$rating' }, count: { $sum: 1 } } }
+      ]).toArray();
+      const summary = agg && agg[0] ? { averageRating: Number((agg[0].avg || 0).toFixed(2)), totalReviews: agg[0].count || 0 } : { averageRating: 0, totalReviews: 0 };
+      const sortObj: any = sort === 'highest' ? { rating: -1, createdAt: -1 } : { createdAt: -1 };
+      const cursor = db.collection('reviews').find({ productId }).sort(sortObj).skip((page - 1) * limit).limit(limit);
+      const rows = await cursor.toArray();
+      // attach user display name where possible
+      const users = await db.collection('users').find({ _id: { $in: rows.map((r:any) => r.userId) } }).toArray();
+      const userMap: Record<string, any> = {};
+      for (const u of users) userMap[String(u._id)] = u;
+      const out = rows.map((r: any) => ({ id: String(r._id), userId: r.userId, userName: userMap[String(r.userId)] ? (userMap[String(r.userId)].name || userMap[String(r.userId)].username) : null, rating: r.rating, comment: r.comment, createdAt: r.createdAt }));
+      res.json({ summary, reviews: out, page, limit });
+    } catch (err) {
+      console.error('Failed to fetch reviews', err);
+      res.status(500).json({ message: 'Failed to fetch reviews' });
     }
   });
 
@@ -185,6 +427,27 @@ export async function registerRoutes(
 
   // ==================== PROTECTED ROUTES ====================
 
+  // Multer setup for avatar uploads
+  const avatarsDir = path.resolve(__dirname, "..", "uploads", "avatars");
+  if (!fs.existsSync(avatarsDir)) fs.mkdirSync(avatarsDir, { recursive: true });
+
+  const storageDisk = multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, avatarsDir),
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname) || "";
+      const name = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
+      cb(null, name);
+    },
+  });
+
+  const fileFilter = (_req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+    const allowed = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
+    if (allowed.includes(file.mimetype)) cb(null, true);
+    else cb(new Error("Only image files are allowed"));
+  };
+
+  const upload = multer({ storage: storageDisk, fileFilter, limits: { fileSize: 5 * 1024 * 1024 } });
+
   // Cart
   app.get("/api/cart", requireAuth, async (req, res) => {
     try {
@@ -214,6 +477,24 @@ export async function registerRoutes(
     } catch (err) {
       console.error("Error adding to cart:", err);
       res.status(500).json({ message: "Failed to add to cart" });
+    }
+  });
+
+  // Direct avatar upload (multipart/form-data)
+  app.post("/api/profile/upload-avatar-file", requireAuth, upload.single("avatar"), async (req, res) => {
+    try {
+      const file = req.file as Express.Multer.File | undefined;
+      if (!file) return res.status(400).json({ message: "No file uploaded" });
+
+      // Build public path for serving via /uploads
+      const avatarPath = `/uploads/avatars/${file.filename}`;
+
+      await storage.updateUserProfile(req.user!.id, { avatar: avatarPath } as any);
+
+      res.json({ avatar: avatarPath });
+    } catch (err) {
+      console.error("Error uploading avatar file:", err);
+      res.status(500).json({ message: "Failed to upload avatar" });
     }
   });
 
@@ -400,6 +681,465 @@ export async function registerRoutes(
     }
   });
 
+  // ==================== PROFILE ROUTES ====================
+
+  app.get("/api/profile", requireAuth, async (req, res) => {
+    try {
+      const profile = await storage.getUserProfile(req.user!.id);
+      res.json(profile || {});
+    } catch (err) {
+      console.error("Error fetching profile:", err);
+      res.status(500).json({ message: "Failed to fetch profile" });
+    }
+  });
+
+  const updateProfileSchema = z.object({
+    name: z.string().optional(),
+    phone: z.string().optional(),
+    email: z.string().email().optional(),
+    avatar: z.string().optional().nullable(),
+  });
+
+  app.put("/api/profile/update", requireAuth, async (req, res) => {
+    try {
+      const parsed = updateProfileSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid data" });
+      const user = await storage.updateUserProfile(req.user!.id, parsed.data as any);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      res.json(user);
+    } catch (err) {
+      console.error("Error updating profile:", err);
+      res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
+  app.post("/api/profile/upload-avatar", requireAuth, async (req, res) => {
+    try {
+      const schema = z.object({ objectPath: z.string().min(1) });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid data" });
+
+      // objectPath should be a path like /objects/<id> or an absolute URL returned by object storage
+      const avatarPath = parsed.data.objectPath;
+      const user = await storage.updateUserProfile(req.user!.id, { avatar: avatarPath } as any);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      res.json({ avatar: avatarPath });
+    } catch (err) {
+      console.error("Error uploading avatar:", err);
+      res.status(500).json({ message: "Failed to upload avatar" });
+    }
+  });
+
+  // Profile-scoped orders and tickets (convenience endpoints)
+  app.get("/api/profile/orders", requireAuth, async (req, res) => {
+    try {
+      const orders = await storage.getOrders(req.user!.id);
+      res.json(orders);
+    } catch (err) {
+      console.error("Error fetching profile orders:", err);
+      res.status(500).json({ message: "Failed to fetch orders" });
+    }
+  });
+
+  app.get("/api/profile/tickets", requireAuth, async (req, res) => {
+    try {
+      const tickets = await storage.getTickets(req.user!.id);
+      res.json(tickets);
+    } catch (err) {
+      console.error("Error fetching profile tickets:", err);
+      res.status(500).json({ message: "Failed to fetch tickets" });
+    }
+  });
+
+  // Notifications
+  app.get("/api/notifications", requireAuth, async (req, res) => {
+    try {
+      const notifs = await storage.getNotifications(req.user!.id);
+      res.json(notifs);
+    } catch (err) {
+      console.error("Error fetching notifications:", err);
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
+  });
+
+  app.patch("/api/notifications/read", requireAuth, async (req, res) => {
+    try {
+      await storage.markAllNotificationsRead(req.user!.id);
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Error marking notifications read:", err);
+      res.status(500).json({ message: "Failed to mark notifications read" });
+    }
+  });
+
+  app.patch("/api/notifications/:id/read", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.markNotificationRead(id, req.user!.id);
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Error marking notification read:", err);
+      res.status(500).json({ message: "Failed to mark notification read" });
+    }
+  });
+
+  // Recommendations - personalized and streaming
+  app.get('/api/recommendations', requireAuth, async (req, res) => {
+    try {
+      const { getRecommendationsForUser } = await import('./recommendations');
+      const data = await getRecommendationsForUser(req.user!.id);
+      res.json(data);
+    } catch (err) {
+      console.error('Error fetching recommendations:', err);
+      res.status(500).json({ message: 'Failed to fetch recommendations' });
+    }
+  });
+
+  app.get('/api/recommendations/stream', requireAuth, async (req, res) => {
+    try {
+      const { sseSubscribe, getRecommendationsForUser } = await import('./recommendations');
+      // send initial payload
+      const initial = await getRecommendationsForUser(req.user!.id);
+      res.writeHead(200, {
+        Connection: 'keep-alive',
+        'Cache-Control': 'no-cache',
+        'Content-Type': 'text/event-stream',
+      });
+      res.write(`event: recommendations\ndata: ${JSON.stringify(initial)}\n\n`);
+      // subscribe for updates
+      sseSubscribe(req.user!.id, res as any);
+    } catch (err) {
+      console.error('Error opening recommendations stream:', err);
+      res.status(500).json({ message: 'Failed to open stream' });
+    }
+  });
+
+  // REST recommendation endpoints (modular)
+  app.get('/api/recommendations/personalized', requireAuth, async (req, res) => {
+    try {
+      const { getRecommendationsForUser } = await import('./recommendations');
+      const data = await getRecommendationsForUser(req.user!.id);
+      res.json(data);
+    } catch (err) {
+      console.error('Error fetching personalized recommendations:', err);
+      res.status(500).json({ message: 'Failed to fetch personalized recommendations' });
+    }
+  });
+
+  app.get('/api/recommendations/similar/:productId', async (req, res) => {
+    try {
+      const { getSimilarProducts } = await import('./recommendations');
+      const list = await getSimilarProducts(req.params.productId, 12);
+      res.json(list);
+    } catch (err) {
+      console.error('Error fetching similar products:', err);
+      res.status(500).json({ message: 'Failed to fetch similar products' });
+    }
+  });
+
+  app.get('/api/recommendations/frequently-bought/:productId', async (req, res) => {
+    try {
+      const { getFrequentlyBoughtTogether } = await import('./recommendations');
+      const list = await getFrequentlyBoughtTogether(req.params.productId, 12);
+      res.json(list);
+    } catch (err) {
+      console.error('Error fetching frequently bought together:', err);
+      res.status(500).json({ message: 'Failed to fetch frequently bought together' });
+    }
+  });
+
+  app.get('/api/recommendations/trending', async (req, res) => {
+    try {
+      const { getTrendingItems } = await import('./recommendations');
+      const service = typeof req.query.service === 'string' ? req.query.service : undefined;
+      const list = await getTrendingItems(24, service);
+      res.json(list);
+    } catch (err) {
+      console.error('Error fetching trending items:', err);
+      res.status(500).json({ message: 'Failed to fetch trending items' });
+    }
+  });
+
+  // Public trending endpoint (paginated, cached)
+  app.get('/api/trending', async (req, res) => {
+    try {
+      const page = parseInt((req.query.page as string) || '1', 10) || 1;
+      const limit = Math.min(100, parseInt((req.query.limit as string) || '24', 10) || 24);
+      const service = typeof req.query.service === 'string' ? req.query.service : undefined;
+      const redis = await import('./redis').then(m => m.getRedis ? m.getRedis() : null).catch(() => null);
+      const cacheKey = `trending:service:${service || 'global'}:page:${page}:limit:${limit}`;
+      if (redis) {
+        try {
+          const cached = await redis.get(cacheKey);
+          if (cached) return res.json(JSON.parse(cached));
+        } catch (e) {}
+      }
+
+      const products = await storage.getTrendingProducts(page, limit, service);
+      if (redis) {
+        try { await redis.setex(cacheKey, 60, JSON.stringify(products)); } catch (e) {}
+      }
+      res.json(products);
+    } catch (err) {
+      console.error('Error fetching trending products:', err);
+      res.status(500).json({ message: 'Failed to fetch trending products' });
+    }
+  });
+
+  // Admin: list/manage trending flags
+  app.get('/api/admin/trending', requireAdmin, async (req, res) => {
+    try {
+      const page = parseInt((req.query.page as string) || '1', 10) || 1;
+      const limit = Math.min(200, parseInt((req.query.limit as string) || '50', 10) || 50);
+      const service = typeof req.query.service === 'string' ? req.query.service : undefined;
+      const products = await storage.getTrendingProducts(page, limit, service);
+      res.json(products);
+    } catch (err) {
+      console.error('Error listing trending products (admin):', err);
+      res.status(500).json({ message: 'Failed to list trending products' });
+    }
+  });
+
+  app.post('/api/admin/trending/:productId', requireAdmin, async (req, res) => {
+    try {
+      const { isTrending, score } = req.body || {};
+      if (typeof isTrending !== 'boolean') return res.status(400).json({ message: 'isTrending (boolean) is required' });
+      await storage.setProductTrending(req.params.productId, isTrending, score !== undefined ? Number(score) : undefined);
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Error updating product trending flag:', err);
+      res.status(500).json({ message: 'Failed to update trending flag' });
+    }
+  });
+
+  // Event capture endpoint for user interactions (views, clicks, cart-add)
+  app.post('/api/recommendations/events', async (req, res) => {
+    try {
+      const { type, productId, meta, userId: bodyUserId } = req.body || {};
+      if (!type) return res.status(400).json({ message: 'type is required' });
+      // prefer authenticated user if present
+      const uid = (req as any).user ? (req as any).user.id : (bodyUserId || null);
+      await storage.addUserEvent(uid, type, productId || null, meta || {});
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Error recording recommendation event:', err);
+      res.status(500).json({ message: 'Failed to record event' });
+    }
+  });
+
+  // Restock subscriptions
+  app.post("/api/restock/subscribe", requireAuth, async (req, res) => {
+    try {
+      const { productId } = req.body;
+      if (!productId) return res.status(400).json({ message: "productId is required" });
+      await storage.addRestockSubscription(req.user!.id, productId);
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Error subscribing to restock:", err);
+      res.status(500).json({ message: "Failed to subscribe to restock" });
+    }
+  });
+
+  app.get("/api/restock/subscriptions", requireAuth, async (req, res) => {
+    try {
+      const subs = await storage.getRestockSubscriptionsByUser(req.user!.id);
+      res.json(subs);
+    } catch (err) {
+      console.error("Error fetching restock subscriptions:", err);
+      res.status(500).json({ message: "Failed to fetch subscriptions" });
+    }
+  });
+
+  // Register/unregister push tokens
+  app.post("/api/notifications/register-token", requireAuth, async (req, res) => {
+    try {
+      const { token } = req.body as any;
+      if (!token) return res.status(400).json({ message: "token is required" });
+      await getDb().collection("users").updateOne({ _id: req.user!.id as any }, { $addToSet: { pushTokens: token } });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Error registering push token:", err);
+      res.status(500).json({ message: "Failed to register token" });
+    }
+  });
+
+  // Return VAPID public key for web push subscription (if configured)
+  app.get('/api/notifications/vapid', async (req, res) => {
+    try {
+      const publicKey = process.env.VAPID_PUBLIC_KEY || '';
+      res.json({ publicKey });
+    } catch (err) {
+      console.error('Error fetching VAPID key:', err);
+      res.status(500).json({ message: 'Failed to fetch VAPID key' });
+    }
+  });
+
+  app.post("/api/notifications/unregister-token", requireAuth, async (req, res) => {
+    try {
+      const { token } = req.body as any;
+      if (!token) return res.status(400).json({ message: "token is required" });
+      await getDb().collection("users").updateOne({ _id: req.user!.id as any }, { $pull: { pushTokens: token } });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Error unregistering push token:", err);
+      res.status(500).json({ message: "Failed to unregister token" });
+    }
+  });
+
+  // Update notification preferences
+  app.patch("/api/notifications/preferences", requireAuth, async (req, res) => {
+    try {
+      const prefs = req.body as any;
+      const allowed: any = {};
+      if (prefs.inApp !== undefined) allowed["notificationPreferences.inApp"] = !!prefs.inApp;
+      if (prefs.push !== undefined) allowed["notificationPreferences.push"] = !!prefs.push;
+      if (prefs.sms !== undefined) allowed["notificationPreferences.sms"] = !!prefs.sms;
+      await getDb().collection("users").updateOne({ _id: req.user!.id as any }, { $set: allowed });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Error updating notification preferences:", err);
+      res.status(500).json({ message: "Failed to update preferences" });
+    }
+  });
+
+  app.delete("/api/restock/subscriptions/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.removeRestockSubscription(id);
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Error removing restock subscription:", err);
+      res.status(500).json({ message: "Failed to remove subscription" });
+    }
+  });
+
+  // Admin: list subscribers for a product
+  app.get("/api/admin/restock/subscribers/:productId", requireAdmin, async (req, res) => {
+    try {
+      const { productId } = req.params;
+      const subs = await storage.getRestockSubscriptionsByProduct(productId);
+      res.json(subs);
+    } catch (err) {
+      console.error("Error fetching subscribers for product:", err);
+      res.status(500).json({ message: "Failed to fetch subscribers" });
+    }
+  });
+
+  // Admin: bulk notify subscribers for multiple products
+  app.post("/api/admin/restock/bulk-notify", requireAdmin, async (req, res) => {
+    try {
+      const { productIds, title, description, removeSubscriptions = true } = req.body as any;
+      if (!Array.isArray(productIds) || productIds.length === 0) {
+        return res.status(400).json({ message: "productIds (array) is required" });
+      }
+
+      const db = getDb();
+      // fetch all subscriptions for these products
+      const subs = await db.collection("restock_subscriptions").find({ productId: { $in: productIds } }).toArray();
+
+      const notifications: any[] = [];
+      for (const s of subs) {
+        const prod = await storage.getProduct(s.productId);
+        const prodName = prod?.name || "Item";
+        notifications.push({
+          _id: newId() as any,
+          userId: s.userId,
+          title: title || `${prodName} is back in stock!`,
+          description: description || `${prodName} is now available — order now!`,
+          createdAt: new Date(),
+          read: false,
+        });
+      }
+
+      if (notifications.length > 0) {
+        await db.collection("notifications").insertMany(notifications);
+      }
+
+      if (removeSubscriptions) {
+        await db.collection("restock_subscriptions").deleteMany({ productId: { $in: productIds } });
+      }
+
+      res.json({ success: true, notified: notifications.length });
+    } catch (err) {
+      console.error("Error bulk notifying restock subscribers:", err);
+      res.status(500).json({ message: "Failed to notify subscribers" });
+    }
+  });
+
+  // Admin: list notifications with optional filters
+  app.get("/api/admin/notifications", requireAdmin, async (req, res) => {
+    try {
+      const { status, type, limit } = req.query as any;
+      const filter: any = {};
+      if (status) filter.status = status;
+      if (type) filter.type = type;
+      const cursor = getDb().collection("notifications").find(filter).sort({ createdAt: -1 });
+      if (limit) cursor.limit(parseInt(limit, 10));
+      const list = await cursor.toArray();
+      res.json(list.map((d: any) => ({ id: d._id.toString(), ...d })));
+    } catch (err) {
+      console.error("Error listing notifications:", err);
+      res.status(500).json({ message: "Failed to list notifications" });
+    }
+  });
+
+  // Admin: retry a notification by id
+  app.post("/api/admin/notifications/:id/retry", requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const doc = await getDb().collection("notifications").findOne({ _id: id as any });
+      if (!doc) return res.status(404).json({ message: "Notification not found" });
+      // re-dispatch
+      const result = await createAndDispatchNotification(doc.userId, doc.type || 'manual', doc.relatedId || null, doc.title, doc.description, doc.meta || {});
+      // update original doc retryCount/lastRetriedAt
+      await getDb().collection("notifications").updateOne({ _id: id as any }, { $set: { lastRetriedAt: new Date(), lastRetryResult: result.status }, $inc: { retryCount: 1 } });
+      res.json({ success: true, result });
+    } catch (err) {
+      console.error("Error retrying notification:", err);
+      res.status(500).json({ message: "Failed to retry notification" });
+    }
+  });
+
+  // Admin: send arbitrary notification to user (order events, etc.)
+  app.post("/api/admin/notifications/send", requireAdmin, async (req, res) => {
+    try {
+      const { userId, type, relatedId, title, description, meta } = req.body as any;
+      if (!userId || !title) return res.status(400).json({ message: "userId and title are required" });
+      const result = await createAndDispatchNotification(userId, type || 'manual', relatedId || null, title, description || null, meta || {});
+      res.json({ success: true, result });
+    } catch (err) {
+      console.error("Error sending admin notification:", err);
+      res.status(500).json({ message: "Failed to send notification" });
+    }
+  });
+
+  // Admin: send test notification to any user
+  app.post('/api/admin/notifications/test', requireAdmin, async (req, res) => {
+    try {
+      const { userId, title = 'Admin test', description = 'This is an admin-initiated test notification', meta = {} } = req.body || {};
+      if (!userId) return res.status(400).json({ message: 'userId is required' });
+      const user = await storage.getUser(userId as any);
+      if (!user) return res.status(404).json({ message: 'User not found' });
+      const result = await createAndDispatchNotification(userId, 'admin.test', null, title, description, meta);
+      res.json({ success: true, result });
+    } catch (err) {
+      console.error('Error sending admin test notification:', err);
+      res.status(500).json({ message: 'Failed to send admin test notification' });
+    }
+  });
+
+  // Authenticated: send a test notification to the current user (useful for manual testing)
+  app.post('/api/notifications/test', requireAuth, async (req, res) => {
+    try {
+      const { title = 'Test notification', description = 'This is a test notification from City Serve Hub', meta = {} } = req.body || {};
+      const result = await createAndDispatchNotification(req.user!.id as any, 'test', null, title, description, meta);
+      res.json({ success: true, result });
+    } catch (err) {
+      console.error('Error sending test notification:', err);
+      res.status(500).json({ message: 'Failed to send test notification' });
+    }
+  });
+
   // Addresses - using shared schema with required fields extended
   const addressFormSchema = z.object({
     label: z.string().min(1, "Label is required"),
@@ -508,46 +1248,49 @@ export async function registerRoutes(
   // Admin Dashboard Stats
   app.get("/api/admin/stats", requireAdmin, async (req, res) => {
     try {
-      const { db } = await import("./db");
-      const { users, products, orders, categories, supportTickets } = await import("@shared/schema");
-      const { count, sum, eq, sql, desc } = await import("drizzle-orm");
+      const { getDb } = await import("./db");
+      const db = getDb();
 
-      const [userCount] = await db.select({ count: count() }).from(users).where(eq(users.isAdmin, false));
-      const [productCount] = await db.select({ count: count() }).from(products);
-      const [categoryCount] = await db.select({ count: count() }).from(categories);
-      const [orderCount] = await db.select({ count: count() }).from(orders);
-      const [revenueResult] = await db.select({ total: sum(orders.totalAmount) }).from(orders);
-      const [openTicketCount] = await db.select({ count: count() }).from(supportTickets).where(eq(supportTickets.status, "open"));
+      const totalUsers = await db.collection("users").countDocuments({ isAdmin: { $ne: true } });
+      const totalProducts = await db.collection("products").countDocuments();
+      const totalCategories = await db.collection("categories").countDocuments();
+      const totalOrders = await db.collection("orders").countDocuments();
+      const openTickets = await db.collection("support_tickets").countDocuments({ status: "open" });
 
-      const statusBreakdown = await db
-        .select({ status: orders.status, count: count() })
-        .from(orders)
-        .groupBy(orders.status);
+      const revAgg = await db.collection("orders").aggregate([
+        { $group: { _id: null, total: { $sum: { $toDouble: "$totalAmount" } } } }
+      ]).toArray();
+      const totalRevenue = revAgg[0]?.total?.toFixed(2) || "0";
 
-      const recentOrders = await db
-        .select({
-          id: orders.id,
-          orderNumber: orders.orderNumber,
-          totalAmount: orders.totalAmount,
-          status: orders.status,
-          paymentMethod: orders.paymentMethod,
-          createdAt: orders.createdAt,
-          username: users.username,
-          name: users.name,
-        })
-        .from(orders)
-        .leftJoin(users, eq(orders.userId, users.id))
-        .orderBy(desc(orders.createdAt))
-        .limit(10);
+      const statusAgg = await db.collection("orders").aggregate([
+        { $group: { _id: "$status", count: { $sum: 1 } } }
+      ]).toArray();
+      const orderStatusBreakdown = statusAgg.map(s => ({ status: s._id, count: s.count }));
+
+      const recentOrdersDocs = await db.collection("orders").find().sort({ createdAt: -1 }).limit(10).toArray();
+      const recentOrders = [];
+      for (const o of recentOrdersDocs) {
+        const user = await db.collection("users").findOne({ _id: o.userId as any });
+        recentOrders.push({
+          id: (o._id as any).toString(),
+          orderNumber: o.orderNumber,
+          totalAmount: o.totalAmount,
+          status: o.status,
+          paymentMethod: o.paymentMethod,
+          createdAt: o.createdAt,
+          username: user?.username,
+          name: user?.name,
+        });
+      }
 
       res.json({
-        totalUsers: userCount.count,
-        totalProducts: productCount.count,
-        totalCategories: categoryCount.count,
-        totalOrders: orderCount.count,
-        totalRevenue: revenueResult.total || "0",
-        openTickets: openTicketCount.count,
-        orderStatusBreakdown: statusBreakdown,
+        totalUsers,
+        totalProducts,
+        totalCategories,
+        totalOrders,
+        totalRevenue,
+        openTickets,
+        orderStatusBreakdown,
         recentOrders,
       });
     } catch (err) {
@@ -567,13 +1310,147 @@ export async function registerRoutes(
     }
   });
 
+  // Admin: reindex all products to Typesense (if enabled)
+  app.post('/api/admin/search/reindex', requireAdmin, async (req, res) => {
+    try {
+      const { typesenseEnabled, indexProduct } = await import('./search');
+      if (!typesenseEnabled) return res.status(400).json({ message: 'Typesense not configured' });
+      const products = await storage.getAllProducts();
+      for (const p of products) {
+        // fire-and-forget
+        indexProduct({ _id: p.id, name: p.name, categoryId: p.categoryId, tags: (p as any).tags, price: p.price, stock: p.stock, image: (p as any).image || (p as any).images?.[0] || '' }).catch(() => {});
+      }
+      res.json({ success: true, reindexed: products.length });
+    } catch (err) {
+      console.error('Error reindexing products:', err);
+      res.status(500).json({ message: 'Reindex failed' });
+    }
+  });
+
+  // Public product search: prefer Typesense if configured, otherwise fallback to DB-based search
+  app.get('/api/search/products', async (req, res) => {
+    try {
+      const q = (req.query.q as string || '').trim();
+      if (!q) return res.json([]);
+      try {
+        const { typesenseEnabled, searchProductsTypesense } = await import('./search');
+        if (typesenseEnabled) {
+          const ts = await searchProductsTypesense(q, 50);
+          if (ts && ts.length > 0) return res.json(ts);
+        }
+      } catch (e) {
+        // ignore typesense errors and fallback
+      }
+
+      // fallback: DB search across grocery and ecom products
+      const db = getDb();
+      const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
+      const regex = new RegExp(escapeRegex(q), 'i');
+
+      const groceryPipeline = [
+        { $lookup: { from: 'categories', localField: 'categoryId', foreignField: '_id', as: 'categoryDoc' } },
+        { $unwind: { path: '$categoryDoc', preserveNullAndEmptyArrays: true } },
+        { $project: { _id: 1, name: 1, tags: 1, price: 1, stock: 1, image: 1, categoryName: '$categoryDoc.name' } },
+        { $match: { $or: [ { name: regex }, { categoryName: regex }, { tags: regex } ] } },
+        { $limit: 50 }
+      ];
+
+      const ecomPipeline = [
+        { $lookup: { from: 'ecom_categories', localField: 'categoryId', foreignField: '_id', as: 'categoryDoc' } },
+        { $unwind: { path: '$categoryDoc', preserveNullAndEmptyArrays: true } },
+        { $project: { _id: 1, name: 1, tags: 1, price: 1, stock: 1, image: 1, categoryName: '$categoryDoc.name' } },
+        { $match: { $or: [ { name: regex }, { categoryName: regex }, { tags: regex } ] } },
+        { $limit: 50 }
+      ];
+
+      const [groceryResults, ecomResults] = await Promise.all([
+        db.collection('products').aggregate(groceryPipeline).toArray(),
+        db.collection('ecom_products').aggregate(ecomPipeline).toArray(),
+      ]);
+
+      const lowerQ = q.toLowerCase();
+      const scoreItem = (p: any, source: string) => {
+        let score = 0;
+        if (p.name && p.name.toLowerCase().startsWith(lowerQ)) score += 5;
+        else if (p.name && p.name.toLowerCase().includes(lowerQ)) score += 3;
+        if (p.categoryName && p.categoryName.toLowerCase().startsWith(lowerQ)) score += 4;
+        else if (p.categoryName && p.categoryName.toLowerCase().includes(lowerQ)) score += 2;
+        if (p.tags && Array.isArray(p.tags)) {
+          for (const t of p.tags) {
+            if (typeof t === 'string' && t.toLowerCase().startsWith(lowerQ)) score += 2;
+            else if (typeof t === 'string' && t.toLowerCase().includes(lowerQ)) score += 1;
+          }
+        }
+        return { ...p, score, source };
+      };
+
+      let combined = [] as any[];
+      combined.push(...groceryResults.map((p: any) => scoreItem(p, 'grocery')));
+      combined.push(...ecomResults.map((p: any) => scoreItem(p, 'ecom')));
+      // prioritize fastDelivery items when present
+      const fastOnly = req.query.fastDelivery === '1' || req.query.fastDelivery === 'true';
+      if (fastOnly) {
+        combined = combined.filter(p => p.fastDelivery === true).sort((a,b) => b.score - a.score).slice(0,50);
+      } else {
+        combined = combined.sort((a,b) => {
+          const aFast = !!a.fastDelivery ? 1 : 0;
+          const bFast = !!b.fastDelivery ? 1 : 0;
+          if (aFast !== bFast) return bFast - aFast; // fastDelivery first
+          return b.score - a.score;
+        }).slice(0, 50);
+      }
+
+      // fuzzy fallback across both collections when no direct matches
+      if (combined.length === 0) {
+        const allGrocery = await db.collection('products').find({}, { projection: { name: 1, tags: 1, price: 1, stock: 1, image: 1 } }).toArray();
+        const allEcom = await db.collection('ecom_products').find({}, { projection: { name: 1, tags: 1, price: 1, stock: 1, image: 1 } }).toArray();
+        const all = allGrocery.map((p: any) => ({ ...p, source: 'grocery' })).concat(allEcom.map((p: any) => ({ ...p, source: 'ecom' })));
+
+        const levenshtein = (a: string, b: string) => {
+          const m = a.length, n = b.length;
+          const dp = Array.from({ length: m+1 }, () => new Array(n+1).fill(0));
+          for (let i=0;i<=m;i++) dp[i][0]=i;
+          for (let j=0;j<=n;j++) dp[0][j]=j;
+          for (let i=1;i<=m;i++){
+            for (let j=1;j<=n;j++){
+              const cost = a[i-1]===b[j-1] ? 0 : 1;
+              dp[i][j] = Math.min(dp[i-1][j]+1, dp[i][j-1]+1, dp[i-1][j-1]+cost);
+            }
+          }
+          return dp[m][n];
+        };
+
+        const scored = all.map((p: any) => {
+          const name = (p.name || '').toLowerCase();
+          const dist = levenshtein(name, q.toLowerCase());
+          const score = Math.max(0, Math.floor((Math.max(0, name.length - dist))));
+          return { ...p, score, dist };
+        }).filter(p => p.dist <= Math.max(2, Math.floor(p.name?.length * 0.4))).sort((a,b) => b.score - a.score).slice(0, 50);
+
+        combined = scored;
+      }
+
+      const out = combined.map((p: any) => ({ id: (p._id as any)?.toString() || p.id, name: p.name, category: p.categoryName || null, tags: (p as any).tags || [], price: p.price, stock: p.stock, image: (p as any).image || (p as any).images?.[0] || null, score: p.score || 0, source: p.source || 'grocery', fastDelivery: !!p.fastDelivery }));
+      res.json(out);
+    } catch (err) {
+      console.error('Error searching products:', err);
+      res.status(500).json({ message: 'Search failed' });
+    }
+  });
+
   app.post("/api/admin/products", requireAdmin, async (req, res) => {
     try {
       const parsed = productFormSchema.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid product data" });
       }
-      
+      // Enforce server-side rule: cannot enable fastDelivery if product stock is zero or less
+      const requestedFast = !!(parsed.data as any).fastDelivery;
+      const requestedStock = (parsed.data as any).stock !== undefined ? (parsed.data as any).stock : 100;
+      if (requestedFast && Number(requestedStock) <= 0) {
+        return res.status(400).json({ message: "Cannot enable fastDelivery for out-of-stock products" });
+      }
+
       const product = await storage.createProduct(parsed.data);
       res.status(201).json(product);
     } catch (err) {
@@ -588,7 +1465,19 @@ export async function registerRoutes(
       if (!parsed.success) {
         return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid product data" });
       }
-      
+      // Server-side validation: if enabling fastDelivery, ensure resulting stock > 0
+      if ((parsed.data as any).fastDelivery === true) {
+        // Determine new stock: prefer provided stock, otherwise check existing product
+        let newStock = (parsed.data as any).stock;
+        if (newStock === undefined || newStock === null) {
+          const existing = await storage.getProduct(req.params.id);
+          newStock = existing?.stock ?? 0;
+        }
+        if (Number(newStock) <= 0) {
+          return res.status(400).json({ message: "Cannot enable fastDelivery for out-of-stock products" });
+        }
+      }
+
       const product = await storage.updateProduct(req.params.id, parsed.data);
       if (!product) {
         return res.status(404).json({ message: "Product not found" });
@@ -597,6 +1486,61 @@ export async function registerRoutes(
     } catch (err) {
       console.error("Error updating product:", err);
       res.status(500).json({ message: "Failed to update product" });
+    }
+  });
+
+  // Bulk update fastDelivery for multiple products with per-id validation and reporting
+  app.patch('/api/admin/products/bulk-fast-delivery', requireAdmin, async (req, res) => {
+    try {
+      const ids = Array.isArray(req.body.ids) ? req.body.ids : [];
+      const fastDelivery = !!req.body.fastDelivery;
+      if (!ids || !ids.length) return res.status(400).json({ message: 'No product ids provided' });
+
+      const db = getDb();
+      const results: { id: string; success: boolean; reason?: string }[] = [];
+
+      for (const id of ids) {
+        try {
+          const existing = await db.collection('products').findOne({ _id: id as any });
+          if (!existing) {
+            results.push({ id, success: false, reason: 'not_found' });
+            continue;
+          }
+
+          // validation: cannot enable fastDelivery if out of stock
+          if (fastDelivery && (existing.stock === undefined || existing.stock === null || Number(existing.stock) <= 0)) {
+            results.push({ id, success: false, reason: 'out_of_stock' });
+            continue;
+          }
+
+          // perform update per id
+          const r = await db.collection('products').updateOne({ _id: id as any }, { $set: { fastDelivery, updatedAt: new Date() } });
+          if (r.modifiedCount && r.modifiedCount > 0) {
+            results.push({ id, success: true });
+            // try to reindex this product asynchronously
+            (async () => {
+              try {
+                const { indexProduct, typesenseEnabled } = await import('./search');
+                if (typesenseEnabled) {
+                  const p = await db.collection('products').findOne({ _id: id as any });
+                  if (p) indexProduct({ _id: p._id, name: p.name, categoryId: p.categoryId, tags: p.tags, price: p.price, stock: p.stock, image: p.image || (p.images && p.images[0]) || '', fastDelivery: !!p.fastDelivery }).catch(() => {});
+                }
+              } catch (e) {}
+            })();
+          } else {
+            // no change (maybe same value)
+            results.push({ id, success: false, reason: 'no_change' });
+          }
+        } catch (err) {
+          console.error('Error updating product', id, err);
+          results.push({ id, success: false, reason: 'error' });
+        }
+      }
+
+      res.json({ success: true, results });
+    } catch (err) {
+      console.error('Error bulk updating fastDelivery:', err);
+      res.status(500).json({ message: 'Failed to bulk update products' });
     }
   });
 
@@ -751,7 +1695,7 @@ export async function registerRoutes(
   });
 
   // Admin Category Ads
-  const categoryAdFormSchema = insertCategoryAdSchema.omit({ id: true }).extend({
+  const categoryAdFormSchema = insertCategoryAdSchema.extend({
     title: z.string().min(1, "Title is required"),
   });
 
@@ -1015,7 +1959,7 @@ export async function registerRoutes(
         }
         const { hashPassword } = await import("./auth");
         const hashedPassword = await hashPassword(application.password);
-        const { db } = await import("./db");
+        const { getDb, newId } = await import("./db");
         const serviceTypeToPartnerType: Record<string, string> = {
           "E-commerce": "seller",
           "Food": "restaurant",
@@ -1024,7 +1968,8 @@ export async function registerRoutes(
           "City Services": "service_provider",
           "Taxi": "driver",
         };
-        await db.insert(users).values({
+        await getDb().collection("users").insertOne({
+          _id: newId() as any,
           username: application.username,
           password: hashedPassword,
           name: application.ownerName,
@@ -1033,6 +1978,7 @@ export async function registerRoutes(
           isAdmin: false,
           isVendor: true,
           partnerType: serviceTypeToPartnerType[application.serviceType] || "seller",
+          createdAt: new Date(),
         });
       }
 
@@ -1112,6 +2058,24 @@ export async function registerRoutes(
       res.status(500).json({ message: "Failed to fetch categories" });
     }
   });
+
+  // DEV helper: fetch recommendations for a username (no auth) — only in non-production
+  if (process.env.NODE_ENV !== 'production') {
+    app.get('/api/_dev/recommendations-by-username', async (req, res) => {
+      try {
+        const username = req.query.username as string | undefined;
+        if (!username) return res.status(400).json({ message: 'username query required' });
+        const user = await storage.getUserByUsername(username);
+        if (!user) return res.status(404).json({ message: 'user not found' });
+        const { getRecommendationsForUser } = await import('./recommendations');
+        const data = await getRecommendationsForUser(user.id);
+        res.json({ userId: user.id, ...data });
+      } catch (err) {
+        console.error('DEV recs error:', err);
+        res.status(500).json({ message: 'failed' });
+      }
+    });
+  }
 
   // ==================== E-COMMERCE PUBLIC ROUTES ====================
 
@@ -1545,6 +2509,36 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/admin/ecom/products", requireAdmin, async (req, res) => {
+    try {
+      const schema = z.object({
+        name: z.string().min(1),
+        description: z.string().optional(),
+        images: z.array(z.string()).optional(),
+        categoryId: z.string().optional(),
+        brand: z.string().optional(),
+        sku: z.string().optional(),
+        originalPrice: z.string().min(1),
+        discountPercent: z.coerce.number().min(0).max(100).default(0),
+        price: z.string().min(1),
+        variants: z.any().optional(),
+        specifications: z.any().optional(),
+        stock: z.coerce.number().min(0).default(100),
+        isActive: z.boolean().default(true),
+        isApproved: z.boolean().default(true),
+      });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message });
+
+      // Admin-created products are created without a vendorId
+      const product = await storage.createEcomProduct({ ...parsed.data, vendorId: null });
+      res.status(201).json(product);
+    } catch (err) {
+      console.error("Error creating admin ecom product:", err);
+      res.status(500).json({ message: "Failed to create product" });
+    }
+  });
+
   app.patch("/api/admin/ecom/products/:id", requireAdmin, async (req, res) => {
     try {
       const product = await storage.updateEcomProduct(req.params.id, req.body);
@@ -1616,22 +2610,24 @@ export async function registerRoutes(
 
   app.get("/api/admin/ecom/stats", requireAdmin, async (req, res) => {
     try {
-      const { db: database } = await import("./db");
-      const { ecomProducts: ep, ecomOrders: eo, sellerProfiles: sp, ecomCategories: ec } = await import("@shared/schema");
-      const { count: cnt, sum: sm } = await import("drizzle-orm");
+      const { getDb } = await import("./db");
+      const database = getDb();
 
-      const [productCount] = await database.select({ count: cnt() }).from(ep);
-      const [orderCount] = await database.select({ count: cnt() }).from(eo);
-      const [categoryCount] = await database.select({ count: cnt() }).from(ec);
-      const [sellerCount] = await database.select({ count: cnt() }).from(sp);
-      const [revenue] = await database.select({ total: sm(eo.totalAmount) }).from(eo);
+      const totalProducts = await database.collection("ecom_products").countDocuments();
+      const totalOrders = await database.collection("ecom_orders").countDocuments();
+      const totalCategories = await database.collection("ecom_categories").countDocuments();
+      const totalSellers = await database.collection("seller_profiles").countDocuments();
+      const revAgg = await database.collection("ecom_orders").aggregate([
+        { $group: { _id: null, total: { $sum: { $toDouble: "$totalAmount" } } } }
+      ]).toArray();
+      const totalRevenue = revAgg[0]?.total?.toFixed(2) || "0";
 
       res.json({
-        totalProducts: productCount.count,
-        totalOrders: orderCount.count,
-        totalCategories: categoryCount.count,
-        totalSellers: sellerCount.count,
-        totalRevenue: revenue.total || "0",
+        totalProducts,
+        totalOrders,
+        totalCategories,
+        totalSellers,
+        totalRevenue,
       });
     } catch (err) {
       console.error("Error fetching ecom stats:", err);
@@ -1672,6 +2668,53 @@ export async function registerRoutes(
     }
   });
 
+  // Accept local PUT uploads from fallback presigned URLs
+  // Use express.raw middleware directly so req.body is a Buffer
+  app.put(
+    "/api/uploads/local/:filename",
+    express.raw({ type: "*/*", limit: "50mb" }),
+    async (req, res) => {
+      try {
+        const filenameRaw = req.params.filename;
+        if (!filenameRaw) return res.status(400).json({ error: "Missing filename" });
+        // sanitize filename to avoid path traversal
+        const filename = path.basename(filenameRaw);
+        const filePath = path.join(uploadsDir, filename);
+
+        // req.body should be a Buffer because of express.raw
+        const data = req.body as Buffer | undefined;
+        if (!data || !Buffer.isBuffer(data) || data.length === 0) {
+          return res.status(400).json({ error: "Empty body" });
+        }
+
+        // validate extension (allow common image types)
+        const ext = path.extname(filename).toLowerCase();
+        const allowed = new Set([".jpg", ".jpeg", ".png", ".webp"]);
+        if (!allowed.has(ext)) {
+          return res.status(400).json({ error: "Unsupported file type" });
+        }
+
+        fs.writeFileSync(filePath, data);
+
+        // public URL to access the uploaded file
+        const publicUrl = `${req.protocol}://${req.get("host")}/uploads/${encodeURIComponent(filename)}`;
+
+        return res.json({ objectPath: `/uploads/${filename}`, fileName: filename, url: publicUrl });
+      } catch (err) {
+        console.error("Local PUT upload failed:", err);
+        return res.status(500).json({ error: "Failed to upload file" });
+      }
+    }
+  );
+
   const httpServer = createServer(app);
+  // Initialize Socket.IO (moved to server/socket.ts)
+  try {
+    const { initSocket } = await import('./socket');
+    await initSocket(httpServer, app as any);
+  } catch (e) {
+    console.error('Socket.IO wrapper error', e);
+  }
+
   return httpServer;
 }

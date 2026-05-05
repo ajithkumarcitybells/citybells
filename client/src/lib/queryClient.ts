@@ -20,6 +20,25 @@ export async function apiRequest(
   });
 
   await throwIfResNotOk(res);
+  // Read response body now so we can provide clearer parse errors later.
+  // We'll consume the body and attach safe helpers on the Response object.
+  const raw = await res.text();
+
+  // attach safe text/json methods
+  // attach safe text/json methods on a casted object to avoid TS complaints
+  (res as any)._bodyText = raw;
+  // override text()
+  (res as any).text = async () => (res as any)._bodyText;
+  // override json() to provide a better error when parsing fails
+  (res as any).json = async () => {
+    try {
+      return JSON.parse((res as any)._bodyText || "");
+    } catch (err) {
+      const snippet = ((res as any)._bodyText || "").slice(0, 200);
+      throw new Error(`Failed to parse JSON response (first 200 chars): ${snippet}`);
+    }
+  };
+
   return res;
 }
 

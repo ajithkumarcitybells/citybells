@@ -14,8 +14,12 @@ export function CategoryCard({ category }: CategoryCardProps) {
 
   return (
     <div 
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(); } }}
       onClick={handleClick}
-      className="flex flex-col bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden cursor-pointer hover-elevate"
+      aria-label={`${category.name} category`}
+      className="flex flex-col bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden cursor-pointer hover-elevate focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       data-testid={`card-category-${category.id}`}
     >
       <div className="w-full aspect-square overflow-hidden">

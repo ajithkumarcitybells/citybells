@@ -1,7 +1,16 @@
+import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { runSeed } from "./seed";
+import { connectDb } from "./db";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
+
+// __dirname replacement for ES module scope
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -21,6 +30,13 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false }));
+
+// Ensure uploads directory exists and serve it statically at /uploads
+const uploadsDir = path.resolve(__dirname, "..", "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+app.use("/uploads", express.static(uploadsDir));
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -60,22 +76,27 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  await connectDb();
+  console.log("Database connected before server start");
+
   // Run database seed on startup (only inserts if data doesn't exist)
   await runSeed();
   
   const httpServer = await registerRoutes(app);
 
+  // Start background workers (precompute recommendations cache)
+  try {
+    const { startRecommendationWorker } = await import('./recommendation-worker');
+    startRecommendationWorker();
+  } catch (e) {
+    console.error('Failed to start recommendation worker', e);
+  }
+
+  // Global error logger
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    console.error("Internal Server Error:", err);
-
-    if (res.headersSent) {
-      return next(err);
-    }
-
-    return res.status(status).json({ message });
+    console.error("GLOBAL ERROR:", err);
+    if (res.headersSent) return next(err);
+    res.status(500).json({ message: "Internal server error" });
   });
 
   // importantly only setup vite in development and after
@@ -97,7 +118,6 @@ app.use((req, res, next) => {
     {
       port,
       host: "0.0.0.0",
-      reusePort: true,
     },
     () => {
       log(`serving on port ${port}`);

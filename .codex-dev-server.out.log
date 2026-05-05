@@ -1,0 +1,23 @@
+
+> rest-express@1.0.0 dev
+> cross-env NODE_ENV=development tsx server/index.ts
+
+Using Redis for session storage
+Connected to MongoDB: city_serve_hub
+Ensured database indexes for recommendation subsystem
+Database connected before server start
+Starting minimal database seeding...
+Seeding admin user...
+Seeding delivery hubs...
+Seeding taxi vehicle types...
+Taxi vehicle types already exist, skipping seed
+Minimal seed complete
+[Routes] Taxi pricing routes registered
+[Routes] Surge/pricing routes registered
+[Routes] ETA routes registered
+[Routes] Ride routes registered
+[Routes] Driver routes registered
+[Routes] Admin routes registered
+[Routes] Payment routes registered
+Socket.IO Redis adapter attached
+Recommendation worker started { intervalMs: 60000, recentHours: 72, userLimit: 500 }

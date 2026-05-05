@@ -7,7 +7,7 @@ export function ProtectedRoute({
   component: Component,
 }: {
   path: string;
-  component: () => React.JSX.Element;
+  component: () => React.JSX.Element | null;
 }) {
   const { user, isLoading } = useAuth();
 
@@ -29,7 +29,7 @@ export function ProtectedRoute({
     );
   }
 
-  return <Route path={path} component={Component} />;
+  return <Route path={path} component={Component as () => React.JSX.Element} />;
 }
 
 export function AdminRoute({
@@ -37,7 +37,7 @@ export function AdminRoute({
   component: Component,
 }: {
   path: string;
-  component: () => React.JSX.Element;
+  component: () => React.JSX.Element | null;
 }) {
   const { user, isLoading } = useAuth();
 
@@ -59,7 +59,7 @@ export function AdminRoute({
     );
   }
 
-  return <Route path={path} component={Component} />;
+  return <Route path={path} component={Component as () => React.JSX.Element} />;
 }
 
 export function VendorRoute({
@@ -85,6 +85,41 @@ export function VendorRoute({
     return (
       <Route path={path}>
         <Redirect to="/auth" />
+      </Route>
+    );
+  }
+
+  return <Route path={path} component={Component as () => React.JSX.Element} />;
+}
+
+export function DriverRoute({
+  path,
+  component: Component,
+}: {
+  path: string;
+  component: () => React.JSX.Element | null;
+}) {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <Route path={path}>
+        <div className="flex items-center justify-center min-h-screen bg-background">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </Route>
+    );
+  }
+
+  const isDriver =
+    user?.role === "driver" ||
+    user?.partnerType === "driver" ||
+    Boolean(user?.isVendor && user?.partnerType === "driver");
+
+  if (!user || !isDriver) {
+    return (
+      <Route path={path}>
+        <Redirect to="/auth?role=driver" />
       </Route>
     );
   }

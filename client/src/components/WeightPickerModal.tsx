@@ -50,8 +50,8 @@ interface WeightPickerModalProps {
 }
 
 export function WeightPickerModal({ product, open, onClose, onAddToCart, isPending }: WeightPickerModalProps) {
-  const options = getOptionsForUnit(product.unit);
-  const defaultOption = getDefaultForUnit(product.unit);
+  const options = getOptionsForUnit(product.unit ?? undefined);
+  const defaultOption = getDefaultForUnit(product.unit ?? undefined);
   const storageKey = `${LAST_WEIGHT_KEY}_${product.unit || "Kg"}`;
 
   const [selectedWeight, setSelectedWeight] = useState<string>(() => {

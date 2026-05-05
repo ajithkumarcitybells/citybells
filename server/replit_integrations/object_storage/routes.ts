@@ -1,4 +1,6 @@
 import type { Express } from "express";
+import path from "path";
+import crypto from "crypto";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 
 /**
@@ -45,17 +47,26 @@ export function registerObjectStorageRoutes(app: Express): void {
         });
       }
 
-      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      try {
+        const uploadURL = await objectStorageService.getObjectEntityUploadURL();
 
-      // Extract object path from the presigned URL for later reference
-      const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+        // Extract object path from the presigned URL for later reference
+        const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
 
-      res.json({
-        uploadURL,
-        objectPath,
-        // Echo back the metadata for client convenience
-        metadata: { name, size, contentType },
-      });
+        return res.json({
+          uploadURL,
+          objectPath,
+          // Echo back the metadata for client convenience
+          metadata: { name, size, contentType },
+        });
+      } catch (err) {
+        console.warn("Presign failed, returning local upload URL fallback:", (err as any)?.message || err);
+        const ext = path.extname(name) || "";
+        const uniqueName = `${crypto.randomUUID()}${ext}`;
+        const uploadURL = `${req.protocol}://${req.get("host")}/api/uploads/local/${uniqueName}`;
+        const objectPath = `/uploads/${uniqueName}`;
+        return res.json({ uploadURL, objectPath, metadata: { name, size, contentType }, fallback: true });
+      }
     } catch (error) {
       console.error("Error generating upload URL:", error);
       res.status(500).json({ error: "Failed to generate upload URL" });

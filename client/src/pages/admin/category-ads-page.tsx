@@ -376,7 +376,7 @@ export default function AdminCategoryAdsPage() {
                   <FormItem>
                     <FormLabel>Link URL (optional)</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="https://..." data-testid="input-ad-link" />
+                      <Input {...field} value={field.value ?? ""} placeholder="https://..." data-testid="input-ad-link" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -404,7 +404,7 @@ export default function AdminCategoryAdsPage() {
                   render={({ field }) => (
                     <FormItem className="flex items-center gap-2 mt-8">
                       <FormControl>
-                        <Switch checked={field.value} onCheckedChange={field.onChange} data-testid="switch-ad-active" />
+                        <Switch checked={field.value ?? false} onCheckedChange={field.onChange} data-testid="switch-ad-active" />
                       </FormControl>
                       <FormLabel className="!mt-0">Active</FormLabel>
                     </FormItem>

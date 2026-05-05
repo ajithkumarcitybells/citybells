@@ -62,6 +62,15 @@ export default function HotelDetailPage() {
     enabled: !!params?.id,
   });
 
+  const { data: bookingPricePreview } = useQuery<any>({
+    queryKey: ["/api/hotels", hotel?.id, "rooms", bookingRoom?.id, "calculate-price", checkIn, checkOut],
+    enabled: !!hotel?.id && !!bookingRoom?.id && !!checkIn && !!checkOut && new Date(checkOut) > new Date(checkIn),
+    queryFn: async () => {
+      const res = await apiRequest("POST", `/api/hotels/${hotel!.id}/rooms/${bookingRoom!.id}/calculate-price`, { checkIn, checkOut });
+      return res.json();
+    },
+  });
+
   const bookMutation = useMutation({
     mutationFn: async (data: any) => {
       const res = await apiRequest("POST", "/api/hotel-bookings", data);
@@ -93,16 +102,12 @@ export default function HotelDetailPage() {
       toast({ title: "Missing details", description: "Please select dates", variant: "destructive" });
       return;
     }
-    const nights = calculateNights();
-    const totalPrice = (parseFloat(bookingRoom.price) * nights).toFixed(2);
-
     bookMutation.mutate({
       hotelId: hotel!.id,
       roomId: bookingRoom.id,
       checkIn,
       checkOut,
       guests: parseInt(guests) || 2,
-      totalPrice,
       guestName: guestName || undefined,
       guestPhone: guestPhone || undefined,
       specialRequests: specialRequests || undefined,
@@ -263,7 +268,7 @@ export default function HotelDetailPage() {
           {hotel.rooms && hotel.rooms.length > 0 ? (
             <div className="space-y-4">
               {hotel.rooms.filter(r => r.isAvailable).map((room) => {
-                const price = parseFloat(room.price);
+                const price = Number((room as any).dynamicPrice ?? room.price);
                 const originalPrice = getOriginalPrice(room.price);
                 const availableRooms = room.availableRooms || 0;
                 const roomAmenities = room.amenities || [];
@@ -336,9 +341,15 @@ export default function HotelDetailPage() {
                             ₹{originalPrice.toLocaleString()}
                           </p>
                           <p className="text-xl font-bold text-gray-900 dark:text-gray-100" data-testid={`text-room-price-${room.id}`}>
+                            From{" "}
                             ₹{price.toLocaleString()}
                           </p>
                           <p className="text-xs text-muted-foreground">per night</p>
+                          {(room as any).priceChanged && (room as any).priceBadge && (
+                            <Badge className="mt-1 bg-blue-100 text-blue-800 no-default-hover-elevate no-default-active-elevate">
+                              {(room as any).priceBadge}
+                            </Badge>
+                          )}
                           {availableRooms <= 5 && availableRooms > 0 && (
                             <p className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400 font-medium mt-1">
                               <AlertTriangle className="h-3 w-3" />
@@ -436,7 +447,7 @@ export default function HotelDetailPage() {
               />
             </div>
 
-            {checkIn && checkOut && bookingRoom && calculateNights() > 0 && (
+            {checkIn && checkOut && bookingRoom && calculateNights() > 0 && !bookingPricePreview && (
               <Card className="p-3 bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-700 dark:text-gray-300">
@@ -445,6 +456,26 @@ export default function HotelDetailPage() {
                   <span className="font-bold text-[#003580] dark:text-blue-400 text-base" data-testid="text-total-price">
                     ₹{(parseFloat(bookingRoom.price) * calculateNights()).toLocaleString()}
                   </span>
+                </div>
+              </Card>
+            )}
+            {bookingPricePreview && (
+              <Card className="p-3 border-blue-200 bg-white">
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span>Server price/night</span>
+                    <span className="font-semibold">₹{Number(bookingPricePreview.dynamicPrice).toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>{bookingPricePreview.nights} night{bookingPricePreview.nights > 1 ? "s" : ""}</span>
+                    <span className="font-semibold">₹{Number(bookingPricePreview.totalPrice).toLocaleString("en-IN")}</span>
+                  </div>
+                  {bookingPricePreview.badge && <Badge className="bg-blue-100 text-blue-800">{bookingPricePreview.badge}</Badge>}
+                  {bookingPricePreview.appliedRules?.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Applied: {bookingPricePreview.appliedRules.map((rule: any) => rule.name).join(", ")}
+                    </p>
+                  )}
                 </div>
               </Card>
             )}

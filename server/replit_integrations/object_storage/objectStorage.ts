@@ -13,6 +13,7 @@ const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
 
 // The object storage client is used to interact with the object storage service.
 export const objectStorageClient = new Storage({
+  // cast credentials to any because the Replit sidecar credential shape is non-standard
   credentials: {
     audience: "replit",
     subject_token_type: "access_token",
@@ -20,13 +21,14 @@ export const objectStorageClient = new Storage({
     type: "external_account",
     credential_source: {
       url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
+      // the sidecar returns a small JSON with access_token; keep raw shape but cast to any
       format: {
         type: "json",
         subject_token_field_name: "access_token",
       },
     },
     universe_domain: "googleapis.com",
-  },
+  } as any,
   projectId: "",
 });
 
@@ -287,14 +289,36 @@ async function signObjectURL({
       body: JSON.stringify(request),
     }
   );
-  if (!response.ok) {
-    throw new Error(
-      `Failed to sign object URL, errorcode: ${response.status}, ` +
-        `make sure you're running on Replit`
-    );
-  }
+  try {
+    if (!response.ok) {
+      throw new Error(`Sidecar responded ${response.status}`);
+    }
 
-  const { signed_url: signedURL } = await response.json();
-  return signedURL;
+    const { signed_url: signedURL } = await response.json();
+    return signedURL;
+  } catch (err) {
+  console.warn("Failed to get signed URL from Replit sidecar:", err);
+    // Fallback: try to generate a signed URL via Google Cloud Storage client
+    try {
+      const bucket = objectStorageClient.bucket(bucketName);
+      const file = bucket.file(objectName);
+      // Map method to GCS action
+      const action = method === "PUT" ? "write" : method === "GET" ? "read" : method === "DELETE" ? "delete" : "write";
+      const [signedURL] = await file.getSignedUrl({
+        version: "v4",
+        action: action as any,
+        expires: Date.now() + ttlSec * 1000,
+      });
+      return signedURL;
+    } catch (err2) {
+      console.error("Fallback signed URL generation failed:", err2);
+      // Provide actionable error message
+      const message = `Failed to sign object URL: ${(err as any)?.message || err} ; fallback failed: ${(err2 as any)?.message || err2}. Ensure the Replit sidecar is running at ${REPLIT_SIDECAR_ENDPOINT} or set up Google Cloud credentials (GOOGLE_APPLICATION_CREDENTIALS) to allow signing.`;
+      const e = new Error(message);
+      // @ts-ignore attach cause for richer debugging
+      e.cause = err2;
+      throw e;
+    }
+  }
 }
 

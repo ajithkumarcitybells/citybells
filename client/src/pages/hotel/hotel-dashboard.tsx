@@ -49,6 +49,10 @@ export default function HotelDashboard() {
     name: "", type: "standard", price: "", maxGuests: "2",
     amenities: "", totalRooms: "10", isAvailable: true,
   });
+  const [pricingPreview, setPricingPreview] = useState<any>(null);
+  const [pricingRoomId, setPricingRoomId] = useState("");
+  const [pricingCheckIn, setPricingCheckIn] = useState("");
+  const [pricingCheckOut, setPricingCheckOut] = useState("");
 
   const { data: hotel, isLoading: hotelLoading } = useQuery<HotelWithRooms>({
     queryKey: ["/api/hotel-manager/hotel"],
@@ -175,6 +179,29 @@ export default function HotelDashboard() {
       updateRoomMutation.mutate({ id: editingRoom.id, data });
     } else {
       createRoomMutation.mutate(data);
+    }
+  };
+
+  const calculateManagerPrice = async () => {
+    setPricingPreview(null);
+    if (!hotel?.id || !pricingRoomId || !pricingCheckIn || !pricingCheckOut) {
+      toast({ title: "Select room and dates", variant: "destructive" });
+      return;
+    }
+    const checkInDate = new Date(`${pricingCheckIn}T00:00:00`);
+    const checkOutDate = new Date(`${pricingCheckOut}T00:00:00`);
+    if (Number.isNaN(checkInDate.getTime()) || Number.isNaN(checkOutDate.getTime()) || checkOutDate <= checkInDate) {
+      toast({ title: "Invalid dates", description: "Check-out date must be after check-in date.", variant: "destructive" });
+      return;
+    }
+    try {
+      const res = await apiRequest("POST", `/api/hotels/${hotel.id}/rooms/${pricingRoomId}/calculate-price`, {
+        checkIn: pricingCheckIn,
+        checkOut: pricingCheckOut,
+      });
+      setPricingPreview(await res.json());
+    } catch (error: any) {
+      toast({ title: "Price preview failed", description: error?.message || "Unable to calculate price.", variant: "destructive" });
     }
   };
 
@@ -365,6 +392,28 @@ export default function HotelDashboard() {
                 ))}
               </div>
             )}
+
+            <Card className="p-4">
+              <h3 className="font-semibold text-sm mb-3">Calculated Price Preview</h3>
+              <div className="space-y-3">
+                <select className="w-full p-2 border rounded" value={pricingRoomId} onChange={(e) => { setPricingRoomId(e.target.value); setPricingPreview(null); }}>
+                  <option value="">Select room</option>
+                  {rooms.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}
+                </select>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input type="date" value={pricingCheckIn} onChange={(e) => setPricingCheckIn(e.target.value)} />
+                  <Input type="date" min={pricingCheckIn || undefined} value={pricingCheckOut} onChange={(e) => setPricingCheckOut(e.target.value)} />
+                </div>
+                <Button size="sm" onClick={calculateManagerPrice} disabled={!pricingRoomId || !pricingCheckIn || !pricingCheckOut}>Calculate</Button>
+                {pricingPreview && (
+                  <div className="rounded border p-3 text-sm">
+                    <div className="flex justify-between"><span>Price/night</span><span>₹{Number(pricingPreview.dynamicPrice).toLocaleString("en-IN")}</span></div>
+                    <div className="flex justify-between font-semibold"><span>Total</span><span>₹{Number(pricingPreview.totalPrice).toLocaleString("en-IN")}</span></div>
+                    {pricingPreview.badge && <Badge className="mt-2 bg-blue-100 text-blue-800">{pricingPreview.badge}</Badge>}
+                  </div>
+                )}
+              </div>
+            </Card>
           </TabsContent>
 
           <TabsContent value="bookings" className="mt-4 space-y-4">

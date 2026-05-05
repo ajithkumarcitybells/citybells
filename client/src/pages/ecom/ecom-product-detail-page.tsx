@@ -174,7 +174,16 @@ export default function EcomProductDetailPage() {
   const price = parseFloat(product.price);
   const origPrice = parseFloat(product.originalPrice);
   const rating = parseFloat(product.rating || "0");
-  const variants = (product.variants as Array<{ type: string; options: string[] }>) || [];
+  let variants: Array<{ type: string; options: string[] }> = [];
+  if (Array.isArray(product.variants)) {
+    variants = product.variants as Array<{ type: string; options: string[] }>;
+  } else if (product.variants && typeof product.variants === "object") {
+    // support object form like { Color: ['Red','Blue'], Size: ['S','M'] }
+    variants = Object.entries(product.variants as Record<string, any>).map(([type, opts]) => ({
+      type,
+      options: Array.isArray(opts) ? opts.map(String) : [String(opts)],
+    }));
+  }
   const specs = (product.specifications as Record<string, string>) || {};
 
   return (

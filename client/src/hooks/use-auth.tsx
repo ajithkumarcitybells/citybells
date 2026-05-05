@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useContext } from "react";
+import React, { createContext, ReactNode, useContext } from "react";
 import {
   useQuery,
   useMutation,
@@ -94,17 +94,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
 
+  // Provide a stable context value. Avoid including mutation objects in the memo
+  // dependency array because some mutation objects can change identity and
+  // cause unnecessary re-renders or loops in consumers.
+  const memoValue = React.useMemo(() => ({
+    user: user ?? null,
+    isLoading,
+    error,
+    loginMutation,
+    logoutMutation,
+    registerMutation,
+  }), [user, isLoading, error]);
+
   return (
-    <AuthContext.Provider
-      value={{
-        user: user ?? null,
-        isLoading,
-        error,
-        loginMutation,
-        logoutMutation,
-        registerMutation,
-      }}
-    >
+    <AuthContext.Provider value={memoValue}>
       {children}
     </AuthContext.Provider>
   );

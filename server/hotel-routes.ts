@@ -2,19 +2,58 @@ import type { Express } from "express";
 import { z } from "zod";
 import { hotelStorage } from "./hotel-storage";
 import { requireAuth, requireAdmin, requirePartner } from "./auth";
+import { hotelPricingRuleSchema } from "@shared/schema";
 
 export function registerHotelRoutes(app: Express) {
   // ==================== PUBLIC ROUTES ====================
 
+  const hotelListFilterSchema = z.object({
+    city: z.string().trim().optional(),
+    stars: z.string().optional(),
+    minPrice: z.coerce.number().min(0).optional(),
+    maxPrice: z.coerce.number().min(0).optional(),
+    search: z.string().trim().optional(),
+    amenities: z.string().optional(),
+    types: z.string().optional(),
+    propertyTypes: z.string().optional(),
+    locations: z.string().optional(),
+    checkIn: z.string().trim().optional(),
+    checkOut: z.string().trim().optional(),
+    guests: z.coerce.number().int().min(1).max(30).optional(),
+    rooms: z.coerce.number().int().min(1).max(10).optional(),
+    availableOnly: z.union([z.literal("true"), z.literal("false"), z.boolean()]).optional(),
+    sortBy: z.enum(["recommended", "price-low", "price-high", "rating-high", "popularity", "newest", "stars-high", "name"]).optional(),
+    sort: z.string().optional(),
+  }).refine((value) => {
+    if (!value.checkIn || !value.checkOut) return true;
+    const checkIn = new Date(value.checkIn);
+    const checkOut = new Date(value.checkOut);
+    return !Number.isNaN(checkIn.getTime()) && !Number.isNaN(checkOut.getTime()) && checkOut > checkIn;
+  }, { message: "Check-out date must be after check-in date" });
+
   app.get("/api/hotels", async (req, res) => {
     try {
-      const { city, stars, minPrice, maxPrice, search } = req.query;
+      const parsed = hotelListFilterSchema.safeParse(req.query);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid hotel filters" });
+      }
+      const { city, stars, minPrice, maxPrice, search, amenities, types, propertyTypes, locations, checkIn, checkOut, guests, rooms, availableOnly, sortBy, sort } = parsed.data;
       const filters: any = {};
       if (city && typeof city === "string") filters.city = city;
-      if (stars) filters.stars = parseInt(stars as string);
-      if (minPrice) filters.minPrice = parseFloat(minPrice as string);
-      if (maxPrice) filters.maxPrice = parseFloat(maxPrice as string);
+      if (stars) filters.stars = String(stars).split(",").map((value) => Number(value)).filter(Number.isFinite);
+      if (minPrice != null) filters.minPrice = minPrice;
+      if (maxPrice != null) filters.maxPrice = maxPrice;
       if (search && typeof search === "string") filters.search = search;
+      if (locations && typeof locations === "string") filters.locations = locations.split(",").map((value) => value.trim()).filter(Boolean);
+      if (amenities && typeof amenities === "string") filters.amenities = amenities.split(",").map((value) => value.trim()).filter(Boolean);
+      const typeQuery = types || propertyTypes;
+      if (typeQuery && typeof typeQuery === "string") filters.propertyTypes = typeQuery.split(",").map((value) => value.trim()).filter(Boolean);
+      if (checkIn) filters.checkIn = checkIn;
+      if (checkOut) filters.checkOut = checkOut;
+      if (guests) filters.guests = guests;
+      if (rooms) filters.rooms = rooms;
+      if (availableOnly != null) filters.availableOnly = availableOnly === true || availableOnly === "true";
+      if (sortBy || sort) filters.sortBy = sortBy || sort;
 
       const hotelsList = await hotelStorage.getHotels(filters);
       res.json(hotelsList);
@@ -30,7 +69,31 @@ export function registerHotelRoutes(app: Express) {
       if (!hotel) {
         return res.status(404).json({ message: "Hotel not found" });
       }
-      const rooms = await hotelStorage.getHotelRooms(req.params.id);
+      const rawRooms = await hotelStorage.getHotelRooms(req.params.id);
+      const today = new Date();
+      const tomorrow = new Date(today);
+      tomorrow.setDate(today.getDate() + 1);
+      const defaultCheckIn = today.toISOString().slice(0, 10);
+      const defaultCheckOut = tomorrow.toISOString().slice(0, 10);
+      const rooms = await Promise.all(rawRooms.map(async (room: any) => {
+        try {
+          const priced = await hotelStorage.calculateHotelRoomPrice({
+            hotelId: req.params.id,
+            roomId: room.id,
+            checkIn: defaultCheckIn,
+            checkOut: defaultCheckOut,
+          });
+          return {
+            ...room,
+            dynamicPrice: priced.dynamicPrice,
+            priceBadge: priced.badge,
+            priceChanged: priced.dynamicPrice !== Number(room.price),
+            pricingBreakdown: priced,
+          };
+        } catch {
+          return room;
+        }
+      }));
       res.json({ ...hotel, rooms });
     } catch (err) {
       console.error("Error fetching hotel:", err);
@@ -46,10 +109,42 @@ export function registerHotelRoutes(app: Express) {
     checkIn: z.string().min(1),
     checkOut: z.string().min(1),
     guests: z.number().int().positive().default(1),
-    totalPrice: z.string().min(1),
+    totalPrice: z.string().optional(),
     guestName: z.string().optional(),
     guestPhone: z.string().optional(),
     specialRequests: z.string().optional(),
+  }).refine((value) => {
+    const checkIn = new Date(value.checkIn);
+    const checkOut = new Date(value.checkOut);
+    return !Number.isNaN(checkIn.getTime()) && !Number.isNaN(checkOut.getTime()) && checkOut > checkIn;
+  }, { message: "Check-out date must be after check-in date" });
+
+  const calculateHotelPriceSchema = z.object({
+    checkIn: z.string().min(1),
+    checkOut: z.string().min(1),
+  }).refine((value) => {
+    const checkIn = new Date(value.checkIn);
+    const checkOut = new Date(value.checkOut);
+    return !Number.isNaN(checkIn.getTime()) && !Number.isNaN(checkOut.getTime()) && checkOut > checkIn;
+  }, { message: "Check-out date must be after check-in date" });
+
+  app.post("/api/hotels/:hotelId/rooms/:roomId/calculate-price", async (req, res) => {
+    try {
+      const parsed = calculateHotelPriceSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid pricing dates" });
+      }
+      const price = await hotelStorage.calculateHotelRoomPrice({
+        hotelId: req.params.hotelId,
+        roomId: req.params.roomId,
+        checkIn: parsed.data.checkIn,
+        checkOut: parsed.data.checkOut,
+      });
+      res.json(price);
+    } catch (err: any) {
+      console.error("Error calculating hotel room price:", err);
+      res.status(err?.message === "Room not found" ? 404 : 500).json({ message: err?.message || "Failed to calculate price" });
+    }
   });
 
   app.post("/api/hotel-bookings", requireAuth, async (req, res) => {
@@ -59,9 +154,25 @@ export function registerHotelRoutes(app: Express) {
         return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid booking data" });
       }
 
+      const price = await hotelStorage.calculateHotelRoomPrice({
+        hotelId: parsed.data.hotelId,
+        roomId: parsed.data.roomId,
+        checkIn: parsed.data.checkIn,
+        checkOut: parsed.data.checkOut,
+      });
+
+      if (price.availableRooms <= 0) {
+        return res.status(409).json({ message: "Room is not available for selected dates" });
+      }
+
       const booking = await hotelStorage.createHotelBooking({
         userId: req.user!.id,
         ...parsed.data,
+        basePrice: price.basePrice.toFixed(2),
+        dynamicPrice: price.dynamicPrice.toFixed(2),
+        appliedRules: price.appliedRules,
+        nights: price.nights,
+        totalPrice: price.totalPrice.toFixed(2),
       });
       res.status(201).json(booking);
     } catch (err) {
@@ -251,6 +362,87 @@ export function registerHotelRoutes(app: Express) {
 
   // ==================== ADMIN ROUTES ====================
 
+  app.get("/api/admin/hotel-pricing/rules", requireAdmin, async (_req, res) => {
+    try {
+      const [rules, dynamicPricingEnabled] = await Promise.all([
+        hotelStorage.getHotelPricingRules(),
+        hotelStorage.getHotelDynamicPricingEnabled(),
+      ]);
+      res.json({ dynamicPricingEnabled, rules });
+    } catch (err) {
+      console.error("Error fetching hotel pricing rules:", err);
+      res.status(500).json({ message: "Failed to fetch pricing rules" });
+    }
+  });
+
+  app.post("/api/admin/hotel-pricing/rules", requireAdmin, async (req, res) => {
+    try {
+      if (Object.prototype.hasOwnProperty.call(req.body, "dynamicPricingEnabled") && Object.keys(req.body).length === 1) {
+        if (typeof req.body.dynamicPricingEnabled !== "boolean") {
+          return res.status(400).json({ message: "dynamicPricingEnabled must be a boolean" });
+        }
+        const enabled = await hotelStorage.setHotelDynamicPricingEnabled(req.body.dynamicPricingEnabled);
+        return res.json({ dynamicPricingEnabled: enabled });
+      }
+
+      if (typeof req.body.name === "string") {
+        req.body.name = req.body.name.trim();
+      }
+
+      const parsed = hotelPricingRuleSchema.safeParse(req.body);
+      if (!parsed.success) {
+        const firstError = parsed.error.errors[0];
+        const field = firstError?.path?.join(".");
+        const message = field === "name" ? "Rule name is required" : firstError?.message || "Invalid pricing rule";
+        return res.status(400).json({ message });
+      }
+      const rule = await hotelStorage.createHotelPricingRule(parsed.data);
+      res.status(201).json(rule);
+    } catch (err) {
+      console.error("Error creating hotel pricing rule:", err);
+      res.status(500).json({ message: "Failed to create pricing rule" });
+    }
+  });
+
+  app.patch("/api/admin/hotel-pricing/rules/:id", requireAdmin, async (req, res) => {
+    try {
+      const updateHotelPricingRuleSchema = z.object({
+        name: z.string().min(1).optional(),
+        type: z.enum(["weekend", "holiday", "demand", "season", "availability", "manual_override"]).optional(),
+        multiplier: z.coerce.number().min(0.01).max(10).optional().nullable(),
+        fixedPrice: z.coerce.number().min(0).optional().nullable(),
+        minPrice: z.coerce.number().min(0).optional().nullable(),
+        maxPrice: z.coerce.number().min(0).optional().nullable(),
+        startDate: z.string().optional().nullable(),
+        endDate: z.string().optional().nullable(),
+        hotelId: z.string().optional().nullable(),
+        roomId: z.string().optional().nullable(),
+        enabled: z.boolean().optional(),
+        priority: z.coerce.number().int().optional(),
+      });
+      const parsed = updateHotelPricingRuleSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid pricing rule" });
+      }
+      const rule = await hotelStorage.updateHotelPricingRule(req.params.id, parsed.data);
+      if (!rule) return res.status(404).json({ message: "Pricing rule not found" });
+      res.json(rule);
+    } catch (err) {
+      console.error("Error updating hotel pricing rule:", err);
+      res.status(500).json({ message: "Failed to update pricing rule" });
+    }
+  });
+
+  app.delete("/api/admin/hotel-pricing/rules/:id", requireAdmin, async (req, res) => {
+    try {
+      await hotelStorage.deleteHotelPricingRule(req.params.id);
+      res.sendStatus(204);
+    } catch (err) {
+      console.error("Error deleting hotel pricing rule:", err);
+      res.status(500).json({ message: "Failed to delete pricing rule" });
+    }
+  });
+
   app.get("/api/admin/hotels", requireAdmin, async (req, res) => {
     try {
       const allHotels = await hotelStorage.getAllHotels();
@@ -267,6 +459,7 @@ export function registerHotelRoutes(app: Express) {
     images: z.array(z.string()).optional(),
     city: z.string().min(1),
     address: z.string().optional(),
+    propertyType: z.string().optional(),
     rating: z.string().optional(),
     amenities: z.array(z.string()).optional(),
     starRating: z.number().int().min(1).max(5).optional(),

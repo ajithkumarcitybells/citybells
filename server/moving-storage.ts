@@ -1,8 +1,4 @@
 import {
-  movingVehicleTypes,
-  movingDrivers,
-  movingBookings,
-  users,
   type MovingVehicleType,
   type InsertMovingVehicleType,
   type MovingDriver,
@@ -10,8 +6,11 @@ import {
   type MovingBooking,
   type InsertMovingBooking,
 } from "@shared/schema";
-import { db } from "./db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { getDb, toDoc, toDocs, newId } from "./db";
+
+function col(name: string) {
+  return getDb().collection(name);
+}
 
 export interface IMovingStorage {
   getVehicleTypes(): Promise<MovingVehicleType[]>;
@@ -19,7 +18,6 @@ export interface IMovingStorage {
   createVehicleType(vehicleType: InsertMovingVehicleType): Promise<MovingVehicleType>;
   updateVehicleType(id: string, vehicleType: Partial<InsertMovingVehicleType>): Promise<MovingVehicleType | undefined>;
   deleteVehicleType(id: string): Promise<void>;
-
   getDrivers(): Promise<MovingDriver[]>;
   getDriver(id: string): Promise<MovingDriver | undefined>;
   getDriverByUserId(userId: string): Promise<MovingDriver | undefined>;
@@ -27,7 +25,6 @@ export interface IMovingStorage {
   updateDriver(id: string, driver: Partial<InsertMovingDriver>): Promise<MovingDriver | undefined>;
   deleteDriver(id: string): Promise<void>;
   toggleDriverAvailability(userId: string): Promise<MovingDriver | undefined>;
-
   getBookings(): Promise<MovingBooking[]>;
   getBooking(id: string): Promise<MovingBooking | undefined>;
   getUserBookings(userId: string): Promise<MovingBooking[]>;
@@ -41,116 +38,98 @@ export interface IMovingStorage {
 
 export class MovingStorage implements IMovingStorage {
   async getVehicleTypes(): Promise<MovingVehicleType[]> {
-    return db.select().from(movingVehicleTypes);
+    return toDocs<MovingVehicleType>(await col("moving_vehicle_types").find().toArray());
   }
-
   async getVehicleType(id: string): Promise<MovingVehicleType | undefined> {
-    const [vt] = await db.select().from(movingVehicleTypes).where(eq(movingVehicleTypes.id, id));
-    return vt || undefined;
+    const doc = await col("moving_vehicle_types").findOne({ _id: id as any });
+    return doc ? toDoc<MovingVehicleType>(doc) : undefined;
   }
-
   async createVehicleType(vehicleType: InsertMovingVehicleType): Promise<MovingVehicleType> {
-    const [created] = await db.insert(movingVehicleTypes).values(vehicleType).returning();
-    return created;
+    const id = newId();
+    const doc = { _id: id as any, image: null, ...vehicleType };
+    await col("moving_vehicle_types").insertOne(doc);
+    return toDoc<MovingVehicleType>(doc);
   }
-
   async updateVehicleType(id: string, vehicleType: Partial<InsertMovingVehicleType>): Promise<MovingVehicleType | undefined> {
-    const [updated] = await db.update(movingVehicleTypes).set(vehicleType).where(eq(movingVehicleTypes.id, id)).returning();
-    return updated || undefined;
+    const r = await col("moving_vehicle_types").findOneAndUpdate({ _id: id as any }, { $set: vehicleType }, { returnDocument: "after" });
+    return r ? toDoc<MovingVehicleType>(r) : undefined;
   }
-
   async deleteVehicleType(id: string): Promise<void> {
-    await db.delete(movingVehicleTypes).where(eq(movingVehicleTypes.id, id));
+    await col("moving_vehicle_types").deleteOne({ _id: id as any });
   }
-
   async getDrivers(): Promise<MovingDriver[]> {
-    return db.select().from(movingDrivers);
+    return toDocs<MovingDriver>(await col("moving_drivers").find().toArray());
   }
-
   async getDriver(id: string): Promise<MovingDriver | undefined> {
-    const [driver] = await db.select().from(movingDrivers).where(eq(movingDrivers.id, id));
-    return driver || undefined;
+    const doc = await col("moving_drivers").findOne({ _id: id as any });
+    return doc ? toDoc<MovingDriver>(doc) : undefined;
   }
-
   async getDriverByUserId(userId: string): Promise<MovingDriver | undefined> {
-    const [driver] = await db.select().from(movingDrivers).where(eq(movingDrivers.userId, userId));
-    return driver || undefined;
+    const doc = await col("moving_drivers").findOne({ userId });
+    return doc ? toDoc<MovingDriver>(doc) : undefined;
   }
-
   async createDriver(driver: InsertMovingDriver): Promise<MovingDriver> {
-    const [created] = await db.insert(movingDrivers).values(driver).returning();
-    return created;
+    const id = newId();
+    const doc = { _id: id as any, isAvailable: true, rating: "4.5", ...driver };
+    await col("moving_drivers").insertOne(doc);
+    return toDoc<MovingDriver>(doc);
   }
-
   async updateDriver(id: string, driver: Partial<InsertMovingDriver>): Promise<MovingDriver | undefined> {
-    const [updated] = await db.update(movingDrivers).set(driver).where(eq(movingDrivers.id, id)).returning();
-    return updated || undefined;
+    const r = await col("moving_drivers").findOneAndUpdate({ _id: id as any }, { $set: driver }, { returnDocument: "after" });
+    return r ? toDoc<MovingDriver>(r) : undefined;
   }
-
   async deleteDriver(id: string): Promise<void> {
-    await db.delete(movingDrivers).where(eq(movingDrivers.id, id));
+    await col("moving_drivers").deleteOne({ _id: id as any });
   }
-
   async toggleDriverAvailability(userId: string): Promise<MovingDriver | undefined> {
     const driver = await this.getDriverByUserId(userId);
     if (!driver) return undefined;
-    const [updated] = await db.update(movingDrivers)
-      .set({ isAvailable: !driver.isAvailable })
-      .where(eq(movingDrivers.id, driver.id))
-      .returning();
-    return updated || undefined;
+    const r = await col("moving_drivers").findOneAndUpdate(
+      { _id: driver.id as any },
+      { $set: { isAvailable: !driver.isAvailable } },
+      { returnDocument: "after" }
+    );
+    return r ? toDoc<MovingDriver>(r) : undefined;
   }
-
   async getBookings(): Promise<MovingBooking[]> {
-    return db.select().from(movingBookings).orderBy(desc(movingBookings.createdAt));
+    return toDocs<MovingBooking>(await col("moving_bookings").find().sort({ createdAt: -1 }).toArray());
   }
-
   async getBooking(id: string): Promise<MovingBooking | undefined> {
-    const [booking] = await db.select().from(movingBookings).where(eq(movingBookings.id, id));
-    return booking || undefined;
+    const doc = await col("moving_bookings").findOne({ _id: id as any });
+    return doc ? toDoc<MovingBooking>(doc) : undefined;
   }
-
   async getUserBookings(userId: string): Promise<MovingBooking[]> {
-    return db.select().from(movingBookings)
-      .where(eq(movingBookings.userId, userId))
-      .orderBy(desc(movingBookings.createdAt));
+    return toDocs<MovingBooking>(await col("moving_bookings").find({ userId }).sort({ createdAt: -1 }).toArray());
   }
-
   async getDriverBookings(driverId: string): Promise<MovingBooking[]> {
-    return db.select().from(movingBookings)
-      .where(eq(movingBookings.driverId, driverId))
-      .orderBy(desc(movingBookings.createdAt));
+    return toDocs<MovingBooking>(await col("moving_bookings").find({ driverId }).sort({ createdAt: -1 }).toArray());
   }
-
   async createBooking(booking: InsertMovingBooking): Promise<MovingBooking> {
-    const [created] = await db.insert(movingBookings).values(booking).returning();
-    return created;
+    const id = newId();
+    const doc = { _id: id as any, status: "pending", createdAt: new Date(), ...booking };
+    await col("moving_bookings").insertOne(doc);
+    return toDoc<MovingBooking>(doc);
   }
-
   async updateBookingStatus(id: string, status: string): Promise<MovingBooking | undefined> {
-    const [updated] = await db.update(movingBookings)
-      .set({ status })
-      .where(eq(movingBookings.id, id))
-      .returning();
-    return updated || undefined;
+    const r = await col("moving_bookings").findOneAndUpdate({ _id: id as any }, { $set: { status } }, { returnDocument: "after" });
+    return r ? toDoc<MovingBooking>(r) : undefined;
   }
-
   async assignDriver(bookingId: string, driverId: string): Promise<MovingBooking | undefined> {
-    const [updated] = await db.update(movingBookings)
-      .set({ driverId, status: "confirmed" })
-      .where(eq(movingBookings.id, bookingId))
-      .returning();
-    return updated || undefined;
+    const r = await col("moving_bookings").findOneAndUpdate(
+      { _id: bookingId as any },
+      { $set: { driverId, status: "confirmed" } },
+      { returnDocument: "after" }
+    );
+    return r ? toDoc<MovingBooking>(r) : undefined;
   }
-
   async cancelBooking(id: string, userId: string): Promise<MovingBooking | undefined> {
-    const [updated] = await db.update(movingBookings)
-      .set({ status: "cancelled" })
-      .where(and(eq(movingBookings.id, id), eq(movingBookings.userId, userId)))
-      .returning();
-    return updated || undefined;
+    const r = await col("moving_bookings").findOneAndUpdate(
+      { _id: id as any, userId },
+      { $set: { status: "cancelled" } },
+      { returnDocument: "after" }
+    );
+    return r ? toDoc<MovingBooking>(r) : undefined;
   }
-
   async estimatePrice(vehicleTypeId: string, distanceKm: number, helpersCount: number): Promise<{ estimatedPrice: string }> {
     const vt = await this.getVehicleType(vehicleTypeId);
     if (!vt) throw new Error("Vehicle type not found");

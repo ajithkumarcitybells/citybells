@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { EtaBadge } from "@/components/taxi/EtaBadge";
 import type { TaxiRide } from "@shared/schema";
 
 type FilterTab = "all" | "completed" | "cancelled";
@@ -18,8 +19,11 @@ type FilterTab = "all" | "completed" | "cancelled";
 function getStatusBadgeClasses(status: string) {
   switch (status) {
     case "searching":
+    case "requested":
+    case "accepted":
     case "driver_assigned":
     case "arriving":
+    case "started":
     case "in_ride":
       return "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300";
     case "completed":
@@ -115,6 +119,18 @@ function RideCard({ ride }: { ride: TaxiRide }) {
           ₹{ride.actualFare ? parseFloat(ride.actualFare).toFixed(0) : ride.estimatedFare ? parseFloat(ride.estimatedFare).toFixed(0) : "--"}
         </p>
       </div>
+
+      {((ride as any).predictedPickupEtaMin || (ride as any).predictedTripEtaMin || ride.duration) && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          <EtaBadge minutes={(ride as any).predictedPickupEtaMin} label="away" tone="pickup" />
+          <EtaBadge minutes={(ride as any).predictedTripEtaMin || ride.duration} label="trip" tone="trip" />
+          {(ride as any).etaConfidence && (
+            <span className="rounded-md bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+              {(ride as any).etaConfidence} confidence
+            </span>
+          )}
+        </div>
+      )}
 
       {ride.driverName && (
         <div className="flex items-center gap-2 mb-3 pb-3 border-b">

@@ -19,6 +19,7 @@ import {
   Store,
   ShoppingBag,
   UtensilsCrossed,
+  CalendarDays,
   Truck,
   Building2,
   Car,
@@ -64,6 +65,9 @@ const adminMenuSections = [
     title: "Food Delivery",
     items: [
       { icon: UtensilsCrossed, label: "Food Management", href: "/admin/food" },
+      { icon: Package, label: "Meal Plans", href: "/admin/food/meal-plans", adminOnly: true },
+      { icon: CalendarDays, label: "Subscriptions", href: "/admin/food/subscriptions", adminOnly: true },
+      { icon: Package, label: "Combos", href: "/admin/combos" },
     ],
   },
   {
@@ -76,12 +80,14 @@ const adminMenuSections = [
     title: "Hotels",
     items: [
       { icon: Building2, label: "Hotel Management", href: "/admin/hotels" },
+      { icon: IndianRupee, label: "Hotel Dynamic Pricing", href: "/admin/hotels/pricing", adminOnly: true },
     ],
   },
   {
     title: "Taxi",
     items: [
       { icon: Car, label: "Taxi Management", href: "/admin/taxi" },
+      { icon: IndianRupee, label: "Taxi Pricing", href: "/admin/taxi/pricing", adminOnly: true },
     ],
   },
   {
@@ -117,7 +123,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             <div key={section.title}>
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-3 mb-1">{section.title}</p>
               <div className="space-y-0.5">
-                {section.items.map((item) => {
+                {section.items.filter((item:any) => !item.adminOnly || user?.isAdmin).map((item:any) => {
                   const isActive = item.href === "/admin" 
                     ? location === "/admin" 
                     : location.startsWith(item.href);
@@ -228,6 +234,7 @@ export default function AdminDashboard() {
   const { data: stats, isLoading } = useQuery<AdminStats>({
     queryKey: ["/api/admin/stats"],
   });
+  const { user } = useAuth();
 
   const formatCurrency = (amount: string | number) => {
     const num = typeof amount === "string" ? parseFloat(amount) : amount;
@@ -406,6 +413,14 @@ export default function AdminDashboard() {
                       <span>Support Tickets</span>
                     </div>
                   </Link>
+                  {user?.isAdmin && (
+                    <Link href="/admin/taxi/pricing">
+                      <div className="flex items-center gap-2 text-sm text-gray-700 hover-elevate px-2 py-1.5 rounded-md cursor-pointer">
+                        <IndianRupee className="h-4 w-4" />
+                        <span>Taxi Pricing</span>
+                      </div>
+                    </Link>
+                  )}
                 </div>
               </div>
             </div>

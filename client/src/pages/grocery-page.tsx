@@ -60,6 +60,15 @@ export default function GroceryPage() {
     queryKey: ["/api/banners"],
   });
 
+  const { data: trending = [], isLoading: trendingLoading } = useQuery<any[]>({
+    queryKey: ['/api/trending', 'grocery', 1, 12],
+    queryFn: async () => {
+      const res = await fetch('/api/trending?page=1&limit=12&service=grocery');
+      if (!res.ok) throw new Error('Failed to fetch trending');
+      return res.json();
+    }
+  });
+
   const categoryAdsUrl = selectedCategory 
     ? `/api/category-ads?category=${selectedCategory}`
     : `/api/category-ads`;
@@ -133,6 +142,29 @@ export default function GroceryPage() {
         </div>
 
         <BannerSlider banners={banners} />
+
+        {/* Trending section scoped to Grocery */}
+        <section className="mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold text-gray-800">Trending in Grocery</h2>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4">
+            {trendingLoading ? (
+              Array(6).fill(0).map((_, i) => (
+                <div key={i} className="flex-shrink-0 w-44">
+                  <Skeleton className="aspect-square rounded-xl" />
+                  <Skeleton className="h-3 w-32 mt-2" />
+                </div>
+              ))
+            ) : (
+              (trending || []).map((p) => (
+                <div key={p.id} className="flex-shrink-0 w-44 snap-start">
+                  <ProductCard product={p} />
+                </div>
+              ))
+            )}
+          </div>
+        </section>
 
         <div className="flex gap-2">
           <div className="relative flex-1">

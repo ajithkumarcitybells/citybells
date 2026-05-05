@@ -1,8 +1,12 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, useParams } from "wouter";
 import { Star, Clock, ChevronLeft, Plus, Minus, ShoppingBag, Leaf, CircleDot } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -41,10 +45,117 @@ function MenuItemCard({
   onRemove: () => void;
 }) {
   const price = parseFloat(item.price);
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [rating, setRating] = useState<number>(5);
+  const [comment, setComment] = useState("");
+  const submittingRef = useRef(false);
+
+  const submitReview = async () => {
+    if (!user) { window.location.href = '/auth'; return; }
+    if (!rating || rating < 1 || rating > 5) { toast({ title: 'Invalid rating' }); return; }
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    try {
+      const res = await fetch('/api/reviews', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ productId: item.id, rating, comment }) });
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(txt || 'Failed to submit review');
+      }
+      const data = await res.json();
+      toast({ title: 'Review submitted successfully' });
+      setOpen(false);
+      if (data && typeof data.averageRating !== 'undefined') {
+        (item as any).averageRating = data.averageRating;
+        (item as any).totalReviews = data.totalReviews || 0;
+      }
+    } catch (err: any) {
+      console.error('submit review error', err);
+      toast({ title: 'Failed to submit review', description: err?.message || '' });
+    } finally { submittingRef.current = false; }
+  };
+
+  function ReviewsDialog({ productId }: { productId: string }) {
+    const [openReviews, setOpenReviews] = useState(false);
+    const [page, setPage] = useState(1);
+    const [limit] = useState(5);
+    const [sort, setSort] = useState<'latest'|'highest'>('latest');
+
+    const { data, isLoading, refetch } = useQuery<{ summary: { averageRating: number; totalReviews: number }, reviews: any[] }>(
+      {
+        queryKey: ['reviews', productId, page, limit, sort],
+        queryFn: async () => {
+          const q = new URLSearchParams({ page: String(page), limit: String(limit), sort });
+          const res = await fetch(`/api/reviews/${productId}?${q.toString()}`);
+          if (!res.ok) throw new Error('Failed to load reviews');
+          return res.json();
+        },
+        enabled: openReviews,
+      }
+    );
+
+    return (
+      <Dialog open={openReviews} onOpenChange={(v) => { setOpenReviews(v); if (v) refetch(); }}>
+        <DialogTrigger asChild>
+          <Button size="sm" variant="ghost" className="w-full">View Reviews</Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Reviews</DialogTitle>
+          </DialogHeader>
+          <div className="mt-2">
+            {isLoading && <p>Loading reviews…</p>}
+            {!isLoading && data && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-medium">{data.summary?.averageRating ?? 0} ★</div>
+                    <div className="text-xs text-gray-500">{data.summary?.totalReviews ?? 0} reviews</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <select value={sort} onChange={(e) => { setSort(e.target.value as any); setPage(1); refetch(); }} className="text-sm border rounded px-2 py-1">
+                      <option value="latest">Latest</option>
+                      <option value="highest">Highest</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="divide-y">
+                  {data.reviews.length === 0 && <p className="text-sm text-gray-500">No reviews yet.</p>}
+                  {data.reviews.map((r: any) => (
+                    <div key={r.id} className="py-2">
+                      <div className="flex items-center justify-between">
+                        <div className="font-medium text-sm">{r.userName || 'Anonymous'}</div>
+                        <div className="text-sm text-yellow-500">{r.rating} ★</div>
+                      </div>
+                      <div className="text-xs text-gray-500">{new Date(r.createdAt).toLocaleString()}</div>
+                      {r.comment && <p className="mt-1 text-sm">{r.comment}</p>}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-between pt-2">
+                  <div>
+                    <Button size="sm" variant="outline" onClick={() => { if (page > 1) { setPage(p => p - 1); refetch(); } }}>Prev</Button>
+                  </div>
+                  <div className="text-sm text-gray-600">Page {page}</div>
+                  <div>
+                    <Button size="sm" onClick={() => { setPage(p => p + 1); refetch(); }}>Next</Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <div
       className="flex gap-3 py-3 border-b border-gray-100 last:border-0"
+      id={`menu-item-${item.id}`}
       data-testid={`menu-item-${item.id}`}
     >
       <div className="flex-1 min-w-0">
@@ -65,9 +176,49 @@ function MenuItemCard({
         <p className="text-sm font-semibold text-gray-900" data-testid={`text-menu-price-${item.id}`}>
           ₹{price.toFixed(0)}
         </p>
+        <div className="flex items-center gap-2 mt-1">
+          <div className="flex items-center gap-1">
+            <Star className="h-4 w-4 text-yellow-500" />
+            <span className="text-sm font-medium text-gray-800">{(item as any).averageRating ? (item as any).averageRating.toFixed(1) : '0.0'}</span>
+          </div>
+          <span className="text-xs text-gray-500">{(item as any).totalReviews || 0} reviews</span>
+        </div>
         {item.description && (
           <p className="text-xs text-gray-400 mt-1 line-clamp-2">{item.description}</p>
         )}
+        <div className="mt-2">
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" variant="outline" className="w-full">Write a Review</Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Write a review</DialogTitle>
+              </DialogHeader>
+              <div className="mt-2 space-y-2">
+                <div>
+                  <label className="text-sm font-medium">Your rating</label>
+                  <div className="flex items-center gap-1 mt-1">
+                    {[1,2,3,4,5].map((n)=> (
+                      <button key={n} aria-label={`Rate ${n}`} onClick={() => setRating(n)} className={`p-1 ${rating>=n ? 'text-yellow-500' : 'text-gray-300'}`}>
+                        <Star className="h-6 w-6" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <Textarea placeholder="Share your experience…" value={comment} onChange={(e)=>setComment((e.target as HTMLTextAreaElement).value)} />
+                </div>
+              </div>
+              <DialogFooter>
+                <div className="w-full flex gap-2">
+                  <Button onClick={() => setOpen(false)} variant="outline">Cancel</Button>
+                  <Button onClick={submitReview}>Submit</Button>
+                </div>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="flex flex-col items-center gap-1 flex-shrink-0">

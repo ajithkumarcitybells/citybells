@@ -1,9 +1,4 @@
 import {
-  cityServiceCategories,
-  cityServices,
-  cityServiceProviders,
-  cityServiceBookings,
-  users,
   type CityServiceCategory,
   type InsertCityServiceCategory,
   type CityService,
@@ -13,8 +8,11 @@ import {
   type CityServiceBooking,
   type InsertCityServiceBooking,
 } from "@shared/schema";
-import { db } from "./db";
-import { eq, and, desc, ilike, sql } from "drizzle-orm";
+import { getDb, toDoc, toDocs, newId } from "./db";
+
+function col(name: string) {
+  return getDb().collection(name);
+}
 
 export interface ICityServicesStorage {
   getServiceCategories(): Promise<CityServiceCategory[]>;
@@ -23,21 +21,18 @@ export interface ICityServicesStorage {
   createServiceCategory(category: InsertCityServiceCategory): Promise<CityServiceCategory>;
   updateServiceCategory(id: string, category: Partial<InsertCityServiceCategory>): Promise<CityServiceCategory | undefined>;
   deleteServiceCategory(id: string): Promise<void>;
-
   getCityServices(filters?: { categoryId?: string; search?: string }): Promise<CityService[]>;
   getCityService(id: string): Promise<CityService | undefined>;
   getAllCityServices(): Promise<CityService[]>;
   createCityService(service: InsertCityService): Promise<CityService>;
   updateCityService(id: string, service: Partial<InsertCityService>): Promise<CityService | undefined>;
   deleteCityService(id: string): Promise<void>;
-
   getProviders(): Promise<CityServiceProvider[]>;
   getProvider(id: string): Promise<CityServiceProvider | undefined>;
   getProviderByUserId(userId: string): Promise<CityServiceProvider | undefined>;
   createProvider(provider: InsertCityServiceProvider): Promise<CityServiceProvider>;
   updateProvider(id: string, provider: Partial<InsertCityServiceProvider>): Promise<CityServiceProvider | undefined>;
   deleteProvider(id: string): Promise<void>;
-
   getBookings(userId: string): Promise<CityServiceBooking[]>;
   getProviderBookings(providerId: string): Promise<CityServiceBooking[]>;
   getAllBookings(): Promise<CityServiceBooking[]>;
@@ -50,133 +45,113 @@ export interface ICityServicesStorage {
 
 export class CityServicesStorage implements ICityServicesStorage {
   async getServiceCategories(): Promise<CityServiceCategory[]> {
-    return db.select().from(cityServiceCategories);
+    return toDocs<CityServiceCategory>(await col("city_service_categories").find().toArray());
   }
-
   async getServiceCategory(id: string): Promise<CityServiceCategory | undefined> {
-    const [category] = await db.select().from(cityServiceCategories).where(eq(cityServiceCategories.id, id));
-    return category || undefined;
+    const doc = await col("city_service_categories").findOne({ _id: id as any });
+    return doc ? toDoc<CityServiceCategory>(doc) : undefined;
   }
-
   async getAllServiceCategories(): Promise<CityServiceCategory[]> {
-    return db.select().from(cityServiceCategories);
+    return toDocs<CityServiceCategory>(await col("city_service_categories").find().toArray());
   }
-
   async createServiceCategory(category: InsertCityServiceCategory): Promise<CityServiceCategory> {
-    const [created] = await db.insert(cityServiceCategories).values(category).returning();
-    return created;
+    const id = newId();
+    const doc = { _id: id as any, ...category };
+    await col("city_service_categories").insertOne(doc);
+    return toDoc<CityServiceCategory>(doc);
   }
-
   async updateServiceCategory(id: string, category: Partial<InsertCityServiceCategory>): Promise<CityServiceCategory | undefined> {
-    const [updated] = await db.update(cityServiceCategories).set(category).where(eq(cityServiceCategories.id, id)).returning();
-    return updated || undefined;
+    const r = await col("city_service_categories").findOneAndUpdate({ _id: id as any }, { $set: category }, { returnDocument: "after" });
+    return r ? toDoc<CityServiceCategory>(r) : undefined;
   }
-
   async deleteServiceCategory(id: string): Promise<void> {
-    await db.delete(cityServices).where(eq(cityServices.categoryId, id));
-    await db.delete(cityServiceCategories).where(eq(cityServiceCategories.id, id));
+    await col("city_services").deleteMany({ categoryId: id });
+    await col("city_service_categories").deleteOne({ _id: id as any });
   }
-
   async getCityServices(filters?: { categoryId?: string; search?: string }): Promise<CityService[]> {
-    const conditions = [eq(cityServices.isActive, true)];
-
-    if (filters?.categoryId) {
-      conditions.push(eq(cityServices.categoryId, filters.categoryId));
-    }
-
-    if (filters?.search) {
-      conditions.push(ilike(cityServices.name, `%${filters.search}%`));
-    }
-
-    return db.select().from(cityServices).where(and(...conditions));
+    const query: any = { isActive: true };
+    if (filters?.categoryId) query.categoryId = filters.categoryId;
+    if (filters?.search) query.name = { $regex: filters.search, $options: "i" };
+    return toDocs<CityService>(await col("city_services").find(query).toArray());
   }
-
   async getCityService(id: string): Promise<CityService | undefined> {
-    const [service] = await db.select().from(cityServices).where(eq(cityServices.id, id));
-    return service || undefined;
+    const doc = await col("city_services").findOne({ _id: id as any });
+    return doc ? toDoc<CityService>(doc) : undefined;
   }
-
   async getAllCityServices(): Promise<CityService[]> {
-    return db.select().from(cityServices);
+    return toDocs<CityService>(await col("city_services").find().toArray());
   }
-
   async createCityService(service: InsertCityService): Promise<CityService> {
-    const [created] = await db.insert(cityServices).values(service).returning();
-    return created;
+    const id = newId();
+    const doc = { _id: id as any, image: null, reviewCount: 0, isActive: true, ...service };
+    await col("city_services").insertOne(doc);
+    return toDoc<CityService>(doc);
   }
-
   async updateCityService(id: string, service: Partial<InsertCityService>): Promise<CityService | undefined> {
-    const [updated] = await db.update(cityServices).set(service).where(eq(cityServices.id, id)).returning();
-    return updated || undefined;
+    const r = await col("city_services").findOneAndUpdate({ _id: id as any }, { $set: service }, { returnDocument: "after" });
+    return r ? toDoc<CityService>(r) : undefined;
   }
-
   async deleteCityService(id: string): Promise<void> {
-    await db.delete(cityServices).where(eq(cityServices.id, id));
+    await col("city_services").deleteOne({ _id: id as any });
   }
-
   async getProviders(): Promise<CityServiceProvider[]> {
-    return db.select().from(cityServiceProviders);
+    return toDocs<CityServiceProvider>(await col("city_service_providers").find().toArray());
   }
-
   async getProvider(id: string): Promise<CityServiceProvider | undefined> {
-    const [provider] = await db.select().from(cityServiceProviders).where(eq(cityServiceProviders.id, id));
-    return provider || undefined;
+    const doc = await col("city_service_providers").findOne({ _id: id as any });
+    return doc ? toDoc<CityServiceProvider>(doc) : undefined;
   }
-
   async getProviderByUserId(userId: string): Promise<CityServiceProvider | undefined> {
-    const [provider] = await db.select().from(cityServiceProviders).where(eq(cityServiceProviders.userId, userId));
-    return provider || undefined;
+    const doc = await col("city_service_providers").findOne({ userId });
+    return doc ? toDoc<CityServiceProvider>(doc) : undefined;
   }
-
   async createProvider(provider: InsertCityServiceProvider): Promise<CityServiceProvider> {
-    const [created] = await db.insert(cityServiceProviders).values(provider).returning();
-    return created;
+    const id = newId();
+    const doc = { _id: id as any, isAvailable: true, ...provider };
+    await col("city_service_providers").insertOne(doc);
+    return toDoc<CityServiceProvider>(doc);
   }
-
   async updateProvider(id: string, provider: Partial<InsertCityServiceProvider>): Promise<CityServiceProvider | undefined> {
-    const [updated] = await db.update(cityServiceProviders).set(provider).where(eq(cityServiceProviders.id, id)).returning();
-    return updated || undefined;
+    const r = await col("city_service_providers").findOneAndUpdate({ _id: id as any }, { $set: provider }, { returnDocument: "after" });
+    return r ? toDoc<CityServiceProvider>(r) : undefined;
   }
-
   async deleteProvider(id: string): Promise<void> {
-    await db.delete(cityServiceProviders).where(eq(cityServiceProviders.id, id));
+    await col("city_service_providers").deleteOne({ _id: id as any });
   }
-
   async getBookings(userId: string): Promise<CityServiceBooking[]> {
-    return db.select().from(cityServiceBookings).where(eq(cityServiceBookings.userId, userId)).orderBy(desc(cityServiceBookings.createdAt));
+    return toDocs<CityServiceBooking>(await col("city_service_bookings").find({ userId }).sort({ createdAt: -1 }).toArray());
   }
-
   async getProviderBookings(providerId: string): Promise<CityServiceBooking[]> {
-    return db.select().from(cityServiceBookings).where(eq(cityServiceBookings.providerId, providerId)).orderBy(desc(cityServiceBookings.createdAt));
+    return toDocs<CityServiceBooking>(await col("city_service_bookings").find({ providerId }).sort({ createdAt: -1 }).toArray());
   }
-
   async getAllBookings(): Promise<CityServiceBooking[]> {
-    return db.select().from(cityServiceBookings).orderBy(desc(cityServiceBookings.createdAt));
+    return toDocs<CityServiceBooking>(await col("city_service_bookings").find().sort({ createdAt: -1 }).toArray());
   }
-
   async getBooking(id: string): Promise<CityServiceBooking | undefined> {
-    const [booking] = await db.select().from(cityServiceBookings).where(eq(cityServiceBookings.id, id));
-    return booking || undefined;
+    const doc = await col("city_service_bookings").findOne({ _id: id as any });
+    return doc ? toDoc<CityServiceBooking>(doc) : undefined;
   }
-
   async createBooking(booking: InsertCityServiceBooking): Promise<CityServiceBooking> {
-    const [created] = await db.insert(cityServiceBookings).values(booking).returning();
-    return created;
+    const id = newId();
+    const doc = { _id: id as any, status: "pending", createdAt: new Date(), ...booking };
+    await col("city_service_bookings").insertOne(doc);
+    return toDoc<CityServiceBooking>(doc);
   }
-
   async updateBookingStatus(id: string, status: string): Promise<CityServiceBooking | undefined> {
-    const [updated] = await db.update(cityServiceBookings).set({ status }).where(eq(cityServiceBookings.id, id)).returning();
-    return updated || undefined;
+    const r = await col("city_service_bookings").findOneAndUpdate({ _id: id as any }, { $set: { status } }, { returnDocument: "after" });
+    return r ? toDoc<CityServiceBooking>(r) : undefined;
   }
-
   async rateBooking(id: string, rating: number): Promise<CityServiceBooking | undefined> {
-    const [updated] = await db.update(cityServiceBookings).set({ rating }).where(eq(cityServiceBookings.id, id)).returning();
-    return updated || undefined;
+    const r = await col("city_service_bookings").findOneAndUpdate({ _id: id as any }, { $set: { rating } }, { returnDocument: "after" });
+    return r ? toDoc<CityServiceBooking>(r) : undefined;
   }
-
   async assignProvider(bookingId: string, providerId: string): Promise<CityServiceBooking | undefined> {
-    const [updated] = await db.update(cityServiceBookings).set({ providerId, status: "provider_assigned" }).where(eq(cityServiceBookings.id, bookingId)).returning();
-    return updated || undefined;
+    const r = await col("city_service_bookings").findOneAndUpdate(
+      { _id: bookingId as any },
+      { $set: { providerId, status: "provider_assigned" } },
+      { returnDocument: "after" }
+    );
+    return r ? toDoc<CityServiceBooking>(r) : undefined;
   }
 }
 

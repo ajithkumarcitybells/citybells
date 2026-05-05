@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Product } from "@shared/schema";
 import { WeightPickerModal } from "@/components/WeightPickerModal";
+import { useEffect } from "react";
 
 export default function ProductDetailPage() {
   const [, params] = useRoute("/product/:id");
@@ -26,6 +27,22 @@ export default function ProductDetailPage() {
     },
     enabled: !!params?.id,
   });
+  useEffect(() => {
+  if (!product) return;
+
+  const existing: Product[] = JSON.parse(
+    localStorage.getItem("recentlyViewedProducts") || "[]"
+  );
+
+  const filtered = existing.filter((p) => p.id !== product.id);
+
+  const updated = [product, ...filtered].slice(0, 10);
+
+  localStorage.setItem(
+    "recentlyViewedProducts",
+    JSON.stringify(updated)
+  );
+}, [product]);
 
   const { data: wishlistItems = [] } = useQuery<{ productId: string }[]>({
     queryKey: ["/api/wishlist"],
@@ -61,9 +78,9 @@ export default function ProductDetailPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/wishlist"] });
-      toast({ 
+      toast({
         title: isInWishlist ? "Removed from wishlist" : "Added to wishlist",
-        description: isInWishlist ? `${product?.name} removed from wishlist` : `${product?.name} added to wishlist`
+        description: isInWishlist ? `${product?.name} removed from wishlist` : `${product?.name} added to wishlist`,
       });
     },
     onError: () => {
@@ -157,8 +174,8 @@ export default function ProductDetailPage() {
             className="p-2"
             data-testid="button-wishlist"
           >
-            <Heart 
-              className={`h-6 w-6 ${isInWishlist ? 'text-red-500 fill-red-500' : 'text-gray-400'}`} 
+            <Heart
+              className={`h-6 w-6 ${isInWishlist ? 'text-red-500 fill-red-500' : 'text-gray-400'}`}
             />
           </button>
         </div>

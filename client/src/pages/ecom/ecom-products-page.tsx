@@ -14,6 +14,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Avatar } from "@/components/ui/avatar";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
@@ -36,6 +37,7 @@ export default function EcomProductsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [filterOpen, setFilterOpen] = useState(false);
   const [instantOnly, setInstantOnly] = useState(false);
+  const [compareSelection, setCompareSelection] = useState<string[]>([]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -366,6 +368,18 @@ export default function EcomProductsPage() {
                 onToggleWishlist={() => toggleWishlist.mutate(product.id)}
                 onAddToCart={() => addToCart.mutate(product.id)}
                 onNavigate={() => setLocation(`/ecommerce/product/${product.id}`)}
+                compareSelected={compareSelection.includes(product.id)}
+                onToggleCompare={() => {
+                  setCompareSelection((prev) => {
+                    const exists = prev.includes(product.id);
+                    if (exists) return prev.filter((p) => p !== product.id);
+                    if (prev.length >= 2) {
+                      toast({ title: "Compare limit", description: "You can compare up to 2 products." });
+                      return prev;
+                    }
+                    return [...prev, product.id];
+                  });
+                }}
               />
             ))}
           </div>
@@ -379,8 +393,68 @@ export default function EcomProductsPage() {
                 onToggleWishlist={() => toggleWishlist.mutate(product.id)}
                 onAddToCart={() => addToCart.mutate(product.id)}
                 onNavigate={() => setLocation(`/ecommerce/product/${product.id}`)}
+                compareSelected={compareSelection.includes(product.id)}
+                onToggleCompare={() => {
+                  setCompareSelection((prev) => {
+                    const exists = prev.includes(product.id);
+                    if (exists) return prev.filter((p) => p !== product.id);
+                    if (prev.length >= 2) {
+                      toast({ title: "Compare limit", description: "You can compare up to 2 products." });
+                      return prev;
+                    }
+                    return [...prev, product.id];
+                  });
+                }}
               />
             ))}
+          </div>
+        )}
+
+        {/* Floating compare bar */}
+        {compareSelection.length > 0 && (
+          <div className="fixed left-1/2 transform -translate-x-1/2 bottom-20 w-full max-w-lg px-4">
+            <div className="bg-white shadow-lg rounded-xl border border-gray-100 p-3 flex items-center gap-3">
+              <div className="flex items-center gap-2 flex-1">
+                {compareSelection.map((id) => {
+                  const p = products.find((x) => x.id === id);
+                  return (
+                    <div key={id} className="flex items-center gap-2 bg-gray-50 rounded-md px-2 py-1">
+                      <Avatar className="h-8 w-8 bg-white">
+                        <img src={(p?.images as string[])?.[0] || ""} alt={p?.name || ""} />
+                      </Avatar>
+                      <div className="text-xs">
+                        <div className="font-medium line-clamp-1">{p?.name}</div>
+                        <div className="text-[11px] text-gray-500">₹{p ? parseFloat(p.price).toFixed(0) : ""}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  onClick={() => setCompareSelection([])}
+                  data-testid="button-clear-compare"
+                >
+                  Clear
+                </Button>
+                <Button
+                  onClick={() => {
+                    // persist compare list and navigate
+                    try { localStorage.setItem("compareProducts", JSON.stringify(compareSelection)); } catch {}
+                    if (compareSelection.length === 1) {
+                      setLocation(`/compare?ids=${compareSelection[0]}`);
+                    } else {
+                      setLocation(`/compare?ids=${compareSelection.join(",")}`);
+                    }
+                  }}
+                  disabled={compareSelection.length === 0}
+                  data-testid="button-compare-now"
+                >
+                  Compare ({compareSelection.length}/2)
+                </Button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -422,12 +496,16 @@ function GridProductCard({
   onToggleWishlist,
   onAddToCart,
   onNavigate,
+  compareSelected,
+  onToggleCompare,
 }: {
   product: EcomProduct;
   isInWishlist: boolean;
   onToggleWishlist: () => void;
   onAddToCart: () => void;
   onNavigate: () => void;
+  compareSelected?: boolean;
+  onToggleCompare?: () => void;
 }) {
   const price = parseFloat(product.price);
   const origPrice = parseFloat(product.originalPrice);
@@ -437,6 +515,14 @@ function GridProductCard({
   return (
     <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm flex flex-col h-full" data-testid={`card-ecom-product-${product.id}`}>
       <div className="relative aspect-square p-2 cursor-pointer bg-white" onClick={onNavigate}>
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleCompare && onToggleCompare(); }}
+          className="absolute top-2 left-2 p-1.5 bg-white rounded-full shadow-md z-10 hover-elevate active-elevate-2"
+          data-testid={`button-compare-toggle-${product.id}`}
+          aria-pressed={compareSelected}
+        >
+          <Checkbox checked={!!compareSelected} onCheckedChange={onToggleCompare} />
+        </button>
         <button
           onClick={(e) => { e.stopPropagation(); onToggleWishlist(); }}
           className="absolute top-2 right-2 p-1.5 bg-white rounded-full shadow-md z-10 hover-elevate active-elevate-2"
@@ -494,12 +580,16 @@ function ListProductCard({
   onToggleWishlist,
   onAddToCart,
   onNavigate,
+  compareSelected,
+  onToggleCompare,
 }: {
   product: EcomProduct;
   isInWishlist: boolean;
   onToggleWishlist: () => void;
   onAddToCart: () => void;
   onNavigate: () => void;
+  compareSelected?: boolean;
+  onToggleCompare?: () => void;
 }) {
   const price = parseFloat(product.price);
   const origPrice = parseFloat(product.originalPrice);
@@ -509,6 +599,14 @@ function ListProductCard({
   return (
     <Card className="flex overflow-hidden border-gray-100" data-testid={`card-ecom-product-list-${product.id}`}>
       <div className="w-28 flex-shrink-0 aspect-square bg-gray-50 p-2 cursor-pointer relative" onClick={onNavigate}>
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleCompare && onToggleCompare(); }}
+          className="absolute top-1 left-1 p-1 bg-white rounded-full shadow z-10"
+          data-testid={`button-compare-toggle-list-${product.id}`}
+          aria-pressed={compareSelected}
+        >
+          <Checkbox checked={!!compareSelected} onCheckedChange={onToggleCompare} />
+        </button>
         {firstImage ? (
           <img src={firstImage} alt={product.name} className="w-full h-full object-contain" loading="lazy" />
         ) : (

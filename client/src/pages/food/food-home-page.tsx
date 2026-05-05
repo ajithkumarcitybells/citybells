@@ -1,11 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import {
   Search, Star, Clock, ChevronLeft, ChevronRight, Leaf, UtensilsCrossed,
   Zap, Tag, Salad, Drumstick, Percent, Flame, Coffee, Pizza, Soup
 } from "lucide-react";
+import { Mic } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
+import ComboCarousel from "@/components/ComboCarousel";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -65,7 +67,7 @@ function HeroBanner() {
         {slides.map((_, i) => (
           <button key={i} onClick={() => setCurrent(i)} className={`w-1.5 h-1.5 rounded-full transition-colors ${i === current ? "bg-white" : "bg-white/40"}`} data-testid={`button-food-banner-dot-${i}`} />
         ))}
-      </div>
+          </div>
     </div>
   );
 }
@@ -321,6 +323,10 @@ function RestaurantCard({ restaurant }: { restaurant: FoodRestaurant }) {
 
 export default function FoodHomePage() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const cacheRef = useRef<Map<string, any[]>>(new Map());
   const [selectedCuisine, setSelectedCuisine] = useState("All");
   const [, setLocation] = useLocation();
 
@@ -362,6 +368,148 @@ export default function FoodHomePage() {
     return true;
   });
 
+  // Voice recognition refs/state
+  const recognitionRef = useRef<any>(null);
+  const [listening, setListening] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState<string | null>(null);
+  const [voiceSupported, setVoiceSupported] = useState<boolean>(true);
+
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setVoiceSupported(false);
+      return;
+    }
+    // keep in ref, will be created on demand per start
+    setVoiceSupported(true);
+    return () => {
+      try {
+        recognitionRef.current?.stop?.();
+      } catch (e:any) { console.error(e); }
+    };
+  }, []);
+
+  const startVoice = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setVoiceSupported(false);
+      setVoiceStatus("Voice search not supported");
+      return;
+    }
+    try {
+      const r = new SpeechRecognition();
+      recognitionRef.current = r;
+      r.interimResults = false;
+      r.lang = 'en-IN';
+      r.maxAlternatives = 1;
+
+      r.onstart = () => {
+        setListening(true);
+        setVoiceStatus("Listening...");
+      };
+
+      r.onresult = (ev: any) => {
+        const transcript = Array.from(ev.results).map((res: any) => res[0].transcript).join(' ').trim();
+        if (transcript) {
+          setSearchQuery(transcript);
+          setVoiceStatus(`Search updated to ${transcript}`);
+        } else {
+          setVoiceStatus("Couldn't hear clearly, try again");
+        }
+      };
+
+      r.onerror = (err: any) => {
+        console.error('Speech recognition error', err);
+        setVoiceStatus("Couldn't hear clearly, try again");
+      };
+
+      r.onend = () => {
+        setListening(false);
+        // clear status after short delay
+        setTimeout(() => setVoiceStatus(null), 2500);
+      };
+
+      r.start();
+    } catch (err) {
+      console.error('startVoice error', err);
+      setVoiceStatus("Couldn't start voice recognition");
+      setListening(false);
+    }
+  };
+
+  const stopVoice = () => {
+    try {
+      recognitionRef.current?.stop?.();
+    } catch (e:any) { console.error(e); }
+    setListening(false);
+    setVoiceStatus(null);
+  };
+
+  // debounce search suggestions
+  useEffect(() => {
+    const q = (searchQuery || '').trim();
+    if (!q) { setSuggestions([]); setShowSuggestions(false); setSelectedIndex(-1); return; }
+    // cached results
+    const cached = cacheRef.current.get(q.toLowerCase());
+    if (cached) { setSuggestions(cached); setShowSuggestions(true); return; }
+    const id = setTimeout(async () => {
+      try {
+        const url = `/api/search?q=${encodeURIComponent(q)}&limit=8`;
+        const res = await fetch(url);
+        if (!res.ok) { setSuggestions([]); setShowSuggestions(false); return; }
+        const data = await res.json();
+        cacheRef.current.set(q.toLowerCase(), data);
+        setSuggestions(data || []);
+        setShowSuggestions(true);
+        setSelectedIndex(-1);
+      } catch (err) {
+        console.error('search suggestions error', err);
+        setSuggestions([]);
+        setShowSuggestions(false);
+      }
+    }, 300);
+    return () => clearTimeout(id);
+  }, [searchQuery]);
+
+  const onSelectSuggestion = (item: any) => {
+    setSearchQuery(item.name || '');
+    setShowSuggestions(false);
+    setSelectedIndex(-1);
+    // navigate depending on item type
+    if (item.type === 'restaurant') {
+      setLocation(`/food/restaurant/${item.id}`);
+      return;
+    }
+    if (item.type === 'item' && item.restaurantId) {
+      setLocation(`/food/restaurant/${item.restaurantId}#menu-item-${item.id}`);
+      return;
+    }
+    // fallback: open generic product route
+    setLocation(`/product/${item.id}`);
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions || suggestions.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex(i => Math.min(i + 1, suggestions.length - 1));
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex(i => Math.max(i - 1, 0));
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (selectedIndex >= 0 && suggestions[selectedIndex]) onSelectSuggestion(suggestions[selectedIndex]);
+    }
+    if (e.key === 'Escape') {
+      setShowSuggestions(false);
+      setSelectedIndex(-1);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       <header className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
@@ -387,9 +535,71 @@ export default function FoodHomePage() {
             placeholder="Search restaurants or cuisines..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 bg-white border-gray-200"
+            onKeyDown={onKeyDown}
+            className="pl-10 pr-14 bg-white border-gray-200"
             data-testid="input-food-search"
+            aria-label="Search restaurants or cuisines"
+            aria-autocomplete="list"
+            aria-controls="food-search-suggestions"
           />
+          <button
+            type="button"
+            onClick={() => {
+              if (!voiceSupported) return;
+              if (listening) stopVoice(); else startVoice();
+            }}
+            title={voiceSupported ? (listening ? 'Stop voice search' : 'Search by voice') : 'Voice search not supported'}
+            aria-label="Search food using voice"
+            className={`absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center rounded-full ${listening ? 'bg-red-100 text-red-600' : 'bg-white text-gray-600'} focus:outline-none`} 
+            style={{ minWidth: 44, minHeight: 44 }}
+            disabled={!voiceSupported}
+          >
+            <Mic className={`h-5 w-5`} />
+          </button>
+          <div aria-live="polite" className="sr-only">{voiceStatus}</div>
+          {voiceStatus && (
+            <div className="mt-2 text-sm text-gray-600" role="status" aria-live="polite">{voiceStatus}</div>
+          )}
+          {showSuggestions && (
+            <div id="food-search-suggestions" role="listbox" aria-label="Search suggestions" className="absolute left-0 right-0 mt-2 bg-white border rounded-md shadow-lg z-50 overflow-hidden">
+              {suggestions.length === 0 ? (
+                <div className="p-3 text-sm text-gray-500">No items found</div>
+              ) : (
+                suggestions.map((s, idx) => {
+                  const q = (searchQuery || '').trim();
+                  const name = s.name || '';
+                  const lc = name.toLowerCase();
+                  const pos = lc.indexOf(q.toLowerCase());
+                  const before = pos >= 0 ? name.slice(0, pos) : name;
+                  const match = pos >= 0 ? name.slice(pos, pos + q.length) : '';
+                  const after = pos >= 0 ? name.slice(pos + q.length) : '';
+                  return (
+                    <button
+                      key={s.id}
+                      role="option"
+                      aria-selected={selectedIndex === idx}
+                      className={`w-full text-left flex items-center gap-3 px-3 py-2 hover:bg-gray-50 ${selectedIndex === idx ? 'bg-gray-100' : ''}`}
+                      onMouseEnter={() => setSelectedIndex(idx)}
+                      onMouseLeave={() => setSelectedIndex(-1)}
+                      onClick={() => onSelectSuggestion(s)}
+                    >
+                      <div className="w-10 h-10 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
+                        {s.image ? <img src={s.image} alt={s.name} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-gray-200" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-gray-800 truncate">
+                          {before}<span className="font-bold">{match}</span>{after}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {s.type === 'restaurant' ? 'Restaurant' : (s.price ? `₹${parseFloat(String(s.price)).toFixed(0)}` : '')}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          )}
         </form>
 
         <QuickActionStrip onFilter={handleQuickFilter} active={activeQuickAction} />
@@ -412,6 +622,7 @@ export default function FoodHomePage() {
           </div>
         ) : (
           <>
+            <ComboCarousel />
             <SpotlightSection restaurants={restaurants} />
 
             <RestaurantsYouLove restaurants={restaurants} />

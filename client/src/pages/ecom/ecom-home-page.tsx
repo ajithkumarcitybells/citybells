@@ -318,6 +318,15 @@ export default function EcomHomePage() {
     queryKey: ["/api/ecom/products"],
   });
 
+  const { data: trending = [], isLoading: trendingLoading } = useQuery<EcomProduct[]>({
+    queryKey: ['/api/trending', 'ecom', 1, 12],
+    queryFn: async () => {
+      const res = await fetch('/api/trending?page=1&limit=12&service=ecom');
+      if (!res.ok) throw new Error('Failed to fetch trending');
+      return res.json();
+    }
+  });
+
   const activeProducts = allProducts.filter((p) => p.isActive && p.isApproved);
   const featuredProducts = allProducts.filter((p) => p.isFeatured && p.isActive && p.isApproved);
   const instantProducts = allProducts.filter((p) => p.isInstantDelivery && p.isActive && p.isApproved);
@@ -402,7 +411,7 @@ export default function EcomHomePage() {
             <ProductSection
               title="Trending Now"
               icon={TrendingUp}
-              products={featuredProducts.length > 0 ? featuredProducts : newest}
+              products={trending.length > 0 ? trending : (featuredProducts.length > 0 ? featuredProducts : newest)}
               linkHref="/ecommerce/products?sort=newest"
             />
 
