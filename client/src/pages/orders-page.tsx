@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/use-auth";
 import { Order, OrderItem } from "@shared/schema";
+import { SubscriberBadge } from "@/components/GrocerySubscription";
 
 const statusConfig: Record<string, { icon: typeof Package; color: string; label: string }> = {
   pending: { icon: Clock, color: "bg-yellow-100 text-yellow-700", label: "Pending" },
@@ -106,6 +107,11 @@ export default function OrdersPage() {
                       {status.label}
                     </Badge>
                   </div>
+                  {order.priorityDelivery && (
+                    <div className="mb-3">
+                      <SubscriberBadge compact />
+                    </div>
+                  )}
                   
                   <div className="flex gap-2 mb-3 overflow-x-auto">
                     {items.slice(0, 4).map((item, index) => (

@@ -489,6 +489,7 @@ export default function TaxiBookingPage() {
             <div className="mb-3 flex items-center gap-2">
               <ShieldCheck className="h-4 w-4 text-emerald-600" />
               <p className="text-xs font-semibold uppercase text-muted-foreground">Verified driver</p>
+              {(ride as any).customerSelectedDriver ? <Badge className="border-transparent bg-amber-100 text-amber-900">Your selected driver</Badge> : null}
             </div>
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-amber-50 dark:bg-amber-900/20 rounded-full flex items-center justify-center flex-shrink-0 border-2 border-amber-200 dark:border-amber-700">

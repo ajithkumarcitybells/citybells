@@ -36,8 +36,9 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { TaxiDriver, TaxiRide } from "@shared/schema";
+import { DriverScheduledRideCard } from "@/components/taxi/scheduled-rides";
 
-type DriverTab = "home" | "dashboard" | "trips" | "profile";
+type DriverTab = "home" | "dashboard" | "trips" | "scheduled" | "profile";
 
 type DashboardTaxiDriver = TaxiDriver & {
   isActive?: boolean | null;
@@ -372,6 +373,11 @@ export default function TaxiDriverDashboard() {
     enabled: !!user && !!driver,
     refetchInterval: isDriverOnline ? 3000 : 10000,
   });
+  const { data: scheduledRides = [], isLoading: scheduledLoading } = useQuery<TaxiRide[]>({
+    queryKey: ["/api/taxi/driver/scheduled-rides"],
+    enabled: !!user && !!driver,
+    refetchInterval: isDriverOnline ? 10000 : 30000,
+  });
 
   const requestRides = rides.filter((ride) => ride.status === "requested");
   const activeRides = rides.filter((ride) => !["requested", "completed", "cancelled"].includes(String(ride.status)));
@@ -505,6 +511,19 @@ export default function TaxiDriverDashboard() {
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     },
+  });
+
+  const updateScheduledStatusMutation = useMutation({
+    mutationFn: async ({ rideId, status }: { rideId: string; status: string }) => {
+      const res = await apiRequest("PATCH", `/api/taxi/driver/scheduled-rides/${rideId}/status`, { status });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/taxi/driver/scheduled-rides"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/taxi/driver/rides"] });
+      toast({ title: "Scheduled ride updated" });
+    },
+    onError: (error: Error) => toast({ title: "Update failed", description: error.message, variant: "destructive" }),
   });
 
   useEffect(() => {
@@ -724,6 +743,30 @@ export default function TaxiDriverDashboard() {
     </div>
   );
 
+  const renderScheduled = () => (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-xl font-black text-slate-950">Scheduled rides</h2>
+        <p className="text-sm text-slate-500">Assigned future pickups appear here with countdowns.</p>
+      </div>
+      {scheduledLoading ? (
+        <Skeleton className="h-44 rounded-3xl" />
+      ) : scheduledRides.length === 0 ? (
+        <Card className="rounded-3xl p-8 text-center">
+          <Clock className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+          <p className="font-semibold text-slate-800">No scheduled rides assigned</p>
+          <p className="mt-1 text-sm text-slate-500">Admin-assigned future rides will show here.</p>
+        </Card>
+      ) : scheduledRides.map((ride) => (
+        <DriverScheduledRideCard
+          key={ride.id}
+          ride={ride}
+          onStatus={(status) => updateScheduledStatusMutation.mutate({ rideId: ride.id, status })}
+        />
+      ))}
+    </div>
+  );
+
   const renderProfile = () => (
     <div className="space-y-4">
       <Card className="rounded-3xl p-4 shadow-sm">
@@ -817,7 +860,7 @@ export default function TaxiDriverDashboard() {
         <div className="mx-auto flex max-w-lg items-center justify-between gap-3">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-amber-600">City Taxi Driver</p>
-            <h1 className="text-lg font-black text-slate-950">{activeTab === "trips" ? "Trips" : activeTab === "profile" ? "Profile" : "Dashboard"}</h1>
+            <h1 className="text-lg font-black text-slate-950">{activeTab === "trips" ? "Trips" : activeTab === "scheduled" ? "Scheduled" : activeTab === "profile" ? "Profile" : "Dashboard"}</h1>
           </div>
           <div className="flex items-center gap-3 rounded-full bg-slate-100 py-1 pl-3 pr-1">
             <span className={`text-xs font-bold ${isDriverOnline ? "text-green-700" : "text-slate-500"}`}>{isDriverOnline ? "Online" : "Offline"}</span>
@@ -845,6 +888,7 @@ export default function TaxiDriverDashboard() {
         {activeTab === "home" ? renderHome() : null}
         {activeTab === "dashboard" ? renderDashboard() : null}
         {activeTab === "trips" ? renderTrips() : null}
+        {activeTab === "scheduled" ? renderScheduled() : null}
         {activeTab === "profile" ? renderProfile() : null}
       </main>
 
@@ -885,11 +929,12 @@ export default function TaxiDriverDashboard() {
       )}
 
       <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-lg px-4 pb-4">
-        <div className="grid grid-cols-4 rounded-3xl border border-slate-200 bg-white p-2 shadow-xl">
+        <div className="grid grid-cols-5 rounded-3xl border border-slate-200 bg-white p-2 shadow-xl">
           {[
             { key: "home", label: "Home", icon: Home },
             { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
             { key: "trips", label: "Trips", icon: ClipboardList, count: requestRides.length },
+            { key: "scheduled", label: "Schedule", icon: Clock, count: scheduledRides.length },
             { key: "profile", label: "Profile", icon: User },
           ].map((item) => (
             <button

@@ -9,6 +9,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { CartItemWithProduct } from "@shared/schema";
+import { FastDeliveryBadge, FastDeliveryCartNotice, isFastDeliveryProduct } from "@/components/FastDelivery";
+import { SubscriberDealBadge } from "@/components/GrocerySubscription";
 
 export default function CartPage() {
   const { user } = useAuth();
@@ -118,6 +120,7 @@ export default function CartPage() {
           </div>
         ) : (
           <div className="space-y-4">
+            <FastDeliveryCartNotice items={cartItems} />
             {cartItems.map((item) => (
               <div 
                 key={item.id} 
@@ -141,6 +144,16 @@ export default function CartPage() {
                     {item.product.name}
                     {item.variant && <span className="text-sm text-gray-500 ml-1">- {item.variant}</span>}
                   </h3>
+                  {isFastDeliveryProduct(item.product) && (
+                    <div className="mt-1">
+                      <FastDeliveryBadge compact />
+                    </div>
+                  )}
+                  {(item.product as any).subscriberDeal && (
+                    <div className="mt-1">
+                      <SubscriberDealBadge discount={(item.product as any).subscriberDiscountPercent} />
+                    </div>
+                  )}
                   <p className="text-lg font-bold text-primary mt-1">
                     ₹{getItemPrice(item).toFixed(2)}
                   </p>
@@ -218,6 +231,12 @@ export default function CartPage() {
                   ) : (
                     `₹${deliveryFee.toFixed(2)}`
                   )}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Delivery Estimate</span>
+                <span className="font-medium text-emerald-700">
+                  {cartItems.some(item => isFastDeliveryProduct(item.product)) ? "10 min eligible" : "Standard slot"}
                 </span>
               </div>
               <div className="flex justify-between text-lg font-bold border-t pt-2">

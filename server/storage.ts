@@ -49,7 +49,7 @@ export interface IStorage {
   createCategory(category: InsertCategory): Promise<Category>;
   updateCategory(id: string, category: Partial<InsertCategory>): Promise<Category | undefined>;
   deleteCategory(id: string): Promise<void>;
-  getProducts(): Promise<Product[]>;
+  getProducts(filters?: { category?: string; fastDelivery?: boolean; pincode?: string }): Promise<Product[]>;
   getAllProducts(): Promise<Product[]>;
   getProduct(id: string): Promise<Product | undefined>;
   getProductsByCategory(categoryId: string): Promise<Product[]>;
@@ -243,8 +243,29 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Products
-  async getProducts(): Promise<Product[]> {
-    return toDocs<Product>(await col("products").find({ isActive: true }).toArray());
+  async getProducts(filters: { category?: string; fastDelivery?: boolean; pincode?: string } = {}): Promise<Product[]> {
+    const query: any = { isActive: true };
+    if (filters.category) query.categoryId = filters.category;
+    if (filters.fastDelivery) {
+      query.fastDelivery = true;
+      query.fastDeliveryEnabled = { $ne: false };
+      query.stock = { $gt: 0 };
+      query.$or = [
+        { fastDeliveryStock: { $exists: false } },
+        { fastDeliveryStock: null },
+        { fastDeliveryStock: { $gt: 0 } },
+      ];
+      if (filters.pincode) {
+        query.$and = [{
+          $or: [
+            { fastDeliveryAreas: { $exists: false } },
+            { fastDeliveryAreas: { $size: 0 } },
+            { fastDeliveryAreas: filters.pincode },
+          ],
+        }];
+      }
+    }
+    return toDocs<Product>(await col("products").find(query).sort({ fastDelivery: -1, fastDeliveryEnabled: -1, stock: -1, name: 1 }).toArray());
   }
   async getAllProducts(): Promise<Product[]> {
     return toDocs<Product>(await col("products").find().toArray());
@@ -258,7 +279,29 @@ export class DatabaseStorage implements IStorage {
   }
   async createProduct(product: InsertProduct): Promise<Product> {
     const id = newId();
-    const doc = { _id: id as any, isActive: true, stock: 100, rating: "4.0", discountPercent: 0, unit: "1 pc", isTrending: !!(product as any).isTrending || false, fastDelivery: !!(product as any).fastDelivery || false, ...product };
+    const fastDelivery = !!(product as any).fastDelivery;
+    const stock = (product as any).stock ?? 100;
+    const doc = {
+      _id: id as any,
+      isActive: true,
+      stock,
+      rating: "4.0",
+      discountPercent: 0,
+      unit: "1 pc",
+      isTrending: !!(product as any).isTrending || false,
+      fastDelivery,
+      fastDeliveryEnabled: fastDelivery,
+      fastDeliveryStock: fastDelivery ? stock : 0,
+      fastDeliveryAreas: [],
+      fastDeliveryStartTime: null,
+      fastDeliveryEndTime: null,
+      fastDeliveryMaxRadiusKm: null,
+      subscriberDeal: false,
+      subscriberDiscountPercent: 0,
+      earlyAccess: false,
+      earlyAccessUntil: null,
+      ...product,
+    };
     await col("products").insertOne(doc);
     try {
       const { indexProduct } = await import('./search');

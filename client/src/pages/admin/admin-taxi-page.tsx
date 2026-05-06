@@ -13,10 +13,11 @@ import TaxiSocketDemo from "@/components/TaxiSocketDemo";
 import useTaxiSocket from "@/hooks/use-taxi-socket";
 import RideTrackingMap from "@/components/RideTrackingMap";
 import { EtaBadge } from "@/components/taxi/EtaBadge";
+import { AdminScheduledRideCard } from "@/components/taxi/scheduled-rides";
 
 export default function AdminTaxiPage() {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<"vehicles"|"drivers"|"rides">("vehicles");
+  const [activeTab, setActiveTab] = useState<"vehicles"|"drivers"|"rides"|"scheduled">("vehicles");
 
   const { data: vehicles = [], isLoading: loadingVehicles } = useQuery({ queryKey: ["/api/admin/taxi/vehicle-types"], queryFn: async () => { const r = await apiRequest('GET','/api/admin/taxi/vehicle-types'); return r.json(); } });
   const { data: drivers = [], isLoading: loadingDrivers } = useQuery({ queryKey: ["/api/admin/taxi/drivers"], queryFn: async () => { const r = await apiRequest('GET','/api/admin/taxi/drivers'); return r.json(); } });
@@ -62,6 +63,7 @@ export default function AdminTaxiPage() {
     return () => clearInterval(id);
   }, [assignDrawerOpen, refreshIntervalSec, refetchAvailable, currentRide?.id, maxKm]);
   const { data: rides = [], isLoading: loadingRides } = useQuery({ queryKey: ["/api/admin/taxi/rides"], queryFn: async () => { const r = await apiRequest('GET','/api/admin/taxi/rides'); return r.json(); } });
+  const { data: scheduledRides = [], isLoading: loadingScheduledRides } = useQuery({ queryKey: ["/api/admin/taxi/scheduled-rides"], queryFn: async () => { const r = await apiRequest('GET','/api/admin/taxi/scheduled-rides'); return r.json(); } });
   const { data: safetyDashboard } = useQuery({
     queryKey: ["/api/admin/taxi/safety"],
     queryFn: async () => {
@@ -153,6 +155,23 @@ export default function AdminTaxiPage() {
     onError: (err: any) => toast({ title: 'Auto-assign failed', description: err?.message || 'Error', variant: 'destructive' }),
   });
 
+  const assignScheduledDriver = useMutation({ mutationFn: async ({ rideId, driverId }: any) => {
+    await apiRequest('PATCH', `/api/admin/taxi/scheduled-rides/${rideId}/assign`, { driverId });
+  }, onSuccess: async () => { queryClient.invalidateQueries({ queryKey: ['/api/admin/taxi/scheduled-rides'] }); toast({ title: 'Scheduled ride assigned' }); } });
+
+  const autoAssignScheduled = useMutation({ mutationFn: async (rideId: string) => {
+    await apiRequest('PATCH', `/api/admin/taxi/scheduled-rides/${rideId}/auto-assign`, {});
+  }, onSuccess: async () => { queryClient.invalidateQueries({ queryKey: ['/api/admin/taxi/scheduled-rides'] }); toast({ title: 'Auto-assigned scheduled ride' }); } });
+
+  const cancelScheduled = useMutation({ mutationFn: async (rideId: string) => {
+    await apiRequest('PATCH', `/api/admin/taxi/scheduled-rides/${rideId}/cancel`, { reason: 'Cancelled by admin' });
+  }, onSuccess: async () => { queryClient.invalidateQueries({ queryKey: ['/api/admin/taxi/scheduled-rides'] }); toast({ title: 'Scheduled ride cancelled' }); } });
+
+  const runAssignmentCheck = useMutation({ mutationFn: async () => {
+    const res = await apiRequest('POST', '/api/admin/taxi/scheduled-rides/run-assignment-check', {});
+    return res.json();
+  }, onSuccess: async (data:any) => { queryClient.invalidateQueries({ queryKey: ['/api/admin/taxi/scheduled-rides'] }); toast({ title: 'Assignment check complete', description: `${data.checked || 0} rides checked` }); } });
+
   const incomingRides = useMemo(() => rides.filter((r: any) => ['searching', 'requested', 'no_drivers'].includes(r.status)), [rides]);
   const activeRides = useMemo(() => rides.filter((r: any) => ['requested', 'accepted', 'driver_assigned', 'arriving', 'started', 'in_ride'].includes(r.status)), [rides]);
 
@@ -165,6 +184,7 @@ export default function AdminTaxiPage() {
             <Button onClick={() => setActiveTab('vehicles')}>Vehicles</Button>
             <Button onClick={() => setActiveTab('drivers')}>Drivers</Button>
             <Button onClick={() => setActiveTab('rides')}>Rides</Button>
+            <Button onClick={() => setActiveTab('scheduled')}>Scheduled</Button>
           </div>
         </div>
 
@@ -207,6 +227,36 @@ export default function AdminTaxiPage() {
                 </tbody>
               </table>
             </div>
+          </Card>
+        )}
+
+        {activeTab === 'scheduled' && (
+          <Card className="p-4">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="font-medium">Scheduled rides</h2>
+                <p className="text-sm text-gray-500">Assign drivers before pickup and run notification/assignment checks.</p>
+              </div>
+              <Button onClick={() => runAssignmentCheck.mutate()} disabled={runAssignmentCheck.isPending}>Run assignment check</Button>
+            </div>
+            {loadingScheduledRides ? (
+              <div className="text-sm text-gray-500">Loading scheduled rides...</div>
+            ) : scheduledRides.length === 0 ? (
+              <div className="rounded-lg border border-dashed p-6 text-center text-sm text-gray-500">No scheduled rides pending.</div>
+            ) : (
+              <div className="grid gap-3 lg:grid-cols-2">
+                {scheduledRides.map((ride:any) => (
+                  <AdminScheduledRideCard
+                    key={ride.id}
+                    drivers={availableDrivers}
+                    onAssign={(driverId: string) => assignScheduledDriver.mutate({ rideId: ride.id, driverId })}
+                    onAutoAssign={() => autoAssignScheduled.mutate(ride.id)}
+                    onCancel={() => cancelScheduled.mutate(ride.id)}
+                    ride={ride}
+                  />
+                ))}
+              </div>
+            )}
           </Card>
         )}
 
@@ -307,7 +357,12 @@ export default function AdminTaxiPage() {
                         </div>
                       </td>
                       <td>{r.estimatedFare || r.actualFare || 'N/A'}</td>
-                      <td>{r.driverName || 'Unassigned'}</td>
+                      <td>
+                        <div className="flex flex-col gap-1">
+                          <span>{r.driverName || 'Unassigned'}</span>
+                          {r.customerSelectedDriver ? <Badge className="w-fit border-transparent bg-amber-100 text-amber-900">Customer-selected driver</Badge> : null}
+                        </div>
+                      </td>
                       <td>
                         <Badge className={`${r.status==='completed'? 'bg-green-100 text-green-800' : r.status==='in_ride' ? 'bg-yellow-100 text-yellow-800' : r.status==='driver_assigned' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>{r.status}</Badge>
                       </td>

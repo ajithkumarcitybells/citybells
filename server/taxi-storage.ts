@@ -27,6 +27,8 @@ export interface ITaxiStorage {
   getAllTaxiRides(): Promise<any[]>;
   getTaxiRide(id: string): Promise<any | undefined>;
   getDriverTaxiRides(driverId: string): Promise<any[]>;
+  getScheduledTaxiRides(filters?: { userId?: string; driverId?: string; status?: string; includePast?: boolean }): Promise<any[]>;
+  addScheduledRideEvent(rideId: string, type: string, actorId: string | null, actorRole: string, metadata?: any): Promise<void>;
   createTaxiRide(ride: InsertTaxiRide): Promise<any>;
   updateTaxiRideStatus(id: string, status: string): Promise<any | undefined>;
   updateTaxiRide(id: string, data: Partial<InsertTaxiRide>): Promise<any | undefined>;
@@ -62,6 +64,9 @@ type NearbyTaxiVehicle = {
   vehicleNumber: string;
   distanceKm: number;
   rating: number;
+  completedRides?: number;
+  safetyVerified?: boolean;
+  photo?: string | null;
 };
 
 type DemoFleetTemplate = {
@@ -448,6 +453,12 @@ export class TaxiStorage implements ITaxiStorage {
 
     try {
       const db = getDb();
+      const busyRides = await db.collection('taxi_rides').find({
+        status: { $in: ['requested', 'accepted', 'driver_assigned', 'arriving', 'in_ride', 'started'] },
+        driverId: { $ne: null },
+      }).project({ driverId: 1 }).toArray();
+      const busyDrivers = new Set(busyRides.map((ride: any) => String(ride.driverId)).filter(Boolean));
+
       const activeDrivers = await db.collection('taxi_drivers').find({
         isActive: true,
         isApproved: true,
@@ -456,7 +467,8 @@ export class TaxiStorage implements ITaxiStorage {
       }).toArray();
 
       const liveVehicles = activeDrivers
-        .map((driver, index) => {
+        .filter((driver) => !busyDrivers.has(String(driver._id)))
+        .map((driver, index): NearbyTaxiVehicle | null => {
         const baseLat = Number(driver.currentLat);
         const baseLng = Number(driver.currentLng);
         if (!Number.isFinite(baseLat) || !Number.isFinite(baseLng)) {
@@ -478,7 +490,10 @@ export class TaxiStorage implements ITaxiStorage {
           vehicleType: driver.vehicleType,
           vehicleNumber: driver.vehicleNumber,
           distanceKm: Number(distanceKm.toFixed(2)),
-          rating: Number((driver.rating || 4.6).toFixed(1)),
+          rating: Number(Number(driver.rating || 4.6).toFixed(1)),
+          completedRides: Number(driver.completedRides || driver.totalRides || 0),
+          safetyVerified: driver.safetyVerified !== false,
+          photo: driver.profilePhoto || null,
         } satisfies NearbyTaxiVehicle;
       })
         .filter((vehicle): vehicle is NearbyTaxiVehicle => Boolean(vehicle))
@@ -563,6 +578,30 @@ export class TaxiStorage implements ITaxiStorage {
     }
   }
 
+  async getScheduledTaxiRides(filters?: { userId?: string; driverId?: string; status?: string; includePast?: boolean }): Promise<any[]> {
+    const query: any = { bookingType: "scheduled" };
+    if (filters?.userId) query.userId = filters.userId;
+    if (filters?.driverId) query.driverId = filters.driverId;
+    if (filters?.status) query.status = filters.status;
+    if (!filters?.includePast) {
+      query.status = query.status || { $in: ["scheduled", "driver_assigned", "arriving", "accepted"] };
+    }
+    const docs = await getDb().collection("taxi_rides").find(query).sort({ scheduledPickupAt: 1 }).toArray();
+    return docs.map((doc) => sanitizeTaxiRide(doc, { includeCustomerOtp: false }));
+  }
+
+  async addScheduledRideEvent(rideId: string, type: string, actorId: string | null, actorRole: string, metadata: any = {}): Promise<void> {
+    await getDb().collection("taxi_scheduled_ride_events").insertOne({
+      _id: newId() as any,
+      rideId,
+      type,
+      actorId,
+      actorRole,
+      metadata,
+      createdAt: new Date(),
+    });
+  }
+
   async createTaxiRide(ride: InsertTaxiRide): Promise<any> {
     try {
       for (let attempt = 0; attempt < 5; attempt++) {
@@ -610,7 +649,7 @@ export class TaxiStorage implements ITaxiStorage {
       console.debug('[taxiStorage.assignTaxiDriver] rideId=', rideId, 'driverId=', driverId);
       const driver = await this.getTaxiDriver(driverId);
       console.debug('[taxiStorage.assignTaxiDriver] resolved driver=', !!driver, driver && driver.id);
-      if (!driver) return undefined;
+      if (!driver || driver.isApproved === false || !(driver.isActive === true || driver.isOnline === true)) return undefined;
 
       const db = getDb();
       // fetch existing ride to record assignment history if present
@@ -621,6 +660,12 @@ export class TaxiStorage implements ITaxiStorage {
         existingRide = await db.collection('taxi_rides').findOne({ _id: rideId as any });
       }
       console.debug('[taxiStorage.assignTaxiDriver] existingRide=', !!existingRide);
+      const busyRide = await db.collection('taxi_rides').findOne({
+        _id: { $ne: existingRide?._id },
+        driverId,
+        status: { $in: ['requested', 'accepted', 'driver_assigned', 'arriving', 'in_ride', 'started'] },
+      });
+      if (busyRide) return undefined;
 
       const update: any = { $set: { driverId, driverName: driver.name, driverPhone: driver.phone, vehicleNumber: driver.vehicleNumber, status: 'driver_assigned' } };
       if (existingRide && existingRide.driverId) {

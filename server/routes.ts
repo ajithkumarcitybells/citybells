@@ -77,6 +77,7 @@ const createOrderSchema = z.object({
   deliverySlot: z.string().optional(),
   paymentMethod: z.enum(["cod", "online", "razorpay"]).default("cod"),
   paymentId: z.string().optional(),
+  rewardPointsToRedeem: z.coerce.number().int().min(0).optional().default(0),
 });
 
 const updateOrderStatusSchema = z.object({
@@ -88,7 +89,129 @@ const productFormSchema = insertProductSchema.extend({
   originalPrice: z.string().min(1, "Original price is required"),
   price: z.string().min(1, "Price is required"),
   isTrending: z.boolean().optional().nullable(),
+  fastDeliveryStock: z.coerce.number().int().min(0).optional().nullable(),
+  fastDeliveryAreas: z.array(z.string()).optional().nullable(),
+  fastDeliveryStartTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:mm time").optional().nullable(),
+  fastDeliveryEndTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:mm time").optional().nullable(),
+  fastDeliveryMaxRadiusKm: z.coerce.number().min(0).max(100).optional().nullable(),
 });
+
+const fastDeliveryConfigSchema = z.object({
+  fastDelivery: z.boolean().optional(),
+  fastDeliveryEnabled: z.boolean().optional(),
+  fastDeliveryStock: z.coerce.number().int().min(0).optional().nullable(),
+  fastDeliveryAreas: z.array(z.string().trim().min(1)).optional(),
+  fastDeliveryStartTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:mm time").optional().nullable(),
+  fastDeliveryEndTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:mm time").optional().nullable(),
+  fastDeliveryMaxRadiusKm: z.coerce.number().min(0).max(100).optional().nullable(),
+});
+
+const bulkFastDeliverySchema = z.object({
+  ids: z.array(z.string().min(1)).min(1, "No product ids provided"),
+  fastDelivery: z.boolean(),
+});
+
+function isFastDeliveryEligible(product: any, pincode?: string | null): boolean {
+  const areas = Array.isArray(product.fastDeliveryAreas) ? product.fastDeliveryAreas.filter(Boolean) : [];
+  const areaAllowed = !pincode || areas.length === 0 || areas.includes(pincode);
+  return product?.isActive !== false
+    && product?.fastDelivery === true
+    && product?.fastDeliveryEnabled !== false
+    && Number(product?.stock ?? 0) > 0
+    && Number(product?.fastDeliveryStock ?? product?.stock ?? 0) > 0
+    && areaAllowed;
+}
+
+function getPincodeFromAddress(address: string): string | null {
+  return address.match(/\b\d{6}\b/)?.[0] || null;
+}
+
+const grocerySubscriptionPlanSchema = z.object({
+  name: z.string().min(1, "Plan name is required"),
+  description: z.string().optional().default(""),
+  price: z.coerce.string().min(1, "Price is required"),
+  durationDays: z.coerce.number().int().positive().default(30),
+  benefits: z.array(z.string()).optional().default([]),
+  freeDeliveryMinOrder: z.coerce.number().min(0).optional().default(0),
+  cashbackPercent: z.coerce.number().min(0).max(100).optional().default(0),
+  rewardMultiplier: z.coerce.number().min(0).max(10).optional().default(1),
+  priorityDelivery: z.boolean().optional().default(false),
+  isActive: z.boolean().optional().default(true),
+  sortOrder: z.coerce.number().optional().default(0),
+});
+
+const subscribeSchema = z.object({
+  planId: z.string().min(1),
+  paymentId: z.string().optional().nullable(),
+  orderId: z.string().optional().nullable(),
+  paymentStatus: z.enum(["pending", "paid", "failed"]).optional().default("paid"),
+});
+
+const redeemRewardsSchema = z.object({
+  points: z.coerce.number().int().positive(),
+});
+
+const recurringOrderSchema = z.object({
+  name: z.string().optional().default("Recurring grocery order"),
+  items: z.array(z.object({ productId: z.string(), quantity: z.coerce.number().int().positive(), variant: z.string().optional().nullable() })).min(1),
+  frequency: z.enum(["daily", "weekly", "monthly"]),
+  startDate: z.string().min(1),
+  deliveryAddress: z.string().min(1),
+  deliverySlot: z.string().optional().nullable(),
+  status: z.enum(["active", "paused", "cancelled"]).optional().default("active"),
+});
+
+const subscriptionBoxSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional().default(""),
+  image: z.string().optional().nullable(),
+  cadence: z.enum(["weekly", "monthly"]).default("weekly"),
+  price: z.coerce.string().min(1),
+  items: z.array(z.object({ productId: z.string(), quantity: z.coerce.number().int().positive() })).optional().default([]),
+  isActive: z.boolean().optional().default(true),
+});
+
+const subscriberDealSchema = z.object({
+  productId: z.string().min(1),
+  discountPercent: z.coerce.number().min(0).max(95),
+  active: z.boolean().optional().default(true),
+});
+
+const earlyAccessRuleSchema = z.object({
+  productId: z.string().min(1),
+  title: z.string().min(1).default("Early access"),
+  startsAt: z.string().optional().nullable(),
+  endsAt: z.string().optional().nullable(),
+  active: z.boolean().optional().default(true),
+});
+
+function addDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+async function getActiveGrocerySubscription(userId: string) {
+  const now = new Date();
+  const db = getDb();
+  const sub = await db.collection("grocery_user_subscriptions").findOne({
+    userId,
+    status: "active",
+    endDate: { $gte: now },
+  }, { sort: { endDate: -1 } });
+  if (!sub) return null;
+  const plan = await db.collection("grocery_subscription_plans").findOne({ _id: sub.planId as any });
+  return { ...sub, id: sub._id?.toString?.() || sub._id, plan };
+}
+
+async function getOrCreateRewardsWallet(userId: string) {
+  const db = getDb();
+  const existing = await db.collection("grocery_rewards_wallets").findOne({ userId });
+  if (existing) return existing;
+  const doc = { _id: newId() as any, userId, pointsBalance: 0, cashbackBalance: "0.00", lifetimePoints: 0, createdAt: new Date(), updatedAt: new Date() };
+  await db.collection("grocery_rewards_wallets").insertOne(doc);
+  return doc;
+}
 
 const categoryFormSchema = insertCategorySchema.extend({
   name: z.string().min(1, "Name is required"),
@@ -264,13 +387,12 @@ export async function registerRoutes(
   // Products
   app.get("/api/products", async (req, res) => {
     try {
-      const { category } = req.query;
-      let products;
-      if (category && typeof category === "string") {
-        products = await storage.getProductsByCategory(category);
-      } else {
-        products = await storage.getProducts();
-      }
+      const { category, fastDelivery, pincode } = req.query;
+      const products = await storage.getProducts({
+        category: typeof category === "string" ? category : undefined,
+        fastDelivery: fastDelivery === "true" || fastDelivery === "1",
+        pincode: typeof pincode === "string" ? pincode : undefined,
+      });
       res.json(products);
     } catch (err) {
       console.error("Error fetching products:", err);
@@ -658,18 +780,74 @@ export async function registerRoutes(
         return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid request" });
       }
 
-      const { items, totalAmount, deliveryAddress, deliverySlot, paymentMethod, paymentId } = parsed.data;
+      const { items, totalAmount, deliveryAddress, deliverySlot, paymentMethod, paymentId, rewardPointsToRedeem } = parsed.data;
+      const pincode = getPincodeFromAddress(deliveryAddress);
+      const productDocs = await Promise.all(items.map(item => storage.getProduct(item.productId)));
+      const quickItems = items.filter((_, index) => isFastDeliveryEligible(productDocs[index], pincode));
+      const normalItems = items.length - quickItems.length;
+      const quickDelivery = quickItems.length > 0;
+      const quickDeliveryMixedCart = quickDelivery && normalItems > 0;
+      const quickDeliveryEstimate = quickDeliveryMixedCart
+        ? "10 min for eligible items, standard slot for remaining items"
+        : quickDelivery
+          ? "10 min delivery"
+          : "Standard delivery";
+      const activeSubscription = await getActiveGrocerySubscription(req.user!.id);
+      const isSubscriberOrder = !!activeSubscription;
+      const plan = (activeSubscription?.plan || {}) as any;
+      let subscriberDiscount = 0;
+      for (const item of items) {
+        const product = productDocs.find(p => p?.id === item.productId) as any;
+        if (product?.subscriberDeal && Number(product.subscriberDiscountPercent || 0) > 0) {
+          subscriberDiscount += Number(item.price || 0) * item.quantity * (Number(product.subscriberDiscountPercent) / 100);
+        }
+      }
+      const parsedTotal = Number(totalAmount || 0);
+      const deliveryFeeWaived = isSubscriberOrder ? Math.min(40, Math.max(0, parsedTotal)) : 0;
+      const wallet = await getOrCreateRewardsWallet(req.user!.id);
+      const pointsToRedeem = Math.min(Number(rewardPointsToRedeem || 0), Number(wallet.pointsBalance || 0), Math.floor(parsedTotal));
+      const rewardMultiplier = Number(plan.rewardMultiplier || 1);
+      const cashbackPercent = Number(plan.cashbackPercent || 0);
+      const rewardBase = Math.max(0, parsedTotal - subscriberDiscount - pointsToRedeem);
+      const rewardPointsEarned = isSubscriberOrder ? Math.floor((rewardBase / 100) * 10 * rewardMultiplier) : Math.floor(rewardBase / 100);
+      const cashbackEarned = isSubscriberOrder ? Number((rewardBase * cashbackPercent / 100).toFixed(2)) : 0;
+      const serverTotal = Math.max(0, parsedTotal - subscriberDiscount - deliveryFeeWaived - pointsToRedeem);
 
       const order = await storage.createOrder({
         userId: req.user!.id,
         items,
-        totalAmount,
+        totalAmount: serverTotal.toFixed(2),
         deliveryAddress,
         deliverySlot,
         paymentMethod,
         paymentId,
+        quickDelivery,
+        quickDeliveryItemCount: quickItems.length,
+        normalDeliveryItemCount: normalItems,
+        quickDeliveryEstimate,
+        quickDeliveryMixedCart,
+        isSubscriberOrder,
+        subscriberDiscount: subscriberDiscount.toFixed(2),
+        deliveryFeeWaived: deliveryFeeWaived.toFixed(2),
+        rewardPointsEarned,
+        rewardPointsRedeemed: pointsToRedeem,
+        cashbackEarned: cashbackEarned.toFixed(2),
+        priorityDelivery: !!plan.priorityDelivery,
         status: paymentId ? "confirmed" : "pending", // Auto-confirm paid orders
-      });
+      } as any);
+
+      if (pointsToRedeem > 0) {
+        await getDb().collection("grocery_rewards_wallets").updateOne({ userId: req.user!.id }, { $inc: { pointsBalance: -pointsToRedeem }, $set: { updatedAt: new Date() } });
+        await getDb().collection("grocery_reward_transactions").insertOne({ _id: newId() as any, userId: req.user!.id, type: "redeem", points: -pointsToRedeem, orderId: order.id, createdAt: new Date() });
+      }
+      if (rewardPointsEarned > 0 || cashbackEarned > 0) {
+        await getDb().collection("grocery_rewards_wallets").updateOne(
+          { userId: req.user!.id },
+          { $inc: { pointsBalance: rewardPointsEarned, lifetimePoints: rewardPointsEarned }, $set: { cashbackBalance: (Number(wallet.cashbackBalance || 0) + cashbackEarned).toFixed(2), updatedAt: new Date() } },
+          { upsert: true },
+        );
+        await getDb().collection("grocery_reward_transactions").insertOne({ _id: newId() as any, userId: req.user!.id, type: "earn", points: rewardPointsEarned, cashback: cashbackEarned.toFixed(2), orderId: order.id, createdAt: new Date() });
+      }
 
       // Clear cart after order
       await storage.clearCart(req.user!.id);
@@ -1243,6 +1421,221 @@ export async function registerRoutes(
     }
   });
 
+  // ==================== GROCERY SUBSCRIPTIONS ====================
+  const normalizeDoc = (doc: any) => doc ? ({ id: doc._id?.toString?.() || doc._id, ...doc }) : null;
+  const normalizeDocs = (docs: any[]) => docs.map(normalizeDoc);
+
+  app.get("/api/grocery/subscription/plans", async (_req, res) => {
+    try {
+      const plans = await getDb().collection("grocery_subscription_plans").find({ isActive: { $ne: false } }).sort({ sortOrder: 1, price: 1 }).toArray();
+      res.json(normalizeDocs(plans));
+    } catch (err) {
+      console.error("Error fetching grocery subscription plans:", err);
+      res.status(500).json({ message: "Failed to fetch subscription plans" });
+    }
+  });
+
+  app.post("/api/grocery/subscription/subscribe", requireAuth, async (req, res) => {
+    try {
+      const parsed = subscribeSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid subscription request" });
+      const db = getDb();
+      const existing = await getActiveGrocerySubscription(req.user!.id);
+      if (existing && (existing as any).planId === parsed.data.planId) {
+        return res.status(409).json({ message: "You already have an active subscription for this plan" });
+      }
+      const plan = await db.collection("grocery_subscription_plans").findOne({ _id: parsed.data.planId as any, isActive: { $ne: false } });
+      if (!plan) return res.status(404).json({ message: "Subscription plan not found" });
+      const now = new Date();
+      const doc = {
+        _id: newId() as any,
+        userId: req.user!.id,
+        planId: parsed.data.planId,
+        planName: plan.name,
+        status: parsed.data.paymentStatus === "failed" ? "pending" : "active",
+        startDate: now,
+        endDate: addDays(now, Number(plan.durationDays || 30)),
+        paymentId: parsed.data.paymentId || null,
+        orderId: parsed.data.orderId || null,
+        paymentStatus: parsed.data.paymentStatus,
+        createdAt: now,
+        updatedAt: now,
+      };
+      await db.collection("grocery_user_subscriptions").insertOne(doc);
+      await getOrCreateRewardsWallet(req.user!.id);
+      res.status(201).json(normalizeDoc({ ...doc, plan }));
+    } catch (err) {
+      console.error("Error subscribing to grocery plan:", err);
+      res.status(500).json({ message: "Failed to subscribe" });
+    }
+  });
+
+  app.get("/api/grocery/subscription/me", requireAuth, async (req, res) => {
+    try {
+      const subscription = await getActiveGrocerySubscription(req.user!.id);
+      const boxes = await getDb().collection("grocery_subscription_boxes").find({ isActive: { $ne: false } }).limit(12).toArray();
+      res.json({ active: !!subscription, subscription: normalizeDoc(subscription), boxes: normalizeDocs(boxes) });
+    } catch (err) {
+      console.error("Error fetching grocery subscription:", err);
+      res.status(500).json({ message: "Failed to fetch subscription" });
+    }
+  });
+
+  app.patch("/api/grocery/subscription/cancel", requireAuth, async (req, res) => {
+    try {
+      const active = await getActiveGrocerySubscription(req.user!.id);
+      if (!active) return res.status(404).json({ message: "Active subscription not found" });
+      await getDb().collection("grocery_user_subscriptions").updateOne({ _id: active._id as any }, { $set: { status: "cancelled", cancellationReason: req.body?.reason || null, cancelledAt: new Date(), updatedAt: new Date() } });
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Error cancelling grocery subscription:", err);
+      res.status(500).json({ message: "Failed to cancel subscription" });
+    }
+  });
+
+  app.get("/api/grocery/rewards", requireAuth, async (req, res) => {
+    try {
+      const wallet = await getOrCreateRewardsWallet(req.user!.id);
+      const transactions = await getDb().collection("grocery_reward_transactions").find({ userId: req.user!.id }).sort({ createdAt: -1 }).limit(20).toArray();
+      res.json({ wallet: normalizeDoc(wallet), transactions: normalizeDocs(transactions) });
+    } catch (err) {
+      console.error("Error fetching grocery rewards:", err);
+      res.status(500).json({ message: "Failed to fetch rewards" });
+    }
+  });
+
+  app.post("/api/grocery/rewards/redeem", requireAuth, async (req, res) => {
+    try {
+      const parsed = redeemRewardsSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid rewards request" });
+      const wallet = await getOrCreateRewardsWallet(req.user!.id);
+      if (Number(wallet.pointsBalance || 0) < parsed.data.points) return res.status(400).json({ message: "Not enough reward points" });
+      res.json({ success: true, points: parsed.data.points, rupeeValue: parsed.data.points });
+    } catch (err) {
+      console.error("Error validating reward redemption:", err);
+      res.status(500).json({ message: "Failed to redeem rewards" });
+    }
+  });
+
+  app.post("/api/grocery/recurring-orders", requireAuth, async (req, res) => {
+    try {
+      const parsed = recurringOrderSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid recurring order" });
+      const productDocs = await Promise.all(parsed.data.items.map(item => storage.getProduct(item.productId)));
+      if (productDocs.some(product => !product || Number(product.stock || 0) <= 0)) return res.status(400).json({ message: "One or more products are out of stock" });
+      const doc = { _id: newId() as any, userId: req.user!.id, ...parsed.data, nextRunAt: new Date(parsed.data.startDate), skipDates: [], createdAt: new Date(), updatedAt: new Date() };
+      await getDb().collection("grocery_recurring_orders").insertOne(doc);
+      res.status(201).json(normalizeDoc(doc));
+    } catch (err) {
+      console.error("Error creating recurring order:", err);
+      res.status(500).json({ message: "Failed to create recurring order" });
+    }
+  });
+
+  app.get("/api/grocery/recurring-orders", requireAuth, async (req, res) => {
+    try {
+      const orders = await getDb().collection("grocery_recurring_orders").find({ userId: req.user!.id }).sort({ createdAt: -1 }).toArray();
+      res.json(normalizeDocs(orders));
+    } catch (err) {
+      console.error("Error fetching recurring orders:", err);
+      res.status(500).json({ message: "Failed to fetch recurring orders" });
+    }
+  });
+
+  app.patch("/api/grocery/recurring-orders/:id", requireAuth, async (req, res) => {
+    try {
+      const parsed = recurringOrderSchema.partial().safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid recurring order" });
+      const r = await getDb().collection("grocery_recurring_orders").findOneAndUpdate({ _id: req.params.id as any, userId: req.user!.id }, { $set: { ...parsed.data, updatedAt: new Date() } }, { returnDocument: "after" });
+      if (!r) return res.status(404).json({ message: "Recurring order not found" });
+      res.json(normalizeDoc(r));
+    } catch (err) {
+      res.status(500).json({ message: "Failed to update recurring order" });
+    }
+  });
+
+  app.patch("/api/grocery/recurring-orders/:id/pause", requireAuth, async (req, res) => {
+    await getDb().collection("grocery_recurring_orders").updateOne({ _id: req.params.id as any, userId: req.user!.id }, { $set: { status: "paused", pauseFrom: req.body?.from || null, pauseTo: req.body?.to || null, updatedAt: new Date() } });
+    res.json({ success: true });
+  });
+  app.patch("/api/grocery/recurring-orders/:id/skip", requireAuth, async (req, res) => {
+    await getDb().collection("grocery_recurring_orders").updateOne({ _id: req.params.id as any, userId: req.user!.id }, { $addToSet: { skipDates: req.body?.date || new Date().toISOString().slice(0, 10) }, $set: { updatedAt: new Date() } });
+    res.json({ success: true });
+  });
+  app.delete("/api/grocery/recurring-orders/:id", requireAuth, async (req, res) => {
+    await getDb().collection("grocery_recurring_orders").updateOne({ _id: req.params.id as any, userId: req.user!.id }, { $set: { status: "cancelled", cancelledAt: new Date(), updatedAt: new Date() } });
+    res.json({ success: true });
+  });
+
+  app.get("/api/admin/subscription-plans", requireAdmin, async (_req, res) => {
+    const plans = await getDb().collection("grocery_subscription_plans").find().sort({ sortOrder: 1 }).toArray();
+    res.json(normalizeDocs(plans));
+  });
+  app.post("/api/admin/subscription-plans", requireAdmin, async (req, res) => {
+    const parsed = grocerySubscriptionPlanSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid plan" });
+    const doc = { _id: newId() as any, ...parsed.data, createdAt: new Date(), updatedAt: new Date() };
+    await getDb().collection("grocery_subscription_plans").insertOne(doc);
+    res.status(201).json(normalizeDoc(doc));
+  });
+  app.patch("/api/admin/subscription-plans/:id", requireAdmin, async (req, res) => {
+    const parsed = grocerySubscriptionPlanSchema.partial().safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid plan" });
+    const r = await getDb().collection("grocery_subscription_plans").findOneAndUpdate({ _id: req.params.id as any }, { $set: { ...parsed.data, updatedAt: new Date() } }, { returnDocument: "after" });
+    res.json(normalizeDoc(r));
+  });
+  app.delete("/api/admin/subscription-plans/:id", requireAdmin, async (req, res) => {
+    await getDb().collection("grocery_subscription_plans").updateOne({ _id: req.params.id as any }, { $set: { isActive: false, updatedAt: new Date() } });
+    res.sendStatus(204);
+  });
+  app.get("/api/admin/subscribers", requireAdmin, async (_req, res) => {
+    const subs = await getDb().collection("grocery_user_subscriptions").find().sort({ createdAt: -1 }).toArray();
+    res.json(normalizeDocs(subs));
+  });
+  app.get("/api/admin/recurring-orders", requireAdmin, async (_req, res) => {
+    const orders = await getDb().collection("grocery_recurring_orders").find().sort({ createdAt: -1 }).toArray();
+    res.json(normalizeDocs(orders));
+  });
+  app.post("/api/admin/subscriber-deals", requireAdmin, async (req, res) => {
+    const parsed = subscriberDealSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid deal" });
+    const doc = { _id: newId() as any, ...parsed.data, createdAt: new Date(), updatedAt: new Date() };
+    await getDb().collection("grocery_subscriber_deals").insertOne(doc);
+    await storage.updateProduct(parsed.data.productId, { subscriberDeal: parsed.data.active, subscriberDiscountPercent: parsed.data.discountPercent } as any);
+    res.status(201).json(normalizeDoc(doc));
+  });
+  app.patch("/api/admin/products/:id/subscriber-deal", requireAdmin, async (req, res) => {
+    const parsed = z.object({ subscriberDeal: z.boolean(), subscriberDiscountPercent: z.coerce.number().min(0).max(95).optional().default(0) }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid subscriber deal" });
+    const product = await storage.updateProduct(req.params.id, parsed.data as any);
+    res.json(product);
+  });
+  app.post("/api/admin/subscription-boxes", requireAdmin, async (req, res) => {
+    const parsed = subscriptionBoxSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid subscription box" });
+    const doc = { _id: newId() as any, ...parsed.data, createdAt: new Date(), updatedAt: new Date() };
+    await getDb().collection("grocery_subscription_boxes").insertOne(doc);
+    res.status(201).json(normalizeDoc(doc));
+  });
+  app.patch("/api/admin/subscription-boxes/:id", requireAdmin, async (req, res) => {
+    const parsed = subscriptionBoxSchema.partial().safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid subscription box" });
+    const r = await getDb().collection("grocery_subscription_boxes").findOneAndUpdate({ _id: req.params.id as any }, { $set: { ...parsed.data, updatedAt: new Date() } }, { returnDocument: "after" });
+    res.json(normalizeDoc(r));
+  });
+  app.get("/api/admin/early-access-rules", requireAdmin, async (_req, res) => {
+    const rules = await getDb().collection("grocery_early_access_rules").find().sort({ createdAt: -1 }).toArray();
+    res.json(normalizeDocs(rules));
+  });
+  app.post("/api/admin/early-access-rules", requireAdmin, async (req, res) => {
+    const parsed = earlyAccessRuleSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid early access rule" });
+    const doc = { _id: newId() as any, ...parsed.data, createdAt: new Date(), updatedAt: new Date() };
+    await getDb().collection("grocery_early_access_rules").insertOne(doc);
+    await storage.updateProduct(parsed.data.productId, { earlyAccess: parsed.data.active, earlyAccessUntil: parsed.data.endsAt || null } as any);
+    res.status(201).json(normalizeDoc(doc));
+  });
+
   // ==================== ADMIN ROUTES ====================
 
   // Admin Dashboard Stats
@@ -1299,6 +1692,37 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/admin/fast-delivery/stats", requireAdmin, async (_req, res) => {
+    try {
+      const db = getDb();
+      const [quickDeliveryProducts, activeQuickOrders, lowStockQuickProducts] = await Promise.all([
+        db.collection("products").countDocuments({
+          isActive: { $ne: false },
+          fastDelivery: true,
+          fastDeliveryEnabled: { $ne: false },
+          stock: { $gt: 0 },
+        }),
+        db.collection("orders").countDocuments({
+          quickDelivery: true,
+          status: { $nin: ["delivered", "cancelled"] },
+        }),
+        db.collection("products").countDocuments({
+          isActive: { $ne: false },
+          fastDelivery: true,
+          fastDeliveryEnabled: { $ne: false },
+          $or: [
+            { fastDeliveryStock: { $lte: 5 } },
+            { stock: { $lte: 5 } },
+          ],
+        }),
+      ]);
+      res.json({ quickDeliveryProducts, activeQuickOrders, lowStockQuickProducts });
+    } catch (err) {
+      console.error("Error fetching fast delivery stats:", err);
+      res.status(500).json({ message: "Failed to fetch fast delivery stats" });
+    }
+  });
+
   // Admin Products
   app.get("/api/admin/products", requireAdmin, async (req, res) => {
     try {
@@ -1336,7 +1760,10 @@ export async function registerRoutes(
         const { typesenseEnabled, searchProductsTypesense } = await import('./search');
         if (typesenseEnabled) {
           const ts = await searchProductsTypesense(q, 50);
-          if (ts && ts.length > 0) return res.json(ts);
+          const fastOnly = req.query.fastDelivery === '1' || req.query.fastDelivery === 'true';
+          if (ts && ts.length > 0) {
+            return res.json(fastOnly ? ts.filter((p: any) => p.fastDelivery === true) : ts);
+          }
         }
       } catch (e) {
         // ignore typesense errors and fallback
@@ -1347,10 +1774,11 @@ export async function registerRoutes(
       const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
       const regex = new RegExp(escapeRegex(q), 'i');
 
+      const fastOnly = req.query.fastDelivery === '1' || req.query.fastDelivery === 'true';
       const groceryPipeline = [
         { $lookup: { from: 'categories', localField: 'categoryId', foreignField: '_id', as: 'categoryDoc' } },
         { $unwind: { path: '$categoryDoc', preserveNullAndEmptyArrays: true } },
-        { $project: { _id: 1, name: 1, tags: 1, price: 1, stock: 1, image: 1, categoryName: '$categoryDoc.name' } },
+        { $project: { _id: 1, name: 1, tags: 1, price: 1, stock: 1, image: 1, fastDelivery: 1, fastDeliveryEnabled: 1, fastDeliveryStock: 1, categoryName: '$categoryDoc.name' } },
         { $match: { $or: [ { name: regex }, { categoryName: regex }, { tags: regex } ] } },
         { $limit: 50 }
       ];
@@ -1358,7 +1786,7 @@ export async function registerRoutes(
       const ecomPipeline = [
         { $lookup: { from: 'ecom_categories', localField: 'categoryId', foreignField: '_id', as: 'categoryDoc' } },
         { $unwind: { path: '$categoryDoc', preserveNullAndEmptyArrays: true } },
-        { $project: { _id: 1, name: 1, tags: 1, price: 1, stock: 1, image: 1, categoryName: '$categoryDoc.name' } },
+        { $project: { _id: 1, name: 1, tags: 1, price: 1, stock: 1, image: 1, fastDelivery: 1, fastDeliveryEnabled: 1, fastDeliveryStock: 1, categoryName: '$categoryDoc.name' } },
         { $match: { $or: [ { name: regex }, { categoryName: regex }, { tags: regex } ] } },
         { $limit: 50 }
       ];
@@ -1388,13 +1816,12 @@ export async function registerRoutes(
       combined.push(...groceryResults.map((p: any) => scoreItem(p, 'grocery')));
       combined.push(...ecomResults.map((p: any) => scoreItem(p, 'ecom')));
       // prioritize fastDelivery items when present
-      const fastOnly = req.query.fastDelivery === '1' || req.query.fastDelivery === 'true';
       if (fastOnly) {
-        combined = combined.filter(p => p.fastDelivery === true).sort((a,b) => b.score - a.score).slice(0,50);
+        combined = combined.filter(p => isFastDeliveryEligible(p)).sort((a,b) => b.score - a.score).slice(0,50);
       } else {
         combined = combined.sort((a,b) => {
-          const aFast = !!a.fastDelivery ? 1 : 0;
-          const bFast = !!b.fastDelivery ? 1 : 0;
+          const aFast = isFastDeliveryEligible(a) ? 1 : 0;
+          const bFast = isFastDeliveryEligible(b) ? 1 : 0;
           if (aFast !== bFast) return bFast - aFast; // fastDelivery first
           return b.score - a.score;
         }).slice(0, 50);
@@ -1402,8 +1829,8 @@ export async function registerRoutes(
 
       // fuzzy fallback across both collections when no direct matches
       if (combined.length === 0) {
-        const allGrocery = await db.collection('products').find({}, { projection: { name: 1, tags: 1, price: 1, stock: 1, image: 1 } }).toArray();
-        const allEcom = await db.collection('ecom_products').find({}, { projection: { name: 1, tags: 1, price: 1, stock: 1, image: 1 } }).toArray();
+        const allGrocery = await db.collection('products').find({}, { projection: { name: 1, tags: 1, price: 1, stock: 1, image: 1, fastDelivery: 1, fastDeliveryEnabled: 1, fastDeliveryStock: 1 } }).toArray();
+        const allEcom = await db.collection('ecom_products').find({}, { projection: { name: 1, tags: 1, price: 1, stock: 1, image: 1, fastDelivery: 1, fastDeliveryEnabled: 1, fastDeliveryStock: 1 } }).toArray();
         const all = allGrocery.map((p: any) => ({ ...p, source: 'grocery' })).concat(allEcom.map((p: any) => ({ ...p, source: 'ecom' })));
 
         const levenshtein = (a: string, b: string) => {
@@ -1427,10 +1854,10 @@ export async function registerRoutes(
           return { ...p, score, dist };
         }).filter(p => p.dist <= Math.max(2, Math.floor(p.name?.length * 0.4))).sort((a,b) => b.score - a.score).slice(0, 50);
 
-        combined = scored;
+        combined = fastOnly ? scored.filter((p: any) => isFastDeliveryEligible(p)) : scored;
       }
 
-      const out = combined.map((p: any) => ({ id: (p._id as any)?.toString() || p.id, name: p.name, category: p.categoryName || null, tags: (p as any).tags || [], price: p.price, stock: p.stock, image: (p as any).image || (p as any).images?.[0] || null, score: p.score || 0, source: p.source || 'grocery', fastDelivery: !!p.fastDelivery }));
+      const out = combined.map((p: any) => ({ id: (p._id as any)?.toString() || p.id, name: p.name, category: p.categoryName || null, tags: (p as any).tags || [], price: p.price, stock: p.stock, image: (p as any).image || (p as any).images?.[0] || null, score: p.score || 0, source: p.source || 'grocery', fastDelivery: isFastDeliveryEligible(p), fastDeliveryEnabled: p.fastDeliveryEnabled !== false, fastDeliveryStock: p.fastDeliveryStock ?? null }));
       res.json(out);
     } catch (err) {
       console.error('Error searching products:', err);
@@ -1489,12 +1916,44 @@ export async function registerRoutes(
     }
   });
 
-  // Bulk update fastDelivery for multiple products with per-id validation and reporting
-  app.patch('/api/admin/products/bulk-fast-delivery', requireAdmin, async (req, res) => {
+  app.patch("/api/admin/products/:id/fast-delivery", requireAdmin, async (req, res) => {
     try {
-      const ids = Array.isArray(req.body.ids) ? req.body.ids : [];
-      const fastDelivery = !!req.body.fastDelivery;
-      if (!ids || !ids.length) return res.status(400).json({ message: 'No product ids provided' });
+      const parsed = fastDeliveryConfigSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid fast delivery data" });
+      }
+      const existing = await storage.getProduct(req.params.id);
+      if (!existing) return res.status(404).json({ message: "Product not found" });
+
+      const enabling = parsed.data.fastDelivery ?? parsed.data.fastDeliveryEnabled ?? false;
+      if (enabling && Number(existing.stock ?? 0) <= 0) {
+        return res.status(400).json({ message: "Cannot enable 10-minute delivery for out-of-stock products" });
+      }
+
+      const update: any = {
+        ...parsed.data,
+        fastDelivery: parsed.data.fastDelivery ?? parsed.data.fastDeliveryEnabled ?? false,
+        fastDeliveryEnabled: parsed.data.fastDeliveryEnabled ?? parsed.data.fastDelivery ?? false,
+        updatedAt: new Date(),
+      };
+      if (update.fastDelivery && (update.fastDeliveryStock === undefined || update.fastDeliveryStock === null)) {
+        update.fastDeliveryStock = Number(existing.fastDeliveryStock ?? existing.stock ?? 0);
+      }
+
+      const product = await storage.updateProduct(req.params.id, update);
+      res.json(product);
+    } catch (err) {
+      console.error("Error updating fast delivery config:", err);
+      res.status(500).json({ message: "Failed to update fast delivery config" });
+    }
+  });
+
+  // Bulk update fastDelivery for multiple products with per-id validation and reporting
+  const bulkFastDeliveryHandler = async (req: Request, res: Response) => {
+    try {
+      const parsed = bulkFastDeliverySchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || 'Invalid bulk fast delivery data' });
+      const { ids, fastDelivery } = parsed.data;
 
       const db = getDb();
       const results: { id: string; success: boolean; reason?: string }[] = [];
@@ -1514,7 +1973,7 @@ export async function registerRoutes(
           }
 
           // perform update per id
-          const r = await db.collection('products').updateOne({ _id: id as any }, { $set: { fastDelivery, updatedAt: new Date() } });
+          const r = await db.collection('products').updateOne({ _id: id as any }, { $set: { fastDelivery, fastDeliveryEnabled: fastDelivery, fastDeliveryStock: fastDelivery ? Number(existing.fastDeliveryStock ?? existing.stock ?? 0) : 0, updatedAt: new Date() } });
           if (r.modifiedCount && r.modifiedCount > 0) {
             results.push({ id, success: true });
             // try to reindex this product asynchronously
@@ -1542,7 +2001,10 @@ export async function registerRoutes(
       console.error('Error bulk updating fastDelivery:', err);
       res.status(500).json({ message: 'Failed to bulk update products' });
     }
-  });
+  };
+
+  app.post('/api/admin/products/bulk-fast-delivery', requireAdmin, bulkFastDeliveryHandler);
+  app.patch('/api/admin/products/bulk-fast-delivery', requireAdmin, bulkFastDeliveryHandler);
 
   app.delete("/api/admin/products/:id", requireAdmin, async (req, res) => {
     try {
@@ -1810,11 +2272,14 @@ export async function registerRoutes(
         return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid data" });
       }
       
+      const activeSubscription = await getActiveGrocerySubscription(req.user!.id);
       const ticket = await storage.createTicket({
         userId: req.user!.id,
-        subject: parsed.data.subject,
+        subject: activeSubscription ? `[Subscriber Priority] ${parsed.data.subject}` : parsed.data.subject,
         status: "open",
-      });
+        priority: activeSubscription ? "subscriber" : "normal",
+        subscriberPriority: !!activeSubscription,
+      } as any);
       
       await storage.addTicketMessage({
         ticketId: ticket.id,

@@ -12,9 +12,10 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { EtaBadge } from "@/components/taxi/EtaBadge";
+import { CancelScheduledRideDialog, RescheduleRideDialog, UpcomingRideCard } from "@/components/taxi/scheduled-rides";
 import type { TaxiRide } from "@shared/schema";
 
-type FilterTab = "all" | "completed" | "cancelled";
+type FilterTab = "all" | "upcoming" | "completed" | "cancelled";
 
 function getStatusBadgeClasses(status: string) {
   switch (status) {
@@ -141,6 +142,7 @@ function RideCard({ ride }: { ride: TaxiRide }) {
           </Avatar>
           <div className="flex-1 min-w-0">
             <span className="text-sm text-foreground" data-testid={`text-ride-driver-${ride.id}`}>{ride.driverName}</span>
+            {(ride as any).customerSelectedDriver && <Badge className="ml-2 border-transparent bg-amber-100 text-amber-900">Selected by you</Badge>}
             {ride.vehicleNumber && (
               <span className="text-xs text-muted-foreground ml-2">({ride.vehicleNumber})</span>
             )}
@@ -214,15 +216,40 @@ function RideCard({ ride }: { ride: TaxiRide }) {
 export default function TaxiRidesPage() {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<FilterTab>("all");
+  const { toast } = useToast();
+  const initialTab = typeof window !== "undefined" && window.location.search.includes("tab=upcoming") ? "upcoming" : "all";
+  const [activeTab, setActiveTab] = useState<FilterTab>(initialTab as FilterTab);
+  const [targetRide, setTargetRide] = useState<TaxiRide | null>(null);
+  const [dialog, setDialog] = useState<"reschedule" | "cancel" | null>(null);
 
   const { data: rides = [], isLoading } = useQuery<TaxiRide[]>({
     queryKey: ["/api/taxi/rides"],
     enabled: !!user,
   });
+  const { data: scheduledRides = [], isLoading: loadingScheduled } = useQuery<TaxiRide[]>({
+    queryKey: ["/api/taxi/scheduled-rides"],
+    enabled: !!user,
+  });
+
+  const scheduledAction = useMutation({
+    mutationFn: async ({ id, type, data }: { id: string; type: "reschedule" | "cancel"; data: any }) => {
+      const payload = type === "reschedule" ? { scheduledPickupAt: new Date(`${data.date}T${data.time}:00`).toISOString() } : { reason: data.reason };
+      const res = await apiRequest("PATCH", `/api/taxi/scheduled-rides/${id}/${type}`, payload);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/taxi/scheduled-rides"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/taxi/rides"] });
+      setDialog(null);
+      setTargetRide(null);
+      toast({ title: "Scheduled ride updated" });
+    },
+    onError: (error: Error) => toast({ title: "Update failed", description: error.message, variant: "destructive" }),
+  });
 
   const filteredRides = rides.filter((ride) => {
-    if (activeTab === "all") return true;
+    if (activeTab === "all") return ride.bookingType !== "scheduled";
+    if (activeTab === "upcoming") return false;
     if (activeTab === "completed") return ride.status === "completed";
     if (activeTab === "cancelled") return ride.status === "cancelled";
     return true;
@@ -230,6 +257,7 @@ export default function TaxiRidesPage() {
 
   const tabs: { key: FilterTab; label: string }[] = [
     { key: "all", label: "All" },
+    { key: "upcoming", label: "Upcoming" },
     { key: "completed", label: "Completed" },
     { key: "cancelled", label: "Cancelled" },
   ];
@@ -281,12 +309,31 @@ export default function TaxiRidesPage() {
           ))}
         </div>
 
-        {isLoading ? (
+        {isLoading || (activeTab === "upcoming" && loadingScheduled) ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
               <Skeleton key={i} className="h-40 w-full rounded-lg" />
             ))}
           </div>
+        ) : activeTab === "upcoming" ? (
+          scheduledRides.length === 0 ? (
+            <Card className="p-8 text-center">
+              <Car className="h-12 w-12 text-amber-400 mx-auto mb-3" />
+              <p className="text-muted-foreground text-sm mb-1 font-medium">No upcoming scheduled rides</p>
+              <Button className="mt-3 bg-amber-500 text-black hover:bg-amber-500" onClick={() => setLocation("/taxi")}>Schedule a ride</Button>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {scheduledRides.map((ride) => (
+                <UpcomingRideCard
+                  key={ride.id}
+                  ride={ride}
+                  onCancel={() => { setTargetRide(ride); setDialog("cancel"); }}
+                  onReschedule={() => { setTargetRide(ride); setDialog("reschedule"); }}
+                />
+              ))}
+            </div>
+          )
         ) : filteredRides.length === 0 ? (
           <Card className="p-8 text-center">
             <Car className="h-12 w-12 text-amber-400 mx-auto mb-3" />
@@ -308,6 +355,17 @@ export default function TaxiRidesPage() {
           </div>
         )}
       </main>
+
+      <RescheduleRideDialog
+        open={dialog === "reschedule"}
+        onOpenChange={(open: boolean) => !open && setDialog(null)}
+        onSubmit={(data: any) => targetRide && scheduledAction.mutate({ id: targetRide.id, type: "reschedule", data })}
+      />
+      <CancelScheduledRideDialog
+        open={dialog === "cancel"}
+        onOpenChange={(open: boolean) => !open && setDialog(null)}
+        onSubmit={(data: any) => targetRide && scheduledAction.mutate({ id: targetRide.id, type: "cancel", data })}
+      />
 
       <BottomNav />
     </div>

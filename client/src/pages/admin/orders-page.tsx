@@ -29,6 +29,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Order, OrderItem } from "@shared/schema";
+import { FastDeliveryOrderBadge } from "@/components/FastDelivery";
+import { SubscriberBadge } from "@/components/GrocerySubscription";
 
 type OrderWithCustomer = Order & { customerName?: string; customerEmail?: string; customerPhone?: string };
 
@@ -164,6 +166,10 @@ export default function AdminOrdersPage() {
                           {order.orderNumber || `CB${order.id.slice(0, 6).toUpperCase()}`}
                         </span>
                       </Link>
+                      <div className="mt-1">
+                        <FastDeliveryOrderBadge order={order} />
+                        {order.priorityDelivery && <SubscriberBadge compact />}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">

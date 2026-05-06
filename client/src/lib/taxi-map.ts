@@ -35,6 +35,10 @@ export type NearbyDriver = {
   distanceKm: number;
   etaMin: number;
   rating: number;
+  isRecommended?: boolean;
+  completedRides?: number;
+  safetyVerified?: boolean;
+  photo?: string | null;
 };
 
 export type LiveTaxiVehicle = NearbyDriver & {

@@ -35,6 +35,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Product, Category } from "@shared/schema";
+import { AdminFastDeliveryBulkActions, FastDeliveryBadge } from "@/components/FastDelivery";
 
 const productSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -48,6 +49,12 @@ const productSchema = z.object({
   stock: z.coerce.number().min(0).default(100),
   unit: z.string().default("1 pc"),
   fastDelivery: z.boolean().optional().default(false),
+  fastDeliveryEnabled: z.boolean().optional().default(false),
+  fastDeliveryStock: z.coerce.number().min(0).optional().nullable(),
+  fastDeliveryAreasText: z.string().optional().default(""),
+  fastDeliveryStartTime: z.string().optional().nullable(),
+  fastDeliveryEndTime: z.string().optional().nullable(),
+  fastDeliveryMaxRadiusKm: z.coerce.number().min(0).max(100).optional().nullable(),
 });
 
 type ProductFormData = z.infer<typeof productSchema>;
@@ -91,6 +98,12 @@ export default function AdminProductsPage() {
       stock: 100,
       unit: "1 pc",
       fastDelivery: false,
+      fastDeliveryEnabled: false,
+      fastDeliveryStock: 0,
+      fastDeliveryAreasText: "",
+      fastDeliveryStartTime: "",
+      fastDeliveryEndTime: "",
+      fastDeliveryMaxRadiusKm: null,
     },
   });
 
@@ -172,8 +185,7 @@ export default function AdminProductsPage() {
 
   const toggleFastMutation = useMutation({
     mutationFn: async ({ id, fastDelivery }: { id: string; fastDelivery: boolean }) => {
-      const res = await apiRequest("PATCH", `/api/admin/products/${id}`, { fastDelivery });
-      if (!res.ok) throw new Error('Failed to update fastDelivery');
+      const res = await apiRequest("PATCH", `/api/admin/products/${id}/fast-delivery`, { fastDelivery, fastDeliveryEnabled: fastDelivery });
       return res.json();
     },
     onSuccess: (_, vars) => {
@@ -254,6 +266,12 @@ export default function AdminProductsPage() {
       stock: product.stock || 100,
       unit: product.unit || "1 pc",
       fastDelivery: !!(product as any).fastDelivery,
+      fastDeliveryEnabled: (product as any).fastDeliveryEnabled !== false && !!(product as any).fastDelivery,
+      fastDeliveryStock: (product as any).fastDeliveryStock ?? product.stock ?? 0,
+      fastDeliveryAreasText: Array.isArray((product as any).fastDeliveryAreas) ? (product as any).fastDeliveryAreas.join(", ") : "",
+      fastDeliveryStartTime: (product as any).fastDeliveryStartTime || "",
+      fastDeliveryEndTime: (product as any).fastDeliveryEndTime || "",
+      fastDeliveryMaxRadiusKm: (product as any).fastDeliveryMaxRadiusKm ?? null,
     });
     setIsDialogOpen(true);
   };
@@ -442,10 +460,23 @@ export default function AdminProductsPage() {
   };
 
   const onSubmit = (data: ProductFormData) => {
+    const payload: any = {
+      ...data,
+      fastDeliveryAreas: (data.fastDeliveryAreasText || "")
+        .split(",")
+        .map(area => area.trim())
+        .filter(Boolean),
+      fastDeliveryEnabled: data.fastDelivery ? data.fastDeliveryEnabled !== false : false,
+      fastDeliveryStock: data.fastDelivery ? (data.fastDeliveryStock ?? data.stock) : 0,
+      fastDeliveryStartTime: data.fastDeliveryStartTime || null,
+      fastDeliveryEndTime: data.fastDeliveryEndTime || null,
+      fastDeliveryMaxRadiusKm: data.fastDeliveryMaxRadiusKm ?? null,
+    };
+    delete payload.fastDeliveryAreasText;
     if (editingProduct) {
-      updateMutation.mutate({ id: editingProduct.id, data });
+      updateMutation.mutate({ id: editingProduct.id, data: payload });
     } else {
-      createMutation.mutate(data);
+      createMutation.mutate(payload);
     }
   };
 
@@ -590,13 +621,12 @@ export default function AdminProductsPage() {
           )}
           {selectedProductIds.size > 0 && (
             <div className="flex items-center gap-2 mb-3">
-              <Button
-                size="sm"
-                onClick={async () => {
+              <AdminFastDeliveryBulkActions
+                count={selectedProductIds.size}
+                onEnable={async () => {
                   const ids = Array.from(selectedProductIds);
                   try {
-                    const res = await apiRequest('PATCH', '/api/admin/products/bulk-fast-delivery', { ids, fastDelivery: true });
-                    if (!res.ok) throw new Error('Bulk enable failed');
+                    const res = await apiRequest('POST', '/api/admin/products/bulk-fast-delivery', { ids, fastDelivery: true });
                     const body = await res.json();
                     const results = Array.isArray(body.results) ? body.results : [];
                     setBulkResults(results);
@@ -608,17 +638,10 @@ export default function AdminProductsPage() {
                     toast({ title: 'Bulk update failed', description: err.message, variant: 'destructive' });
                   }
                 }}
-              >
-                Enable 10-min for selected
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={async () => {
+                onDisable={async () => {
                   const ids = Array.from(selectedProductIds);
                   try {
-                    const res = await apiRequest('PATCH', '/api/admin/products/bulk-fast-delivery', { ids, fastDelivery: false });
-                    if (!res.ok) throw new Error('Bulk disable failed');
+                    const res = await apiRequest('POST', '/api/admin/products/bulk-fast-delivery', { ids, fastDelivery: false });
                     const body = await res.json();
                     const results = Array.isArray(body.results) ? body.results : [];
                     setBulkResults(results);
@@ -630,9 +653,7 @@ export default function AdminProductsPage() {
                     toast({ title: 'Bulk update failed', description: err.message, variant: 'destructive' });
                   }
                 }}
-              >
-                Disable 10-min for selected
-              </Button>
+              />
             </div>
           )}
 
@@ -1036,6 +1057,102 @@ export default function AdminProductsPage() {
                   )}
                 />
               </div>
+              {form.watch("fastDelivery") && (
+                <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-emerald-900">10 Minutes Delivery Controls</p>
+                      <p className="text-xs text-emerald-700">Area, stock, active hours, and radius are validated on the server.</p>
+                    </div>
+                    <FastDeliveryBadge compact />
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="fastDeliveryEnabled"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center justify-between rounded-lg bg-white p-3">
+                        <div>
+                          <FormLabel>Quick Delivery Available</FormLabel>
+                          <p className="text-xs text-gray-500">Turn this off to pause quick delivery without removing config.</p>
+                        </div>
+                        <FormControl>
+                          <Switch checked={field.value ?? false} onCheckedChange={field.onChange} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="fastDeliveryStock"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Quick Stock</FormLabel>
+                          <FormControl>
+                            <Input type="number" min="0" placeholder="0" {...field} value={field.value ?? ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="fastDeliveryMaxRadiusKm"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Max Radius (km)</FormLabel>
+                          <FormControl>
+                            <Input type="number" min="0" max="100" step="0.5" placeholder="5" {...field} value={field.value ?? ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="fastDeliveryAreasText"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Service Areas / Pincodes</FormLabel>
+                        <FormControl>
+                          <Input placeholder="560001, 560002" {...field} />
+                        </FormControl>
+                        <p className="text-xs text-gray-500">Comma-separated. Leave blank to show as check availability.</p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="fastDeliveryStartTime"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Start Time</FormLabel>
+                          <FormControl>
+                            <Input type="time" {...field} value={field.value || ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="fastDeliveryEndTime"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>End Time</FormLabel>
+                          <FormControl>
+                            <Input type="time" {...field} value={field.value || ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+              )}
               <div className="flex justify-end gap-3 pt-4">
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancel

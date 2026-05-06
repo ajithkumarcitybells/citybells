@@ -13,6 +13,7 @@ import OfferBanner from "@/components/taxi/OfferBanner";
 import RideSuggestionsStrip from "@/components/taxi/RideSuggestionsStrip";
 import FareSelector from "@/components/taxi/FareSelector";
 import { EtaPredictionCard, type TaxiEtaPrediction } from "@/components/taxi/EtaPredictionCard";
+import { RideModeToggle, ScheduledFareEstimateCard, ScheduledRideForm } from "@/components/taxi/scheduled-rides";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -69,11 +70,15 @@ export default function TaxiHomePage() {
   const [isLocating, setIsLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [rideMode, setRideMode] = useState<"daily" | "outstation" | "rentals">("daily");
+  const [bookingMode, setBookingMode] = useState<"now" | "schedule">("now");
   const [tripStart, setTripStart] = useState<"now" | "schedule">("schedule");
   const [journeyType, setJourneyType] = useState<"one-way" | "round-trip">("one-way");
   const [departDate, setDepartDate] = useState(() => getDateValue(2));
   const [departDay, setDepartDay] = useState(() => getDateValue(2));
   const [departTime, setDepartTime] = useState("11:30");
+  const [scheduledDate, setScheduledDate] = useState(() => getDateValue(1));
+  const [scheduledTime, setScheduledTime] = useState("09:30");
+  const [scheduledPaymentMethod, setScheduledPaymentMethod] = useState("cash");
   const [mapPickerField, setMapPickerField] = useState<RideField | null>(null);
   const [mapPickerCoordinates, setMapPickerCoordinates] = useState<Coordinates | null>(null);
   const [mapPickerAddress, setMapPickerAddress] = useState("");
@@ -107,6 +112,18 @@ export default function TaxiHomePage() {
     [routeMetrics, selectedVehicle],
   );
   const hasFareEstimate = typeof estimatedFare === "number" && Number.isFinite(estimatedFare);
+  const scheduledBookingFee = 25;
+  const scheduledFareTotal = hasFareEstimate ? estimatedFare + scheduledBookingFee : 0;
+  const scheduledTimeError = useMemo(() => {
+    if (bookingMode !== "schedule") return null;
+    const pickupAt = new Date(`${scheduledDate}T${scheduledTime}:00`);
+    const min = Date.now() + 30 * 60_000;
+    const max = Date.now() + 30 * 24 * 60 * 60_000;
+    if (!Number.isFinite(pickupAt.getTime())) return "Choose a valid pickup date and time.";
+    if (pickupAt.getTime() < min) return "Schedule pickup at least 30 minutes from now.";
+    if (pickupAt.getTime() > max) return "Schedule pickup within the next 30 days.";
+    return null;
+  }, [bookingMode, scheduledDate, scheduledTime]);
 
   const preferredVehicleType = useMemo<TaxiMapVehicleType | undefined>(() => {
     if (!selectedVehicle) {
@@ -130,23 +147,28 @@ export default function TaxiHomePage() {
 
   const canRequestTracking = hasCoordinates(pickup);
 
-  const { data: nearbyVehicles = [], isFetching: isRefreshingVehicles } = useQuery<LiveTaxiVehicle[]>({
+  const { data: nearbyVehicles = [], isFetching: isRefreshingVehicles, isLoading: nearbyDriversLoading, error: nearbyDriversError, refetch: refetchNearbyDrivers } = useQuery<LiveTaxiVehicle[]>({
     queryKey: ["/api/drivers/nearby", fleetCenter.lat.toFixed(4), fleetCenter.lng.toFixed(4), preferredVehicleType ?? "all"],
     queryFn: () => getNearbyVehicles(fleetCenter, { count: 8, type: preferredVehicleType }),
-    enabled: liveUpdatesEnabled && canRequestTracking,
+    enabled: canRequestTracking && Boolean(selectedVehicleId) && hasCoordinates(drop),
     placeholderData: (previous) => previous,
     staleTime: 2000,
     refetchInterval: liveUpdatesEnabled ? 4000 : false,
   });
 
+  const recommendedDriver = nearbyVehicles[0] ?? null;
+  const selectedDriver = useMemo(
+    () => nearbyVehicles.find((driver) => driver.id === selectedDriverId) ?? null,
+    [nearbyVehicles, selectedDriverId],
+  );
   const trackedDriver = useMemo(() => {
-    if (!liveUpdatesEnabled || !hasCoordinates(pickup) || nearbyVehicles.length === 0) {
+    if (!hasCoordinates(pickup) || nearbyVehicles.length === 0) {
       return null;
     }
 
-    return nearbyVehicles.find((driver) => driver.id === selectedDriverId) ?? nearbyVehicles[0] ?? null;
-  }, [liveUpdatesEnabled, nearbyVehicles, pickup, selectedDriverId]);
-  const highlightedVehicleId = trackedDriver?.id ?? nearbyVehicles[0]?.id ?? null;
+    return selectedDriver ?? recommendedDriver;
+  }, [nearbyVehicles, pickup, recommendedDriver, selectedDriver]);
+  const highlightedVehicleId = selectedDriver?.id ?? recommendedDriver?.id ?? null;
 
   const etaEnabled = hasCoordinates(pickup) && hasCoordinates(drop) && Boolean(selectedVehicleId);
   const { data: etaPrediction, isFetching: etaLoading, error: etaError } = useQuery<TaxiEtaPrediction>({
@@ -168,7 +190,7 @@ export default function TaxiHomePage() {
         dropLat: drop.lat,
         dropLng: drop.lng,
         vehicleTypeId: selectedVehicleId,
-        driverId: trackedDriver?.id,
+        driverId: selectedDriver?.id,
         routeDistanceKm: routeMetrics?.distanceKm,
         routeDurationMin: routeMetrics?.durationMin,
       });
@@ -310,7 +332,7 @@ export default function TaxiHomePage() {
 
       const res = await apiRequest("POST", "/api/taxi/rides", {
         vehicleTypeId: getDocumentId(selectedVehicle),
-        driverId: trackedDriver?.id,
+        driverId: selectedDriver?.id,
         pickupAddress: pickup.address,
         dropAddress: drop.address,
         pickupLat: pickup.lat,
@@ -336,7 +358,44 @@ export default function TaxiHomePage() {
       setLocation(`/taxi/booking/${rideId}`);
     },
     onError: (error: Error) => {
+      if (error.message.includes("Selected driver is no longer available")) {
+        setSelectedDriverId(null);
+        queryClient.invalidateQueries({ queryKey: ["/api/drivers/nearby"] });
+      }
       toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const scheduleRideMutation = useMutation({
+    mutationFn: async () => {
+      if (!hasCoordinates(pickup) || !hasCoordinates(drop) || !selectedVehicle || !hasFareEstimate || scheduledTimeError) {
+        throw new Error(scheduledTimeError || "Pickup, drop, vehicle and scheduled fare details are required");
+      }
+      const res = await apiRequest("POST", "/api/taxi/scheduled-rides", {
+        vehicleTypeId: getDocumentId(selectedVehicle),
+        pickupAddress: pickup.address,
+        dropAddress: drop.address,
+        pickupLat: pickup.lat,
+        pickupLng: pickup.lng,
+        dropLat: drop.lat,
+        dropLng: drop.lng,
+        fare: estimatedFare,
+        scheduledBookingFee,
+        scheduledPickupAt: new Date(`${scheduledDate}T${scheduledTime}:00`).toISOString(),
+        distance: routeMetrics?.distanceKm,
+        duration: routeMetrics?.durationMin,
+        paymentMethod: scheduledPaymentMethod,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/taxi/scheduled-rides"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/taxi/rides"] });
+      toast({ title: "Scheduled ride confirmed", description: "You can view it in Upcoming rides." });
+      setLocation("/taxi/rides?tab=upcoming");
+    },
+    onError: (error: Error) => {
+      toast({ title: "Could not schedule ride", description: `${error.message}. If you are offline, try again when network is back.`, variant: "destructive" });
     },
   });
 
@@ -496,15 +555,20 @@ export default function TaxiHomePage() {
       toast({ title: "Route not ready", description: "Wait for the route and fare estimate to finish loading", variant: "destructive" });
       return;
     }
+    if (bookingMode === "schedule") {
+      scheduleRideMutation.mutate();
+      return;
+    }
     bookMutation.mutate();
   };
 
-  const bookDisabled = routeLoading || !hasCoordinates(pickup) || !hasCoordinates(drop) || !routeMetrics || !hasFareEstimate || !selectedVehicleId || bookMutation.isPending;
+  const bookDisabled = routeLoading || !hasCoordinates(pickup) || !hasCoordinates(drop) || !routeMetrics || !hasFareEstimate || !selectedVehicleId || bookMutation.isPending || scheduleRideMutation.isPending || Boolean(scheduledTimeError);
   const disabledReason = (() => {
     if (!hasCoordinates(pickup) || !hasCoordinates(drop)) return "Select valid pickup and drop locations";
     if (!selectedVehicleId) return "Please select a vehicle type";
     if (routeLoading || !routeMetrics || !hasFareEstimate) return "Wait for the route and fare estimate to finish";
-    if (bookMutation.isPending) return "Finding nearby cabs...";
+    if (scheduledTimeError) return scheduledTimeError;
+    if (bookMutation.isPending || scheduleRideMutation.isPending) return "Booking in progress...";
     return "Action unavailable";
   })();
 
@@ -896,6 +960,18 @@ export default function TaxiHomePage() {
                   setDrop((d) => ({ ...d, address: 'Airport' }));
                 }
               }} />
+              <RideModeToggle value={bookingMode} onChange={setBookingMode} />
+              {bookingMode === "schedule" ? (
+                <ScheduledRideForm
+                  date={scheduledDate}
+                  error={scheduledTimeError}
+                  onDateChange={setScheduledDate}
+                  onPaymentMethodChange={setScheduledPaymentMethod}
+                  onTimeChange={setScheduledTime}
+                  paymentMethod={scheduledPaymentMethod}
+                  time={scheduledTime}
+                />
+              ) : null}
               {rideMode === "outstation" ? (
                 <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
                   <div>
@@ -1033,13 +1109,13 @@ export default function TaxiHomePage() {
                             <Loader2 className="h-5 w-5 animate-spin" />
                             Calculating route...
                           </span>
-                        ) : bookMutation.isPending ? (
+                        ) : bookMutation.isPending || scheduleRideMutation.isPending ? (
                           <span className="flex items-center justify-center gap-3">
                             <Loader2 className="h-5 w-5 animate-spin" />
-                            Finding drivers...
+                            {bookingMode === "schedule" ? "Scheduling ride..." : "Finding drivers..."}
                           </span>
                         ) : (
-                          rideMode === "outstation" ? "Search outstation cabs" : 'See ride options'
+                          bookingMode === "schedule" ? "Confirm Scheduled Ride" : rideMode === "outstation" ? "Search outstation cabs" : 'See ride options'
                         )}
                       </button>
                     </TooltipTrigger>
@@ -1064,7 +1140,7 @@ export default function TaxiHomePage() {
                     }}
                     className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-md bg-slate-950 text-base font-semibold text-white hover:bg-slate-800 dark:bg-amber-400 dark:text-slate-950 dark:hover:bg-amber-300"
                   >
-                    {rideMode === "outstation" ? "Search outstation cabs" : "See ride options"}
+                    {bookingMode === "schedule" ? "Confirm Scheduled Ride" : rideMode === "outstation" ? "Search outstation cabs" : "See ride options"}
                     <ArrowRight className="h-4 w-4" />
                   </button>
                 )}
@@ -1120,6 +1196,17 @@ export default function TaxiHomePage() {
                 {selectedName} currently estimated at {formatCurrency(estimatedFare)}.
               </p>
             ) : null}
+            {bookingMode === "schedule" && selectedVehicle && hasFareEstimate ? (
+              <div className="mt-4">
+                <ScheduledFareEstimateCard
+                  baseFare={Number(selectedVehicle.baseFare || 0)}
+                  distanceFare={Math.max(0, estimatedFare - Number(selectedVehicle.baseFare || 0))}
+                  scheduledFee={scheduledBookingFee}
+                  timeFare={0}
+                  total={scheduledFareTotal}
+                />
+              </div>
+            ) : null}
           </section>
 
           {isLoading ? (
@@ -1137,8 +1224,8 @@ export default function TaxiHomePage() {
                 title="Pickup and trip ETA"
               />
               <RideSummary
-              confirmDisabled={!hasCoordinates(pickup) || !hasCoordinates(drop) || !selectedVehicleId || !routeMetrics || !hasFareEstimate || bookMutation.isPending}
-              confirmPending={bookMutation.isPending}
+              confirmDisabled={!hasCoordinates(pickup) || !hasCoordinates(drop) || !selectedVehicleId || !routeMetrics || !hasFareEstimate || bookMutation.isPending || scheduleRideMutation.isPending || Boolean(scheduledTimeError)}
+              confirmPending={bookMutation.isPending || scheduleRideMutation.isPending}
               etaPrediction={etaPrediction}
               liveUpdatesEnabled={liveUpdatesEnabled}
               onEnableTracking={() => setLiveUpdatesEnabled(true)}
@@ -1232,10 +1319,13 @@ export default function TaxiHomePage() {
           <NearbyDriversPanel
             canRequestTracking={canRequestTracking}
             drivers={nearbyVehicles}
-            highlightedDriverId={trackedDriver?.id ?? highlightedVehicleId}
+            error={nearbyDriversError}
+            highlightedDriverId={highlightedVehicleId}
+            isLoading={nearbyDriversLoading}
             isRefreshing={isRefreshingVehicles}
             liveUpdatesEnabled={liveUpdatesEnabled}
             onEnableTracking={() => setLiveUpdatesEnabled(true)}
+            onRefresh={() => refetchNearbyDrivers()}
             onSelectDriver={setSelectedDriverId}
             selectedDriverId={selectedDriverId}
           />

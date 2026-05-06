@@ -23,7 +23,11 @@ import {
   Truck,
   Building2,
   Car,
-  Wrench
+  Wrench,
+  Crown,
+  Sparkles,
+  RotateCcw,
+  PackageOpen
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -49,6 +53,11 @@ const adminMenuSections = [
       { icon: ShoppingCart, label: "Orders", href: "/admin/orders" },
       { icon: Image, label: "Banners", href: "/admin/banners" },
       { icon: Megaphone, label: "Category Ads", href: "/admin/category-ads" },
+      { icon: Crown, label: "Subscriptions", href: "/admin/subscriptions" },
+      { icon: Crown, label: "Subscription Plans", href: "/admin/subscription-plans" },
+      { icon: Sparkles, label: "Subscriber Deals", href: "/admin/subscriber-deals" },
+      { icon: RotateCcw, label: "Recurring Orders", href: "/admin/recurring-orders" },
+      { icon: PackageOpen, label: "Subscription Boxes", href: "/admin/subscription-boxes" },
     ],
   },
   {
@@ -221,6 +230,12 @@ interface AdminStats {
   }[];
 }
 
+interface FastDeliveryStats {
+  quickDeliveryProducts: number;
+  activeQuickOrders: number;
+  lowStockQuickProducts: number;
+}
+
 const statusColors: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800",
   confirmed: "bg-blue-100 text-blue-800",
@@ -233,6 +248,9 @@ const statusColors: Record<string, string> = {
 export default function AdminDashboard() {
   const { data: stats, isLoading } = useQuery<AdminStats>({
     queryKey: ["/api/admin/stats"],
+  });
+  const { data: fastDeliveryStats } = useQuery<FastDeliveryStats>({
+    queryKey: ["/api/admin/fast-delivery/stats"],
   });
   const { user } = useAuth();
 
@@ -248,6 +266,9 @@ export default function AdminDashboard() {
     { label: "Total Products", value: stats?.totalProducts ?? "--", icon: Package, color: "bg-orange-500", lightColor: "bg-orange-50 text-orange-700" },
     { label: "Categories", value: stats?.totalCategories ?? "--", icon: LayoutGrid, color: "bg-teal-500", lightColor: "bg-teal-50 text-teal-700" },
     { label: "Open Tickets", value: stats?.openTickets ?? "--", icon: AlertCircle, color: "bg-red-500", lightColor: "bg-red-50 text-red-700" },
+    { label: "10 Min Products", value: fastDeliveryStats?.quickDeliveryProducts ?? "--", icon: Truck, color: "bg-emerald-500", lightColor: "bg-emerald-50 text-emerald-700" },
+    { label: "Active Quick Orders", value: fastDeliveryStats?.activeQuickOrders ?? "--", icon: Clock, color: "bg-amber-500", lightColor: "bg-amber-50 text-amber-700" },
+    { label: "Low Quick Stock", value: fastDeliveryStats?.lowStockQuickProducts ?? "--", icon: AlertCircle, color: "bg-orange-500", lightColor: "bg-orange-50 text-orange-700" },
   ];
 
   return (

@@ -28,6 +28,28 @@ async function main() {
     ops.push(db.collection('products').createIndex({ categoryId: 1 }));
     ops.push(db.collection('products').createIndex({ tags: 1 }));
     ops.push(db.collection('products').createIndex({ isActive: 1 }));
+    ops.push(db.collection('products').createIndex({ fastDelivery: 1 }));
+    ops.push(db.collection('products').createIndex({ fastDeliveryEnabled: 1 }));
+    ops.push(db.collection('products').createIndex({ fastDeliveryAreas: 1 }));
+    ops.push(db.collection('products').createIndex({ fastDeliveryStock: 1 }));
+    ops.push(db.collection('products').createIndex({ fastDelivery: 1, fastDeliveryEnabled: 1, stock: 1, fastDeliveryStock: 1 }));
+    ops.push(db.collection('products').createIndex({ subscriberDeal: 1, subscriberDiscountPercent: 1 }));
+    ops.push(db.collection('products').createIndex({ earlyAccess: 1, earlyAccessUntil: 1 }));
+    ops.push(db.collection('orders').createIndex({ quickDelivery: 1, status: 1 }));
+    ops.push(db.collection('orders').createIndex({ isSubscriberOrder: 1, priorityDelivery: 1 }));
+    ops.push(db.collection('grocery_subscription_plans').createIndex({ isActive: 1, sortOrder: 1 }));
+    ops.push(db.collection('grocery_user_subscriptions').createIndex({ userId: 1, status: 1, endDate: 1 }));
+    ops.push(db.collection('grocery_user_subscriptions').createIndex({ userId: 1, planId: 1, status: 1 }));
+    ops.push(db.collection('grocery_rewards_wallets').createIndex({ userId: 1 }, { unique: true }));
+    ops.push(db.collection('grocery_reward_transactions').createIndex({ userId: 1, createdAt: -1 }));
+    ops.push(db.collection('grocery_recurring_orders').createIndex({ userId: 1, status: 1, nextRunAt: 1 }));
+    ops.push(db.collection('grocery_subscription_boxes').createIndex({ isActive: 1, cadence: 1 }));
+    ops.push(db.collection('grocery_subscriber_deals').createIndex({ productId: 1, active: 1 }));
+    ops.push(db.collection('grocery_early_access_rules').createIndex({ productId: 1, active: 1, startsAt: 1, endsAt: 1 }));
+    ops.push(db.collection('taxi_rides').createIndex({ bookingType: 1, scheduledPickupAt: 1, status: 1 }));
+    ops.push(db.collection('taxi_rides').createIndex({ bookingType: 1, userId: 1, scheduledPickupAt: 1 }));
+    ops.push(db.collection('taxi_scheduled_ride_events').createIndex({ rideId: 1, createdAt: -1 }));
+    ops.push(db.collection('taxi_scheduled_ride_events').createIndex({ type: 1, createdAt: -1 }));
 
     // Hotel indexes
     ops.push(db.collection('hotel_rooms').createIndex({ hotelId: 1 }));

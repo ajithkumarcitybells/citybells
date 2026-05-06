@@ -105,6 +105,16 @@ export interface Product {
   vendorId: string | null;
   isTrending?: boolean | null;
   fastDelivery?: boolean | null;
+  fastDeliveryStock?: number | null;
+  fastDeliveryEnabled?: boolean | null;
+  fastDeliveryAreas?: string[] | null;
+  fastDeliveryStartTime?: string | null;
+  fastDeliveryEndTime?: string | null;
+  fastDeliveryMaxRadiusKm?: number | null;
+  subscriberDeal?: boolean | null;
+  subscriberDiscountPercent?: number | null;
+  earlyAccess?: boolean | null;
+  earlyAccessUntil?: Date | string | null;
 }
 
 export const insertProductSchema = z.object({
@@ -121,6 +131,16 @@ export const insertProductSchema = z.object({
   isActive: z.boolean().optional().nullable(),
   isTrending: z.boolean().optional().nullable(),
   fastDelivery: z.boolean().optional().nullable(),
+  fastDeliveryStock: z.number().optional().nullable(),
+  fastDeliveryEnabled: z.boolean().optional().nullable(),
+  fastDeliveryAreas: z.array(z.string()).optional().nullable(),
+  fastDeliveryStartTime: z.string().optional().nullable(),
+  fastDeliveryEndTime: z.string().optional().nullable(),
+  fastDeliveryMaxRadiusKm: z.number().optional().nullable(),
+  subscriberDeal: z.boolean().optional().nullable(),
+  subscriberDiscountPercent: z.number().optional().nullable(),
+  earlyAccess: z.boolean().optional().nullable(),
+  earlyAccessUntil: z.any().optional().nullable(),
   vendorId: z.string().optional().nullable(),
 });
 export type InsertProduct = z.infer<typeof insertProductSchema>;
@@ -167,6 +187,18 @@ export interface Order {
   deliverySlot: string | null;
   paymentMethod: string | null;
   paymentId: string | null;
+  quickDelivery?: boolean | null;
+  quickDeliveryItemCount?: number | null;
+  normalDeliveryItemCount?: number | null;
+  quickDeliveryEstimate?: string | null;
+  quickDeliveryMixedCart?: boolean | null;
+  isSubscriberOrder?: boolean | null;
+  subscriberDiscount?: string | null;
+  deliveryFeeWaived?: string | null;
+  rewardPointsEarned?: number | null;
+  rewardPointsRedeemed?: number | null;
+  cashbackEarned?: string | null;
+  priorityDelivery?: boolean | null;
   createdAt: Date | null;
 }
 
@@ -180,6 +212,18 @@ export const insertOrderSchema = z.object({
   paymentMethod: z.string().optional().nullable(),
   paymentId: z.string().optional().nullable(),
   orderNumber: z.string().optional().nullable(),
+  quickDelivery: z.boolean().optional().nullable(),
+  quickDeliveryItemCount: z.number().optional().nullable(),
+  normalDeliveryItemCount: z.number().optional().nullable(),
+  quickDeliveryEstimate: z.string().optional().nullable(),
+  quickDeliveryMixedCart: z.boolean().optional().nullable(),
+  isSubscriberOrder: z.boolean().optional().nullable(),
+  subscriberDiscount: z.string().optional().nullable(),
+  deliveryFeeWaived: z.string().optional().nullable(),
+  rewardPointsEarned: z.number().optional().nullable(),
+  rewardPointsRedeemed: z.number().optional().nullable(),
+  cashbackEarned: z.string().optional().nullable(),
+  priorityDelivery: z.boolean().optional().nullable(),
 });
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 
@@ -1090,6 +1134,16 @@ export interface TaxiRide {
   vehicleNumber: string | null;
   assignedByAdmin?: boolean | null;
   assignmentHistory?: { previousDriver?: string | null; reassignedDriver: string; timestamp: Date; assignedByAdmin?: boolean }[] | null;
+  bookingType?: "instant" | "scheduled" | null;
+  scheduledPickupAt?: Date | string | null;
+  scheduledStatus?: string | null;
+  assignedAt?: Date | string | null;
+  cancelledAt?: Date | string | null;
+  cancellationReason?: string | null;
+  cancellationSource?: "customer" | "driver" | "admin" | "system" | null;
+  rescheduledFrom?: Date | string | null;
+  scheduledBookingFee?: string | number | null;
+  notificationState?: Record<string, any> | null;
   rating: number | null;
   createdAt: Date | null;
 }
@@ -1113,6 +1167,16 @@ export const insertTaxiRideSchema = z.object({
   driverPhone: z.string().optional().nullable(),
   assignedByAdmin: z.boolean().optional().nullable(),
   assignmentHistory: z.array(z.object({ previousDriver: z.string().optional().nullable(), reassignedDriver: z.string(), timestamp: z.any(), assignedByAdmin: z.boolean().optional() })).optional().nullable(),
+  bookingType: z.enum(["instant", "scheduled"]).optional().nullable(),
+  scheduledPickupAt: z.any().optional().nullable(),
+  scheduledStatus: z.string().optional().nullable(),
+  assignedAt: z.any().optional().nullable(),
+  cancelledAt: z.any().optional().nullable(),
+  cancellationReason: z.string().optional().nullable(),
+  cancellationSource: z.enum(["customer", "driver", "admin", "system"]).optional().nullable(),
+  rescheduledFrom: z.any().optional().nullable(),
+  scheduledBookingFee: z.union([z.string(), z.number()]).optional().nullable(),
+  notificationState: z.record(z.any()).optional().nullable(),
   vehicleNumber: z.string().optional().nullable(),
   rating: z.number().optional().nullable(),
 });

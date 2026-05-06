@@ -9,6 +9,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { WeightPickerModal } from "./WeightPickerModal";
+import { FastDeliveryBadge, isFastDeliveryProduct } from "@/components/FastDelivery";
+import { SubscriberDealBadge } from "@/components/GrocerySubscription";
 
 interface ProductCardProps {
   product: Product;
@@ -26,6 +28,7 @@ export function ProductCard({ product }: ProductCardProps) {
   });
 
   const outOfStock = (product.stock ?? 0) <= 0;
+  const fastDeliveryEligible = isFastDeliveryProduct(product);
 
   const { data: similarProducts = [] } = useQuery({
     queryKey: ["similar", product.id],
@@ -165,6 +168,16 @@ export function ProductCard({ product }: ProductCardProps) {
             {outOfStock && (
               <div className="absolute left-2 top-2 bg-red-600 text-white text-xs font-semibold px-2 py-1 rounded z-20">Out of Stock</div>
             )}
+            {!outOfStock && fastDeliveryEligible && (
+              <div className="absolute left-2 top-2 z-20">
+                <FastDeliveryBadge compact />
+              </div>
+            )}
+            {!outOfStock && !fastDeliveryEligible && (product as any).subscriberDeal && (
+              <div className="absolute left-2 top-2 z-20">
+                <SubscriberDealBadge discount={(product as any).subscriberDiscountPercent} />
+              </div>
+            )}
             <div className="absolute top-2 right-2 flex flex-col gap-1 z-10">
             <button 
               onClick={(e) => { e.stopPropagation(); toggleWishlistMutation.mutate(); }}
@@ -235,6 +248,12 @@ export function ProductCard({ product }: ProductCardProps) {
           </div>
           
           <p className="text-xs text-gray-400 mb-1">per {product.unit || "Kg"} price</p>
+          {fastDeliveryEligible && (
+            <p className="text-xs font-medium text-emerald-700 mb-2">10 min delivery available</p>
+          )}
+          {(product as any).subscriberDeal && (
+            <p className="text-xs font-medium text-purple-700 mb-2">Subscriber deal auto-applies at checkout</p>
+          )}
           
             <div className="mt-auto" />
             <div className="flex items-center gap-2">

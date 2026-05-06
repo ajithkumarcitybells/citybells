@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, ListFilter } from "lucide-react";
+import { Crown, Search, ListFilter } from "lucide-react";
+import { Link } from "wouter";
 import { Header } from "@/components/Header";
 import { BottomNav } from "@/components/BottomNav";
 import { CategoryCard } from "@/components/CategoryCard";
@@ -16,12 +17,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Category, Product, Banner, CategoryAd } from "@shared/schema";
+import { FastDeliveryFilterChip, FastDeliveryProductRail, isFastDeliveryProduct } from "@/components/FastDelivery";
+import { EarlyAccessProductsRail, SubscriberDealBadge } from "@/components/GrocerySubscription";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function GroceryPage() {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("default");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showAllCategories, setShowAllCategories] = useState(false);
+  const [quickOnly, setQuickOnly] = useState(false);
 
   useEffect(() => {
     const syncCategory = () => {
@@ -56,8 +62,16 @@ export default function GroceryPage() {
     queryKey: ["/api/products"],
   });
 
+  const { data: fastDeliveryProducts = [], isLoading: fastDeliveryLoading } = useQuery<Product[]>({
+    queryKey: ["/api/products?fastDelivery=true"],
+  });
+
   const { data: banners = [] } = useQuery<Banner[]>({
     queryKey: ["/api/banners"],
+  });
+  const { data: membership } = useQuery<any>({
+    queryKey: ["/api/grocery/subscription/me"],
+    enabled: !!user,
   });
 
   const { data: trending = [], isLoading: trendingLoading } = useQuery<any[]>({
@@ -90,6 +104,10 @@ export default function GroceryPage() {
     if (selectedCategory) {
       result = result.filter(p => p.categoryId === selectedCategory);
     }
+
+    if (quickOnly) {
+      result = result.filter(p => isFastDeliveryProduct(p));
+    }
     
     switch (sortBy) {
       case "price-low":
@@ -104,7 +122,7 @@ export default function GroceryPage() {
     }
     
     return result;
-  }, [products, searchQuery, selectedCategory, sortBy]);
+  }, [products, searchQuery, selectedCategory, quickOnly, sortBy]);
 
   const displayCategories = showAllCategories ? categories : categories.slice(0, 4);
 
@@ -142,6 +160,21 @@ export default function GroceryPage() {
         </div>
 
         <BannerSlider banners={banners} />
+
+        <Link href="/grocery/subscription">
+          <div className="rounded-xl bg-gradient-to-r from-amber-500 to-emerald-600 p-4 text-white shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="flex items-center gap-2 text-sm font-semibold"><Crown className="h-4 w-4" /> Grocery Membership</p>
+                <p className="mt-1 text-xs text-white/90">{membership?.active ? "Free delivery, priority orders, and subscriber deals are active." : "Unlock free delivery, rewards, recurring essentials, and early access."}</p>
+              </div>
+              <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold">{membership?.active ? "Active" : "View plans"}</span>
+            </div>
+          </div>
+        </Link>
+
+        <FastDeliveryProductRail products={fastDeliveryProducts} isLoading={fastDeliveryLoading} />
+        {membership?.active && <EarlyAccessProductsRail products={products} />}
 
         {/* Trending section scoped to Grocery */}
         <section className="mb-4">
@@ -218,6 +251,7 @@ export default function GroceryPage() {
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+          <FastDeliveryFilterChip active={quickOnly} onClick={() => setQuickOnly(v => !v)} />
           <button
             onClick={() => setSelectedCategory(null)}
             className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
@@ -296,12 +330,17 @@ export default function GroceryPage() {
           </div>
         ) : filteredProducts.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-500">No products found</p>
+            <p className="text-gray-500">
+              {quickOnly ? "No 10-minute products available near you." : "No products found"}
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {filteredProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
+              <div key={product.id} className="space-y-1">
+                {(product as any).subscriberDeal && <SubscriberDealBadge discount={(product as any).subscriberDiscountPercent} />}
+                <ProductCard product={product} />
+              </div>
             ))}
           </div>
         )}

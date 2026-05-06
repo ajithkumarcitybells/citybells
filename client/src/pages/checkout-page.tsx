@@ -12,6 +12,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { CartItemWithProduct, Address } from "@shared/schema";
+import { FastDeliveryBadge, FastDeliveryCartNotice, isFastDeliveryProduct } from "@/components/FastDelivery";
+import { SubscriberBadge } from "@/components/GrocerySubscription";
 
 declare global {
   interface Window {
@@ -43,6 +45,7 @@ export default function CheckoutPage() {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [showNewAddress, setShowNewAddress] = useState(false);
+  const [rewardPointsToRedeem, setRewardPointsToRedeem] = useState(0);
 
   const { data: savedAddresses = [] } = useQuery<Address[]>({
     queryKey: ["/api/addresses"],
@@ -73,6 +76,8 @@ export default function CheckoutPage() {
     queryKey: ["/api/cart"],
     enabled: !!user,
   });
+  const { data: membership } = useQuery<any>({ queryKey: ["/api/grocery/subscription/me"], enabled: !!user });
+  const { data: rewards } = useQuery<any>({ queryKey: ["/api/grocery/rewards"], enabled: !!user });
 
   const handleSelectAddress = (addr: Address) => {
     setSelectedAddressId(addr.id);
@@ -114,8 +119,20 @@ export default function CheckoutPage() {
     return sum + getItemPrice(item) * (item.quantity || 1);
   }, 0);
 
-  const deliveryFee = subtotal > 500 ? 0 : 40;
-  const total = subtotal + deliveryFee;
+  const isSubscriber = !!membership?.active;
+  const subscriberDiscount = isSubscriber ? cartItems.reduce((sum, item) => {
+    const discount = (item.product as any).subscriberDeal ? Number((item.product as any).subscriberDiscountPercent || 0) : 0;
+    return sum + getItemPrice(item) * (item.quantity || 1) * discount / 100;
+  }, 0) : 0;
+  const baseDeliveryFee = subtotal > 500 ? 0 : 40;
+  const deliveryFee = isSubscriber ? 0 : baseDeliveryFee;
+  const savedDeliveryFee = isSubscriber ? baseDeliveryFee : 0;
+  const availablePoints = Number(rewards?.wallet?.pointsBalance || 0);
+  const redeemValue = Math.min(rewardPointsToRedeem, availablePoints, Math.floor(Math.max(0, subtotal - subscriberDiscount)));
+  const total = Math.max(0, subtotal + deliveryFee - subscriberDiscount - redeemValue);
+  const quickItemsCount = cartItems.filter(item => isFastDeliveryProduct(item.product)).length;
+  const hasQuickItems = quickItemsCount > 0;
+  const hasMixedQuickCart = hasQuickItems && quickItemsCount < cartItems.length;
 
   const createRazorpayOrderMutation = useMutation({
     mutationFn: async () => {
@@ -159,6 +176,7 @@ export default function CheckoutPage() {
         deliverySlot: deliverySlots.find(s => s.id === selectedSlot)?.time,
         paymentMethod: paymentId ? "razorpay" : "cod",
         paymentId,
+        rewardPointsToRedeem: redeemValue,
       });
       return res.json();
     },
@@ -306,6 +324,16 @@ export default function CheckoutPage() {
       
       <main className="px-4 py-4 max-w-lg mx-auto space-y-6">
         <h1 className="text-xl font-bold text-gray-800">Checkout</h1>
+        <FastDeliveryCartNotice items={cartItems} pincode={checkoutPincode} />
+        {isSubscriber && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            <div className="flex items-center gap-2">
+              <SubscriberBadge />
+              <span className="font-semibold">You saved Rs {(subscriberDiscount + savedDeliveryFee + redeemValue).toFixed(2)} with subscription</span>
+            </div>
+            <p className="mt-1 text-xs">Free delivery, subscriber deals, reward redemption, and priority delivery are rechecked on the server.</p>
+          </div>
+        )}
 
         <div className="bg-white rounded-xl p-4 shadow-sm">
           <div className="flex items-center gap-3 mb-4">
@@ -478,6 +506,17 @@ export default function CheckoutPage() {
             </div>
             <h2 className="font-semibold text-gray-800">Delivery Slot</h2>
           </div>
+          {hasQuickItems && (
+            <div className="mb-3 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900">
+              <div className="flex items-center gap-2 font-semibold">
+                <FastDeliveryBadge compact />
+                <span>{hasMixedQuickCart ? "Some items qualify for 10-minute delivery" : "This cart qualifies for 10-minute delivery"}</span>
+              </div>
+              <p className="mt-1 text-xs">
+                {hasMixedQuickCart ? "Normal items will follow your selected delivery slot." : "Final availability is checked again when the order is placed."}
+              </p>
+            </div>
+          )}
           
           <RadioGroup value={selectedSlot} onValueChange={setSelectedSlot}>
             <div className="space-y-3">
@@ -556,6 +595,42 @@ export default function CheckoutPage() {
               <span className="text-gray-600">Delivery Fee</span>
               <span className={deliveryFee === 0 ? "text-green-600 font-medium" : "font-medium"}>
                 {deliveryFee === 0 ? "FREE" : `₹${deliveryFee.toFixed(2)}`}
+              </span>
+            </div>
+            {isSubscriber && subscriberDiscount > 0 && (
+              <div className="flex justify-between">
+                <span className="text-gray-600">Subscriber Discount</span>
+                <span className="font-medium text-purple-700">- Rs {subscriberDiscount.toFixed(2)}</span>
+              </div>
+            )}
+            {isSubscriber && savedDeliveryFee > 0 && (
+              <div className="flex justify-between">
+                <span className="text-gray-600">Delivery Fee Waived</span>
+                <span className="font-medium text-emerald-700">- Rs {savedDeliveryFee.toFixed(2)}</span>
+              </div>
+            )}
+            {isSubscriber && (
+              <div className="rounded-lg bg-gray-50 p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Rewards Balance</span>
+                  <span className="font-medium">{availablePoints} points</span>
+                </div>
+                <Input
+                  type="number"
+                  min="0"
+                  max={availablePoints}
+                  value={rewardPointsToRedeem}
+                  onChange={(e) => setRewardPointsToRedeem(Number(e.target.value || 0))}
+                  className="mt-2"
+                  placeholder="Redeem points"
+                />
+                {redeemValue > 0 && <p className="mt-1 text-xs text-emerald-700">Redeeming Rs {redeemValue.toFixed(2)}</p>}
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-gray-600">Delivery Estimate</span>
+              <span className="font-medium text-emerald-700">
+                {isSubscriber ? "Priority delivery" : hasMixedQuickCart ? "10 min + standard slot" : hasQuickItems ? "10 min delivery" : "Standard slot"}
               </span>
             </div>
             <div className="flex justify-between pt-2 border-t text-base font-bold">

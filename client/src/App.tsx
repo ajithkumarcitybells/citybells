@@ -13,6 +13,7 @@ import PWAInstallPrompt from "@/components/pwa/PWAInstallPrompt";
 import NotFound from "@/pages/not-found";
 import HomePage from "@/pages/home-page";
 import GroceryPage from "@/pages/grocery-page";
+import GrocerySubscriptionPage from "@/pages/grocery-subscription-page";
 import CartPage from "@/pages/cart-page";
 import WishlistPage from "@/pages/wishlist-page";
 import CheckoutPage from "@/pages/checkout-page";
@@ -52,6 +53,7 @@ import AdminTaxiPage from "@/pages/admin/admin-taxi-page";
 import AdminTaxiPricingPage from "@/pages/admin/admin-taxi-pricing";
 import AdminTaxiSurgePage from "@/pages/admin/admin-taxi-surge";
 import AdminCityServicesPage from "@/pages/admin/admin-city-services-page";
+import AdminSubscriptionsPage from "@/pages/admin/subscriptions-page";
 import EcomHomePage from "@/pages/ecom/ecom-home-page";
 import EcomProductsPage from "@/pages/ecom/ecom-products-page";
 import EcomProductDetailPage from "@/pages/ecom/ecom-product-detail-page";
@@ -97,6 +99,9 @@ function AppRouter() {
     <Switch>
       <Route path="/" component={HomePage} />
       <Route path="/grocery" component={GroceryPage} />
+      <ProtectedRoute path="/grocery/subscription" component={GrocerySubscriptionPage} />
+      <ProtectedRoute path="/grocery/subscription/plans" component={GrocerySubscriptionPage} />
+      <ProtectedRoute path="/grocery/subscription/dashboard" component={GrocerySubscriptionPage} />
       <Route path="/product/:id" component={ProductDetailPage} />
       <Route path="/compare" component={ComparePage} />
       <Route path="/cart" component={CartPage} />
@@ -120,6 +125,11 @@ function AppRouter() {
       <AdminRoute path="/admin/orders" component={AdminOrdersPage} />
       <AdminRoute path="/admin/banners" component={AdminBannersPage} />
       <AdminRoute path="/admin/category-ads" component={AdminCategoryAdsPage} />
+      <AdminRoute path="/admin/subscriptions" component={AdminSubscriptionsPage} />
+      <AdminRoute path="/admin/subscription-plans" component={AdminSubscriptionsPage} />
+      <AdminRoute path="/admin/subscriber-deals" component={AdminSubscriptionsPage} />
+      <AdminRoute path="/admin/recurring-orders" component={AdminSubscriptionsPage} />
+      <AdminRoute path="/admin/subscription-boxes" component={AdminSubscriptionsPage} />
       <AdminRoute path="/admin/services" component={AdminServicesPage} />
       <AdminRoute path="/admin/vendors" component={AdminVendorsPage} />
       <AdminRoute path="/admin/ecom" component={AdminEcomDashboardPage} />
